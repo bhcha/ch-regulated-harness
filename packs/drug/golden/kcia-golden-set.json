@@ -1,0 +1,32 @@
+{
+  "regulatory_domain": "drug",
+  "meta": {
+    "name": "kcia-goldenset-drug-v1 (약사법 제68조 5축 + 필수기재·전문/일반 하드스톱)",
+    "disagreement_threshold": 0.05,
+    "disagreement_rate": 0.0,
+    "approved_by": "차병환(PM) — 단계2-pre test-first 골든(의약품 회귀 안전망)",
+    "approved": true,
+    "note": "단계2(누수 제거: severity 하드코딩→lexicon·_mi_sig→signals·subst_ref) 전 의약품 검출을 동결한다. detectable_by=ruleset 항목은 kcia_engine.scan_text(텍스트 스캔 축: drug_misperception·consumer_deception·substantiation_required)로 결정적 검출. mandatory_inclusion(필수기재 누락)·prescription_otc(전문/일반 하드스톱)는 evaluate(최종페이지·rx선언) 레벨이라 scan_text 비대상 → detectable_by=subagent 로 분리(별도 test-drug-golden.sh 에서 evaluate 로 검증). 근거: docs/regulation/drug/ruleset.json."
+  },
+  "items": [
+    {"id": "dr01", "text": "우루사정으로 간질환을 완치하세요", "axis": "drug_misperception", "severity": "high", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "약사법 제68조1·5항 — 완치(비허가·과장). ruleset drug_misperception.banned '완치'"},
+    {"id": "dr02", "text": "100% 치료되는 간 영양제", "axis": "drug_misperception", "severity": "high", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "총리령[별표7] 제2호 — '100%치료' banned"},
+    {"id": "dr03", "text": "면역력 강화로 감기 예방까지 한꺼번에", "axis": "drug_misperception", "severity": "medium", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "drug_misperception.banned '면역력 강화'·'감기 예방'·'예방까지 한꺼번에'"},
+    {"id": "dr04", "text": "스트레스 치료와 체질개선에 특효약", "axis": "drug_misperception", "severity": "medium", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "drug_misperception.banned '스트레스 치료'·'체질개선'·'특효약'"},
+    {"id": "dr05", "text": "내성 걱정없이 매일 복용하는 습관", "axis": "drug_misperception", "severity": "medium", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "오·남용 조장 — '내성 걱정없이'(총리령[별표7] 제2호아목)"},
+    {"id": "dr06", "text": "대한민국 1위 간장약, 부작용 없는 안전한 치료제", "axis": "consumer_deception", "severity": "high", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "절대표현·안전성 부당강조 — '대한민국 1위'·'부작용 없는'·'안전한 치료제'(총리령[별표7] 제2호자·차목)"},
+    {"id": "dr07", "text": "세계 최고 품질, 완벽한 무결점 제제", "axis": "consumer_deception", "severity": "high", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "절대표현 — '최고'·'완벽'·'무결점'(협회 세부심의규정 제7조)"},
+    {"id": "dr08", "text": "의사가 추천하고 약사가 권하는 전문가의 선택", "axis": "consumer_deception", "severity": "high", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "전문가 추천 금지 — '의사가 추천'·'약사가'·'전문가'(약사법 제68조2항, 총리령[별표7] 제1호다목)"},
+    {"id": "dr09", "text": "사용 후기와 체험담이 쇄도하는 화제의 영양제", "axis": "consumer_deception", "severity": "medium", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "체험담·구입쇄도 금지 — '체험담'·'사용 후기'·'쇄도'(총리령[별표7] 제2호바목)"},
+    {"id": "dr10", "text": "수험생 전용 집중력 영양제, 여성 전용 설계", "axis": "consumer_deception", "severity": "medium", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "특정대상자 한정 금지 — '수험생 전용'·'여성 전용'(총리령[별표7] 제2호카목)"},
+    {"id": "dr11", "text": "임상시험으로 입증된 발모율 4.5배 개선효과", "axis": "substantiation_required", "severity": "high", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "실증 필요(근거·출처 1:1) — '임상시험'·'입증된'·'발모율'·'4.5배'(총리령[별표7] 제2호가목 단서)"},
+    {"id": "dr12", "text": "국내 판매 1위, 효과 입증된 약리기전", "axis": "substantiation_required", "severity": "medium", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "실증 트리거 — '판매 1위'·'효과 입증'·'약리기전'(협회 세부심의규정 제9조·제15조)"},
+    {"id": "dr13", "text": "역사가 검증한, 전 세계에서 사랑받는 명약", "axis": "substantiation_required", "severity": "medium", "expected_verdict": "revise", "labeler_a": "revise", "labeler_b": "revise", "agreed": true, "source": "실증 트리거 + 절대표현 — '역사가 검증한'·'전 세계에서 사랑받는'·'명약'"},
+    {"id": "dp01", "text": "만성 간질환의 간기능 개선을 돕는 의약품입니다", "axis": "none", "severity": "low", "expected_verdict": "pass", "labeler_a": "pass", "labeler_b": "pass", "agreed": true, "source": "허가 적응증 범위 내 '개선'(완치 아님) — 정상 표현"},
+    {"id": "dp02", "text": "1일 3회, 1회 1정 식후 30분에 복용하십시오", "axis": "none", "severity": "low", "expected_verdict": "pass", "labeler_a": "pass", "labeler_b": "pass", "agreed": true, "source": "허가 용법·용량 안내 — 정상"},
+    {"id": "dp03", "text": "주성분 우르소데옥시콜산 100mg 함유", "axis": "none", "severity": "low", "expected_verdict": "pass", "labeler_a": "pass", "labeler_b": "pass", "agreed": true, "source": "성분 사실 기재 — 정상"},
+    {"id": "dp04", "text": "충분한 휴식과 균형 잡힌 식사가 간 건강에 도움이 됩니다", "axis": "none", "severity": "low", "expected_verdict": "pass", "labeler_a": "pass", "labeler_b": "pass", "agreed": true, "source": "생활습관 일반정보 — 의약품 효능 단정 없음, 정상"},
+    {"id": "dp05", "text": "제품 보관은 직사광선을 피해 실온에서 하십시오", "axis": "none", "severity": "low", "expected_verdict": "pass", "labeler_a": "pass", "labeler_b": "pass", "agreed": true, "source": "보관 안내 — 정상"},
+    {"id": "dp06", "text": "자세한 사항은 제품 첨부문서를 확인하십시오", "axis": "none", "severity": "low", "expected_verdict": "pass", "labeler_a": "pass", "labeler_b": "pass", "agreed": true, "source": "첨부문서 안내 — 정상"}
+  ]
+}

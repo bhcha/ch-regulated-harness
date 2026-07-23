@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/common-terms.schema.json",
+  "title": "common-terms — 보편어 가드 입력(Seam F)",
+  "description": "packs/<도메인>/common-terms.json 의 동결 계약. 학습 루프 분석(/learn-analyze)이 금지어를 승격할 때, 이 목록에 든 단일 보편 명사(모공·피부·효과 등)는 **단독 금지어 승격을 금지**한다(사용자 지시: 보편 단어를 통째로 막아 정당 카피까지 죽이는 것 방지). 팩 소유·사람 저작. 부재=가드 미적용(다토큰 특정 표현만 승격 후보로 남는 보수 동작).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["domain", "common_terms"],
+  "properties": {
+    "domain": {
+      "type": "string",
+      "minLength": 1,
+      "description": "규제도메인 id. 파일이 속한 팩과 일치(로더 대조)."
+    },
+    "common_terms": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "단독 금지어 승격을 막을 보편 명사 목록(예: 모공·피부·효과·개선). 다토큰 특정 표현이나 이 목록 밖 희소 표현만 승격 후보가 된다."
+    }
+  }
+}

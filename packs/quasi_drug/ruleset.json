@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "sources": ["TBD — 의약외품 광고 심의기준 문서(현업 제공 예정)"],
+    "pdf_edition": "TBD",
+    "domain": "quasi_drug",
+    "note": "플레이스홀더(M1). 심의기준 입수 후 banned/conditional/triggers + mandatory_inclusion 축으로 채운다(M2)."
+  },
+  "axes": {},
+  "general_principle": "의약외품: 허가 효능·효과 범위 내 표현, 의약품 오인 금지, 필수 기재(표준 사용·주의). 룰셋 추후제공 — 현재는 빈 축 플레이스홀더."
+}

@@ -1,0 +1,15 @@
+{
+  "_comment": "건강기능식품 팩 — 레지스트리 엔트리(SSoT). 스키마·레지스트리 ready-only. 이번 빌드 미채움(ruleset.json 없음 → 로더가 미완 룰셋 반환·status!=active 로 autopass). 사전심의 mandatory(건기식법 제18조).",
+  "domain": "health_food",
+  "aliases": ["건기식", "건강기능식품", "health_food"],
+  "label": "건강기능식품",
+  "law": "건강기능식품에 관한 법률 제18조",
+  "functional_categories": [],
+  "pre_review": "mandatory",
+  "ad_eligibility": "allowed",
+  "no_graphic_generation": true,
+  "mandatory_inclusion": true,
+  "export_package": "hff-pre-review",
+  "status": "ready-only",
+  "note": "ruleset 파일 없음 → 로더 미완 룰셋 반환. status!=active → autopass. 룰셋 채우고 active 전환 시 자동 적용."
+}

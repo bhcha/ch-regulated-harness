@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/decision.schema.json",
+  "title": "decision.json — 사람 선택 고정 포맷 (설계 §10.3)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["selected", "comment"],
+  "properties": {
+    "selected": { "type": "string", "minLength": 1 },
+    "comment": { "type": "string" }
+  }
+}

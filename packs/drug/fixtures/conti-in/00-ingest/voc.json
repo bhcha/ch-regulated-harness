@@ -1,0 +1,31 @@
+{
+  "source": {
+    "bundle": "bundle-drug",
+    "parser": "rfc4180 (BOM 제거, python csv)",
+    "rows": 16
+  },
+  "review_count": {
+    "collected": 16,
+    "site_total": 920
+  },
+  "rating": 4.6,
+  "rating_distribution": {
+    "5": 9,
+    "4": 7
+  },
+  "option_distribution": {},
+  "keyword_frequency": {},
+  "persona_signals": {},
+  "top_phrases": {
+    "포장이": 4,
+    "배송이": 3,
+    "좋아요": 3,
+    "좋았어요": 3
+  },
+  "top_phrases_efficacy_filtered": {},
+  "product_facts": {
+    "pack_count": null,
+    "key_ingredients": [],
+    "components": []
+  }
+}

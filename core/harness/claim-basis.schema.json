@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/claim-basis.schema.json",
+  "title": "claim-basis.json — 워킹백워드 추출 주장 근거표 (설계 §6.0)",
+  "description": "근거 없으면 unknown/빈 배열(=주장 불가). 환각 1차 방어선.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["functional_status", "notified_ingredients", "certifications", "product_type", "evidence_on_file", "unsupported_claims", "source"],
+  "properties": {
+    "regulatory_domain": { "type": "string", "description": "cosmetic|quasi_drug|health_food|drug. 미기재 시 cosmetic(레거시)" },
+    "product_scope": { "type": "string", "enum": ["declared", "other_sku", "unscoped"], "description": "이 claim-basis 추출의 WB 스코핑 상태: declared=선언 제품 섹션으로 국소화 · unscoped=다제품인데 국소화 실패해 전체-WB 추출(사람 확인 권장) · other_sku=예약(현재 미방출, 스코핑이 타 SKU 텍스트를 추출 전 제거). 미기재=단제품/스코핑 미발동(후방호환)." },
+    "functional_status": {
+      "type": "object",
+      "description": "도메인별 기능범주 오픈맵. 화장품은 whitening/wrinkle/uv_protection, 타 도메인은 도메인 고유 키.",
+      "additionalProperties": { "$ref": "#/$defs/funcEntry" },
+      "properties": {
+        "whitening": { "$ref": "#/$defs/funcEntry" },
+        "wrinkle": { "$ref": "#/$defs/funcEntry" },
+        "uv_protection": { "$ref": "#/$defs/funcEntry" }
+      }
+    },
+    "notified_ingredients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "evidence_ref"],
+        "properties": {
+          "name": { "type": "string" },
+          "evidence_ref": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "certifications": { "type": "array", "items": { "type": "string" } },
+    "product_type": { "type": "string" },
+    "evidence_on_file": {
+      "type": "array",
+      "description": "claim-basis/sources의 실재 파일 id만. 실증 그래프/before-after 활성화 트리거.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "grade", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "enum": ["clinical_trial", "in_vitro", "notification", "paper", "other"] },
+          "grade": { "type": "string" },
+          "source": { "type": "string" },
+          "summary": { "type": "string" },
+          "metric": { "type": "string", "description": "측정 지표명 (예: 정량 측정 지표)" },
+          "unit": { "type": "string", "description": "단위 (예: %, mg/cm²)" },
+          "before": { "type": "number", "description": "시험 전 측정값" },
+          "after": { "type": "number", "description": "시험 후 측정값" },
+          "timepoint": { "type": "string", "description": "측정 시점 (예: 4주)" },
+          "change_pct": { "type": "number", "description": "변화율 (%)" },
+          "institution": { "type": "string", "description": "시험기관명" },
+          "sample_size": { "type": "integer", "description": "시험 참여자 수(n)" },
+          "duration": { "type": "string", "description": "시험 기간 (예: 4주)" },
+          "p_value": { "type": ["string", "number"], "description": "통계적 유의성 p값" },
+          "series": {
+            "type": "array",
+            "description": "시계열 측정값 (꺾은선 그래프용). 항목은 timepoint+value 필수(누락 방지).",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["timepoint", "value"],
+              "properties": {
+                "timepoint": { "type": "string" },
+                "value": { "type": "number" }
+              }
+            }
+          },
+          "image_path": { "type": ["string", "null"], "description": "신설(G-B). 이 측정 항목의 매칭 시험 이미지(참조문서에서 추출한 자사 자산, 런-상대 경로 inputs/assets/evidence/…). test_report.test_items[].image_ref 에서 ingest 가 pdftoppm 렌더로 추출해 결박. 차트 옆에 <img> 로 이어붙는다." }
+        }
+      }
+    },
+    "unsupported_claims": {
+      "type": "array",
+      "description": "워킹백워드에 등장하지만 근거가 없어 카피 배제 대상으로 표기된 효능어.",
+      "items": { "type": "string" }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "extracted_by"],
+      "properties": {
+        "from": { "type": "string" },
+        "extracted_by": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "funcEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence_ref"],
+      "properties": {
+        "status": { "enum": ["unknown", "approved", "not_claimed"] },
+        "evidence_ref": { "type": ["string", "null"], "description": "approved면 통지/심사 근거 id 필수" }
+      }
+    }
+  }
+}

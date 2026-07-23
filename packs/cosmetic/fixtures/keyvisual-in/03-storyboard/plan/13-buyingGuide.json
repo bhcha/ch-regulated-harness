@@ -1,0 +1,39 @@
+{
+  "type": "buyingGuide",
+  "order": 13,
+  "headline": "buyingGuide — 색상/구성/배송",
+  "subcopy": "색상/구성/배송",
+  "bodyText": [
+    "VOC 근거 일상 표현(커버)"
+  ],
+  "visual": {
+    "kind": "photo",
+    "ref": null,
+    "concept": {
+      "subject": "[합성브랜드] 신테틱 톤업 쿠션 21호 제품컷",
+      "composition": "정면 중앙 배치, 여백 확보",
+      "mood": {
+        "color_temp": "warm",
+        "lighting": "자연광 소프트",
+        "texture": "매트한 데일리 피부 표현"
+      },
+      "palette": [
+        "#F4E9DF",
+        "#C9A27A",
+        "#7A5C42"
+      ],
+      "typography": "Pretendard / 부드러운 라운드 굵기",
+      "aspect_ratio": "1:1",
+      "handoff_note": "누끼 경계 깔끔하게, 그림자 자연스럽게",
+      "reference": {
+        "own_asset_path": "inputs/assets/ezderm-acne-main.webp",
+        "direction": "구성품 나열, 표·아이콘 정리",
+        "crawl_pattern_ref": "bp:buyingGuide",
+        "pixel_reference_allowed": false
+      }
+    }
+  },
+  "claims": [],
+  "footnotes": [],
+  "approval_state": "human_approved"
+}

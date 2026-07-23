@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/evidence-index.schema.json",
+  "title": "evidence/index.json — 예약 사이드카(사람 선언 등급·연결)",
+  "description": "원본 파일명 → 선언 매핑. 키(파일명)는 복사된 문서와 정확히 1:1 이어야 하며 그 무결성은 ingest.py 코드가 fail-closed 강제(스키마 아님). 문서목록엔 제외되고 메타로만 반영.",
+  "type": "object",
+  "additionalProperties": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "grade": {
+        "type": ["string", "null"],
+        "description": "사람 선언 등급(예: 인체적용시험). 없으면 null 로 취급."
+      },
+      "linked_claim_ids": {
+        "type": "array",
+        "description": "claim-basis.json evidence_on_file[].id 대조 대상(대조만; 실증셋 미편입).",
+        "items": { "type": "string" }
+      },
+      "reflect": {
+        "type": "boolean",
+        "description": "신설. 내용 반영 의무 여부. 미기재=true(반영 의무). false=첨부-전용(명시 opt-out). reflect:true 인데 claim/verdict_text/test_report(기관·n·기간) 결손이면 ingest.py 가 fail-closed(스키마 아님 — 로컬 검증기 조건부-required 미지원)."
+      },
+      "claim": {
+        "type": "string",
+        "minLength": 1,
+        "description": "신설. 이 문서가 입증하는 내용(한 줄). reflect:true 필수."
+      },
+      "verdict_text": {
+        "type": "string",
+        "minLength": 1,
+        "description": "신설. 문서의 공식 판정문 '원문'. 산출물 카피가 쓸 수 있는 유일한 판정 표현(부분문자열 결박은 validate_storyboard). reflect:true 필수."
+      },
+      "test_report": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "신설. 시험성적서 요소(심의 실증 5요소 정렬). reflect:true 는 institution·sample_size·duration 필수(ingest.py 강제).",
+        "properties": {
+          "institution": { "type": "string", "minLength": 1, "description": "시험기관" },
+          "sample_size": { "type": "integer", "minimum": 1, "description": "참여자 수(n)" },
+          "duration": { "type": "string", "minLength": 1, "description": "시험 기간" },
+          "method": { "type": ["string", "null"], "description": "시험 방법(선택)" },
+          "measured_values": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "description": "전/후 측정값 쌍(정량 시험만). null=정성(사용적합 등). 유무가 정량/정성을 가른다.",
+            "properties": {
+              "metric": { "type": "string" },
+              "unit": { "type": "string" },
+              "before": { "type": "number" },
+              "after": { "type": "number" },
+              "timepoint": { "type": "string" },
+              "change_pct": { "type": "number" }
+            }
+          },
+          "test_items": {
+            "type": ["array", "null"],
+            "description": "신설(G-B, 사람 선언). 시험 항목별 측정 결과 + 매칭 시험 이미지 참조(전후 사진 등). 각 항목이 임상 블록 차트 1개(+선택 추출 이미지)로 렌더된다. 정량 실증은 이 test_report 직접선언 전용(자동제안 우회 금지).",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["metric"],
+              "properties": {
+                "metric": { "type": "string", "minLength": 1 },
+                "unit": { "type": ["string", "null"] },
+                "series": {
+                  "type": "array",
+                  "description": "시점별 측정값(예: 사용전→2주후→4주후).",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["label", "value"],
+                    "properties": {
+                      "label": { "type": "string", "minLength": 1 },
+                      "value": { "type": "number" }
+                    }
+                  }
+                },
+                "before": { "type": ["number", "null"] },
+                "after": { "type": ["number", "null"] },
+                "change_pct": { "type": ["number", "null"] },
+                "stat_note": { "type": ["string", "null"], "description": "통계 각주 원문(예: p<0.025 by Friedman test...)." },
+                "image_ref": {
+                  "type": ["object", "null"],
+                  "additionalProperties": false,
+                  "description": "매칭 시험 이미지의 참조 문서 페이지. ingest 가 pdftoppm 으로 렌더해 inputs/assets/evidence/ 로 추출(자사 자산).",
+                  "required": ["pages"],
+                  "properties": {
+                    "pages": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 1 } },
+                    "caption": { "type": ["string", "null"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "kind": {
+        "type": "string",
+        "enum": ["test_report", "certification", "paper", "patent", "ingredient_dossier", "brand_story", "guide", "general"],
+        "description": "신설(일반화). 참조 문서 종류. 미기재 추론: test_report 객체 있으면 test_report, 없으면 general. test_report 만 claim-basis 실증 승격(그 외 kind 는 각주 인용 채널)."
+      },
+      "reflection_points": {
+        "type": "array",
+        "description": "신설(일반화). 사람이 지정/승인한 '반드시 반영할' 원문 포인트. 일반 kind(비-test_report) reflect:true 는 1개 이상 필수(ingest.py 강제). 인용 블록 카피에 원문 포함이 결박 기준(validate_storyboard).",
+        "items": { "type": "string", "minLength": 1 }
+      },
+      "spec_origin": {
+        "type": "string",
+        "enum": ["human", "agent_proposed_human_approved"],
+        "description": "신설(일반화). 반영 스펙 출처 — 사람 직접 선언(human) 또는 에이전트 추출 제안을 사람이 승인(agent_proposed_human_approved, 00e-evidence). 감사용."
+      }
+    }
+  }
+}

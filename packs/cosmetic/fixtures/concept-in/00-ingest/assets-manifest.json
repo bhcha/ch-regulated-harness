@@ -1,0 +1,82 @@
+{
+  "own_assets": {
+    "count": 14,
+    "min_required": 8,
+    "sufficient": true,
+    "files": [
+      {
+        "path": "inputs/assets/ezderm-acne-main.webp",
+        "ext": "webp"
+      },
+      {
+        "path": "inputs/assets/ezderm-relief-main.webp",
+        "ext": "webp"
+      },
+      {
+        "path": "inputs/assets/ezderm-relief-product.webp",
+        "ext": "webp"
+      },
+      {
+        "path": "inputs/assets/ezderm-relief-provided.webp",
+        "ext": "webp"
+      },
+      {
+        "path": "inputs/assets/ezderm-relief-spot.webp",
+        "ext": "webp"
+      },
+      {
+        "path": "inputs/assets/own-1.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-2.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-3.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-4.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-5.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-6.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-7.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-8.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/product-main.jpg",
+        "ext": "jpg"
+      }
+    ]
+  },
+  "bundle_images": {
+    "detail": {
+      "count": 13,
+      "static": 11,
+      "gif": 2,
+      "gif_files": [
+        "12.gif",
+        "13.gif"
+      ]
+    },
+    "main": {
+      "count": 1,
+      "static": 1,
+      "gif": 0,
+      "gif_files": []
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/best-practices.schema.json",
+  "title": "best-practices.json — 크롤 베스트프랙티스 텍스트 분석 (no-pixel)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["analyzed_dir", "total_images", "blocks", "source"],
+  "properties": {
+    "analyzed_dir": { "type": "string" },
+    "total_images": { "type": "integer", "minimum": 0 },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["block_type", "shot_type", "composition_note", "source_files"],
+        "properties": {
+          "block_type":       { "type": "string" },
+          "shot_type":        { "type": "string" },
+          "composition_note": { "type": "string" },
+          "motion":           { "type": "boolean" },
+          "source_files":     { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "from":         { "type": "string" },
+        "extracted_by": { "type": "string" }
+      }
+    }
+  }
+}

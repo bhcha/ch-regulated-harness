@@ -1,0 +1,31 @@
+runs/
+inputs/bundle/
+inputs/assets/generated/
+# 골든 픽스처 빌드 부산물(build-fixtures snap 시 생기는 휘발성 — 핸드오프 계약 아님). 산출물 계약만 추적.
+fixtures/*/.logs/
+fixtures/*/00-ingest/bundle/
+fixtures/*/00-ingest/inputs/
+# per-run 계약: 원시 입력은 이제 런/픽스처의 inputs/ 아래로 스냅샷된다(크롤 원본·자사 자산·사례·WB).
+#   핸드오프 계약(추적 대상)이 아니라 휘발성 스냅샷이고, 크롤 원본(저작권)·대용량 바이너리가 실수로
+#   커밋되지 않게 통째로 제외한다(구 00-ingest/bundle·inputs 규칙의 새 위치 대응).
+fixtures/*/inputs/
+# 도메인별 픽스처(팩 분리 0단계 C): 비-cosmetic 은 fixtures/<domain>/<boundary>-in/ (한 단계 더 깊음).
+#   위 단일-레벨 규칙(<boundary>-in/…)을 그대로 한 단계 더 깊게 미러 → drug 등 도메인 픽스처의
+#   원시 입력·로그·번들도 동일하게 제외(핸드오프 계약 = 산출물 JSON/HTML 만 추적).
+fixtures/*/*/.logs/
+fixtures/*/*/00-ingest/bundle/
+fixtures/*/*/00-ingest/inputs/
+fixtures/*/*/inputs/
+**/.DS_Store
+**/.lock
+*.zip
+__pycache__/
+*.pyc
+.obsidian/
+
+# slack PoC: 비밀(토큰) + 현업이 관리하는 사례 코퍼스(저작권/no-pixel)
+.env
+.env.*
+*.token
+secrets/
+inputs/examples/

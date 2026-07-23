@@ -1,0 +1,89 @@
+{
+  "channel_profile": {
+    "name": "naver_smartstore",
+    "width_px": 860,
+    "max_height_px": 5000,
+    "gif_allowed": true
+  },
+  "blocks": [
+    {
+      "order": 1,
+      "type": "hero",
+      "intent": "핵심 후크 + 기능성 라벨(키비주얼)",
+      "risk_tier": "high",
+      "evidence_required": true
+    },
+    {
+      "order": 2,
+      "type": "problem",
+      "intent": "소비자 고민 환기(voc 근거)",
+      "risk_tier": "high"
+    },
+    {
+      "order": 3,
+      "type": "socialProof",
+      "intent": "판매/순위/리뷰수/재구매율(기준일·출처 각주 필수)",
+      "risk_tier": "medium"
+    },
+    {
+      "order": 4,
+      "type": "solution",
+      "intent": "브랜드의 답",
+      "risk_tier": "high"
+    },
+    {
+      "order": 5,
+      "type": "rtbSummary",
+      "intent": "핵심 RTB 요약 3-4개",
+      "risk_tier": "medium"
+    },
+    {
+      "order": 6,
+      "type": "ingredientTech",
+      "intent": "핵심 RTB 세부(성분/기술/특허/편의)",
+      "risk_tier": "high"
+    },
+    {
+      "order": 7,
+      "type": "colorSwatch",
+      "intent": "색상 발색",
+      "risk_tier": "low"
+    },
+    {
+      "order": 8,
+      "type": "reviewCapture",
+      "intent": "소비자 VOC(별점·후기)",
+      "risk_tier": "medium"
+    },
+    {
+      "order": 9,
+      "type": "howToUse",
+      "intent": "권장 사용 방법",
+      "risk_tier": "low"
+    },
+    {
+      "order": 10,
+      "type": "targetAudience",
+      "intent": "추천 타겟(가설)",
+      "risk_tier": "high"
+    },
+    {
+      "order": 11,
+      "type": "brandTrust",
+      "intent": "수상·기술력",
+      "risk_tier": "medium"
+    },
+    {
+      "order": 12,
+      "type": "brandBanner",
+      "intent": "브랜드 헤리티지 배너",
+      "risk_tier": "high"
+    },
+    {
+      "order": 13,
+      "type": "buyingGuide",
+      "intent": "색상/구성/배송",
+      "risk_tier": "low"
+    }
+  ]
+}

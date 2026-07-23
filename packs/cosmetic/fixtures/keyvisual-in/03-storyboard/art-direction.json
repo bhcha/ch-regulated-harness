@@ -1,0 +1,16 @@
+{
+  "master_palette": [
+    "#F4E9DF",
+    "#C9A27A",
+    "#7A5C42"
+  ],
+  "color_temp": "warm",
+  "lighting": "자연광 소프트",
+  "typography": "Pretendard / 부드러운 라운드 굵기",
+  "master_reference": "inputs/assets/ezderm-relief-product.webp",
+  "mood_keywords": [
+    "데일리",
+    "정돈된"
+  ],
+  "notes": "전 블록 공통 톤앤매너(브랜드킷). 블록은 composition·subject·aspect_ratio 등 고유만 둔다."
+}

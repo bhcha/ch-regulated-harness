@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/reflection-proposal.schema.json",
+  "title": "00e-evidence/reflection-proposal.json — 반영 제안 초안 (에이전트 추출 → 사람 승인)",
+  "description": "문서만 첨부(스펙 없음)된 참조 문서에 대해 in-session 에이전트가 작성하는 반영 제안 초안. kind 추정 + 원문 발췌 반영 포인트. 사람이 approve 하면 결정 스크립트(gate.sh 마무리 훅)가 evidence-documents.json 매니페스트에 재기록(spec_origin=agent_proposed_human_approved, pending 해소). 조건부-required(예: test_report 는 verdict_text·기관·n·기간)는 로컬 검증기가 미지원하므로 validate-stage(S4)가 코드로 강제한다 — 이 스키마는 구조·enum·닫힘만 담당(선례: ingest.py 조건부 필수 코드-강제).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["docs"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "docs": {
+      "type": "array",
+      "description": "pending 문서와 1:1(id+정규화 파일명) 대응하는 반영 제안. 커버리지·완전성은 validate-stage 코드가 강제.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "filename", "kind", "claim", "reflection_points"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^doc-[0-9]{2,}$",
+            "description": "매니페스트 doc-NN 과 정확히 일치."
+          },
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "description": "매니페스트 문서 파일명(NFC 정규화)과 정확히 일치."
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["test_report", "certification", "paper", "patent", "ingredient_dossier", "brand_story", "guide", "general"],
+            "description": "에이전트 추정 문서 종류. test_report 만 claim-basis 승격(그 외 kind 는 각주 인용 채널)."
+          },
+          "claim": {
+            "type": "string",
+            "minLength": 1,
+            "description": "이 문서가 입증/전달하는 내용(한 줄)."
+          },
+          "reflection_points": {
+            "type": "array",
+            "description": "반드시 반영할 원문 발췌 포인트(환각 안전: 문서 원문에서 발췌, 창작 금지). 인용 블록 카피에 원문 포함이 결박 기준(validate_storyboard).",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "grade": {
+            "type": "string",
+            "minLength": 1,
+            "description": "kind=test_report 일 때 사람 선언 등급 상당(예: 인체적용시험) — apply-proposal 이 매니페스트 grade 로 확정. 완전성은 validate-stage 코드가 강제(그 외 kind 는 불필요)."
+          },
+          "verdict_text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "kind=test_report 일 때 문서의 공식 판정문 원문(부분문자열 결박 기준). 그 외 kind 는 불필요."
+          },
+          "test_report": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "kind=test_report(00e 스펙 2차 관문, W-3) 일 때 시험성적서 요소(institution·sample_size·duration 완전성은 validate-stage 코드가 강제). test_items 는 evidence-index 와 동일 형상(정량 승격은 test_report 직접선언/승인 전용).",
+            "properties": {
+              "institution": { "type": "string", "minLength": 1 },
+              "sample_size": { "type": "integer", "minimum": 1 },
+              "duration": { "type": "string", "minLength": 1 },
+              "method": { "type": ["string", "null"] },
+              "measured_values": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "properties": {
+                  "metric": { "type": "string" },
+                  "unit": { "type": "string" },
+                  "before": { "type": "number" },
+                  "after": { "type": "number" },
+                  "timepoint": { "type": "string" },
+                  "change_pct": { "type": "number" }
+                }
+              },
+              "test_items": {
+                "type": ["array", "null"],
+                "description": "시험 항목별 측정 결과 + 매칭 시험 이미지 참조(evidence-index test_items 와 동일 형상). 각 항목이 임상 블록 차트 1개(+선택 추출 이미지)로 렌더된다.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["metric"],
+                  "properties": {
+                    "metric": { "type": "string", "minLength": 1 },
+                    "unit": { "type": ["string", "null"] },
+                    "series": {
+                      "type": "array",
+                      "description": "시점별 측정값(예: 사용전→2주후→4주후). label+value.",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["label", "value"],
+                        "properties": {
+                          "label": { "type": "string", "minLength": 1 },
+                          "value": { "type": "number" }
+                        }
+                      }
+                    },
+                    "before": { "type": ["number", "null"] },
+                    "after": { "type": ["number", "null"] },
+                    "change_pct": { "type": ["number", "null"] },
+                    "stat_note": { "type": ["string", "null"], "description": "통계 각주 원문(예: p<0.025 by Friedman test...)." },
+                    "image_ref": {
+                      "type": ["object", "null"],
+                      "additionalProperties": false,
+                      "description": "매칭 시험 이미지(전후 사진 등)의 참조 문서 페이지. apply-proposal 이 그 페이지를 렌더해 inputs/assets/evidence/ 로 추출(자사 자산).",
+                      "required": ["pages"],
+                      "properties": {
+                        "pages": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "type": "integer", "minimum": 1 } },
+                        "caption": { "type": ["string", "null"] }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "rationale": {
+            "type": "string",
+            "description": "선택. 왜 이 포인트를 BM 반영으로 골랐는지(사람 검토 보조)."
+          }
+        }
+      }
+    },
+    "spec_origin": {
+      "type": "string",
+      "enum": ["human", "agent_proposed_human_approved"],
+      "description": "제안 출처. 00e 초안은 agent_proposed_human_approved(사람 승인 후 매니페스트에 기록)."
+    }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/intake-proposal.schema.json",
+  "title": "00a-intake/intake-proposal.json — 첨부 자료 보편 분류 제안 (에이전트 제안 → 사람 승인)",
+  "description": "첨부 폴더(runs/<id>/inputs/attachments/)의 파일별 '무엇으로 분류·어느 채널로 라우팅·결과물에 어떻게 반영될지' 제안. 사람이 approve 하면(00a 는 심의 면제 review:false) 승인된 분류대로 기존 채널로 결정적 라우팅한다(발효=W-2 apply-intake). 분류는 제안일 뿐 확정은 사람 — unknown 잔존 시 approve 거부(fail-closed). 닫힌 스키마(additionalProperties:false): 구조·enum·닫힘만 담당하고, 1:1 스냅샷 커버리지·sha256 대조는 validate-stage/approve 가 코드로 강제.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["files", "aggregate_preview", "product_name_declared"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "product_name_declared": {
+      "type": "string",
+      "description": "intake.sh --product 로 사람이 선언한 제품명(자사/타사 크롤 구분의 대조 기준). AGENTS 8절: 도메인·포맷과 함께 사람 선언."
+    },
+    "aggregate_preview": {
+      "type": "string",
+      "description": "집계 반영 예고 한 줄('리뷰 N건 → 후기 인용, 시험성적서 1건 → 임상 섹션…'). 사람이 '분류된 것들이 결과물에 어떻게 반영될지'를 표에서 본다."
+    },
+    "files": {
+      "type": "array",
+      "description": "스냅샷 첨부 파일과 1:1(정렬·sha256 대조). 커버리지·sha256 정합은 validate-stage 코드가 강제.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["filename", "sha256", "category", "route", "reflect_preview", "rationale", "confidence", "actions"],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "description": "스냅샷 첨부 파일명(runs/<id>/inputs/attachments/ 최상위, NFC)."
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "스냅샷 원본의 sha256(불변 보존 대조). approve/validate 가 실제 파일 해시와 대조(위변조 fail-closed)."
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "working_backwards",
+              "own_product_crawl",
+              "reference_crawl",
+              "product_image",
+              "evidence_test_report",
+              "evidence_certification",
+              "evidence_paper",
+              "evidence_patent",
+              "evidence_ingredient_dossier",
+              "evidence_brand_story",
+              "evidence_guide",
+              "evidence_general",
+              "unknown"
+            ],
+            "description": "보편 분류(2단계 분류 체계). unknown=판단 불가(승인 전 하류 차단). evidence_* 는 근거 문서 계열."
+          },
+          "route": {
+            "type": "string",
+            "enum": ["working_backwards", "bundle", "examples", "assets", "evidence", "hold"],
+            "description": "라우팅 목적지(전부 기존 채널). working_backwards=inputs/working-backwards.md · bundle=inputs/bundle · examples=inputs/examples/<도메인> · assets=inputs/assets · evidence=inputs/evidence · hold=라우팅 보류(unknown)."
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["test_report", "certification", "paper", "patent", "ingredient_dossier", "brand_story", "guide", "general"],
+            "description": "선택. evidence_* 카테고리일 때만 — evidence-index kind(사이드카 kind 로 발효 시 전달). 그 외 카테고리는 미기재."
+          },
+          "role": {
+            "type": "string",
+            "enum": ["package_front", "usage_shot", "logo", "ingredient_panel", "other"],
+            "description": "선택(S1/F5a). category==product_image 일 때만 허용 — 자사 이미지의 세부 역할(제품 정면·사용컷·로고·성분표기·기타). 사람이 승인에서 확정하며, 세션 에이전트는 파일명·맥락으로 제안만 할 수 있다(자동/VLM 분류 금지). 미기재면 역할 무구분(후방호환)."
+          },
+          "provenance": {
+            "type": "string",
+            "description": "선택(S1/F5a). 이 파일의 출처·유래를 사람이 확인해 적는 자유 텍스트(예: '브랜드 제공 원본', '촬영본', '외부 다운로드'). 자동 채움 아님 — 사람 선언."
+          },
+          "reflect_preview": {
+            "type": "string",
+            "description": "결과물 반영 예고 한 줄('임상 TEST 섹션 차트·전후사진', '후기 인용·키워드', '구도 참조' 등). 사람이 표에서 반영 방식을 본다."
+          },
+          "rationale": {
+            "type": "string",
+            "description": "이 분류로 제안한 근거(구조 신호·제품명 대조·확장자 등, 사람 검토 보조)."
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "low"],
+            "description": "제안 확신도. low 는 사람 확인 권장(예: 시험성적서 후보 pdf·자사/타사 크롤 구분 모호)."
+          },
+          "actions": {
+            "type": "array",
+            "description": "인입 스테이징에서 이 파일에 적용된/적용될 처리. converted=문서 변환(docx→md) · unpacked=zip 해체 · none=원본 그대로.",
+            "items": { "type": "string", "enum": ["converted", "unpacked", "none"] }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "own_assets": {
+    "count": 18,
+    "min_required": 8,
+    "sufficient": true,
+    "files": [
+      {
+        "path": "inputs/assets/daewoong-logo.png",
+        "ext": "png"
+      },
+      {
+        "path": "inputs/assets/own-1.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-2.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-3.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-4.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-5.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-6.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-7.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/own-8.svg",
+        "ext": "svg"
+      },
+      {
+        "path": "inputs/assets/ursa-complex-clean.jpg",
+        "ext": "jpg"
+      },
+      {
+        "path": "inputs/assets/ursa-complex-soft-capsule.jpg",
+        "ext": "jpg"
+      },
+      {
+        "path": "inputs/assets/ursa-daewoong-clean.jpg",
+        "ext": "jpg"
+      },
+      {
+        "path": "inputs/assets/ursa-history-ad.jpg",
+        "ext": "jpg"
+      },
+      {
+        "path": "inputs/assets/ursa-jung-100mg-clean.jpg",
+        "ext": "jpg"
+      },
+      {
+        "path": "inputs/assets/ursa-logo.png",
+        "ext": "png"
+      },
+      {
+        "path": "inputs/assets/ursa-product-main.png",
+        "ext": "png"
+      },
+      {
+        "path": "inputs/assets/ursa-soft-capsule.jpg",
+        "ext": "jpg"
+      },
+      {
+        "path": "inputs/assets/ursa-tablet-100mg.png",
+        "ext": "png"
+      }
+    ]
+  },
+  "bundle_images": {
+    "detail": {
+      "count": 13,
+      "static": 11,
+      "gif": 2,
+      "gif_files": [
+        "12.gif",
+        "13.gif"
+      ]
+    },
+    "main": {
+      "count": 1,
+      "static": 1,
+      "gif": 0,
+      "gif_files": []
+    }
+  }
+}

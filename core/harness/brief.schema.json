@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/brief.schema.json",
+  "title": "brief.json — PR/FAQ (설계 §7.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pr", "faq"],
+  "properties": {
+    "pr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["headline", "subhead", "problem", "solution", "quotes"],
+      "properties": {
+        "headline": { "type": "string" },
+        "subhead": { "type": "string" },
+        "problem": { "type": "string" },
+        "solution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["differentiators", "today_alternatives"],
+          "properties": {
+            "differentiators": { "type": "array", "items": { "type": "string" } },
+            "today_alternatives": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "quotes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "text", "voc_phrase"],
+            "properties": {
+              "type": { "type": "string" },
+              "text": { "type": "string" },
+              "voc_phrase": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "faq": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["external", "internal"],
+      "properties": {
+        "external": { "type": "array", "items": { "$ref": "#/$defs/qa" } },
+        "internal": {
+          "type": "array",
+          "minItems": 2,
+          "description": "규제/실증 리스크 항목 강제(설계 §6.1).",
+          "items": { "$ref": "#/$defs/qa" }
+        }
+      }
+    },
+    "sensitive_labels": {
+      "type": "array",
+      "description": "claim-basis에서 추출된 법적 민감 표시(기능성 등). 사람 확인 게이트 대상.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "basis", "status"],
+        "properties": {
+          "label": { "type": "string" },
+          "basis": { "type": ["string", "null"] },
+          "status": { "enum": ["unknown", "approved", "not_claimed", "unsupported"] }
+        }
+      }
+    },
+    "confirmed_guideline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framing_id", "label", "thesis"],
+      "description": "브리프에서 현업이 확정한 유사점 안(=내가 좋다고 느낀 지점). PR/FAQ 합성에 반영. 00g-guideline 사용 시에만 존재.",
+      "properties": {
+        "framing_id": { "type": "string" },
+        "label": { "type": "string" },
+        "thesis": { "type": "string" }
+      }
+    },
+    "output_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["regulatory_domain", "deliverable_format"],
+      "description": "M1(G4): ⓪에서 사람이 선언한 2축(규제도메인×산출물 포맷)을 브리프 산출물이 자기 안에 담는다. additive-optional(디스크 골든 후방호환). validate-stage 가 신규 생성 brief 에 존재+state 일치를 강제.",
+      "properties": {
+        "regulatory_domain": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "단계4: 닫힌 4-enum → 구조적 패턴(state.schema 와 일관, core-base ∪ pack 완화). 실제 도메인 일치는 validate-stage 가 state(=new-run normalize_domain 레지스트리 검증)와 대조 강제 — 새 도메인 팩이 brief 검증에서 막히던 갭 제거." },
+        "deliverable_format": { "enum": ["multipage_bm", "one_pager"] }
+      }
+    }
+  },
+  "$defs": {
+    "qa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q", "a"],
+      "properties": { "q": { "type": "string" }, "a": { "type": "string" } }
+    }
+  }
+}

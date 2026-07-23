@@ -1,0 +1,12 @@
+{
+  "functional_status": {},
+  "notified_ingredients": [],
+  "certifications": [],
+  "product_type": "정제(알약)",
+  "evidence_on_file": [],
+  "unsupported_claims": [],
+  "source": {
+    "from": "inputs/working-backwards.md",
+    "extracted_by": "ingest.py (deterministic, fail-closed)"
+  }
+}

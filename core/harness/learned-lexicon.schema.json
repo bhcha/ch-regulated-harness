@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/learned-lexicon.schema.json",
+  "title": "learned-lexicon — 학습 루프 승격 어휘(Seam F)",
+  "description": "사용자 선택·심의 반려가 런을 넘어 축적·분석·사람승인 승격된 팩 소유 어휘. packs/<도메인>/learned/deny.json(심의반려 유래 금지어·scope=domain) 및 learned/brands/<브랜드>.json(선택 유래 선호·scope=brand)의 동결 계약. ⚠ 학습 어휘는 생성·룰엔진 방향만(심의[원격 ADK]에 주입 금지 — 관대화 오염). 자동 승격 금지: 모든 entry 는 사람승인 provenance 필수. 부재=no-op(골든 불변).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["domain", "scope", "entries"],
+  "properties": {
+    "domain": {
+      "type": "string",
+      "minLength": 1,
+      "description": "규제도메인 id(cosmetic/drug/...). 파일이 속한 팩과 일치해야 함(로더 대조)."
+    },
+    "scope": {
+      "enum": ["domain", "brand"],
+      "description": "domain=심의반려 유래 금지어(도메인 전체 적용) · brand=선택 유래 선호(그 브랜드 런에만). 스코프는 소급 불가능한 데이터 차원(섞어 쌓으면 못 가른다)."
+    },
+    "brand": {
+      "type": "string",
+      "minLength": 1,
+      "description": "scope=brand 일 때 대상 브랜드(사람 선언 값). scope=domain 이면 없어야 한다(로더가 대조)."
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["term", "kind", "applies_to", "provenance"],
+        "properties": {
+          "term": {
+            "type": "string",
+            "minLength": 1,
+            "description": "학습된 표현. deny=생성 선차단+룰셋 lexicon 병합으로 결정검증 · prefer=생성 힌트만(soft)."
+          },
+          "kind": {
+            "enum": ["deny", "prefer"],
+            "description": "deny=금지어(심의반려 유래·도메인 스코프) · prefer=권장어/선호(선택 유래·브랜드 스코프)."
+          },
+          "applies_to": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1},
+            "description": "적용 단계 목록(예: [\"01-brief\",\"02-concept\"]) 또는 [\"all\"]. 하드코딩 없이 이 필드로 단계 적용 결정."
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source_run_ids", "event", "approved_at"],
+            "properties": {
+              "source_run_ids": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"type": "string", "minLength": 1},
+                "description": "유래 런 id 목록(승격 근거가 된 독립 런들 — 일관성 임계 K 충족)."
+              },
+              "event": {
+                "type": "string",
+                "minLength": 1,
+                "description": "승격 신호 유형(예: consistent_rejection[일관 반려] · consistent_selection[일관 선택])."
+              },
+              "rule": {
+                "type": "string",
+                "description": "deny 의 경우 유래 심의 축·rule id(감사용)."
+              },
+              "approved_at": {
+                "type": "string",
+                "minLength": 1,
+                "description": "사람 승인 일시(자동 승격 금지 — 이 필드 없이는 무효)."
+              },
+              "review_by": {
+                "type": "string",
+                "description": "재검토 예정일(불용어[사어] 영구화 방지 — 최근 미발현 시 해제도 사람 승인)."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

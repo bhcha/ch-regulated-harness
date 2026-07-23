@@ -1,0 +1,20 @@
+Third-party libraries bundled in this folder — all under the MIT License.
+Full license texts are available at the source repositories linked below.
+
+────────────────────────────────────────────────────────────────────
+Cytoscape.js v3.30.2 — MIT License
+Copyright (c) 2016-2024, The Cytoscape Consortium.
+https://github.com/cytoscape/cytoscape.js/blob/master/LICENSE
+────────────────────────────────────────────────────────────────────
+dagre v0.8.5 — MIT License
+Copyright (c) 2012-2014 Chris Pettitt
+https://github.com/dagrejs/dagre/blob/master/LICENSE
+────────────────────────────────────────────────────────────────────
+cytoscape-dagre v2.5.0 — MIT License
+Copyright (c) Cytoscape Consortium
+https://github.com/cytoscape/cytoscape.js-dagre/blob/master/LICENSE
+────────────────────────────────────────────────────────────────────
+
+The MIT License permits commercial use, modification, distribution, and
+private use, provided the copyright notice and this permission notice are
+retained. These notices satisfy that requirement for the bundled files.

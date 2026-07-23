@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="480" viewBox="0 0 860 480">
+  <rect width="860" height="480" fill="#f6f2ee"/>
+  <rect x="24" y="24" width="812" height="432" fill="none" stroke="#d9cfc4" stroke-width="2"/>
+  <text x="430" y="250" font-family="sans-serif" font-size="36" fill="#b08968" text-anchor="middle">자사 자산 3</text>
+  <text x="430" y="300" font-family="sans-serif" font-size="18" fill="#a89" text-anchor="middle">여기에 자사 이미지를 넣으세요(샘플 자리표시)</text>
+</svg>

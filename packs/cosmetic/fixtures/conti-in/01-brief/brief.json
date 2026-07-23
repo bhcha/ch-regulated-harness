@@ -1,0 +1,82 @@
+{
+  "pr": {
+    "headline": "매일 손이 가는 커버 — 자연스러운 데일리 쿠션",
+    "subhead": "본인 사용 + 가족 선물(가설) 가설 페르소나, VOC 빈도 기반",
+    "problem": "소비자는 효능보다 '커버, 촉촉, 밀착, 화사' 같은 사용 경험으로 제품을 평가한다(voc.json 근거).",
+    "solution": {
+      "differentiators": [
+        "데일리 커버감",
+        "본품+리필 구성"
+      ],
+      "today_alternatives": [
+        "타사 쿠션",
+        "파운데이션+컨실러"
+      ]
+    },
+    "quotes": [
+      {
+        "type": "customer",
+        "text": "커버 좋고 자연스러워요",
+        "voc_phrase": "커버"
+      },
+      {
+        "type": "customer",
+        "text": "촉촉 좋고 자연스러워요",
+        "voc_phrase": "촉촉"
+      },
+      {
+        "type": "customer",
+        "text": "밀착 좋고 자연스러워요",
+        "voc_phrase": "밀착"
+      }
+    ]
+  },
+  "faq": {
+    "external": [
+      {
+        "q": "구성은?",
+        "a": "본품 15g + 리필 15g (product.json 근거)"
+      }
+    ],
+    "internal": [
+      {
+        "q": "규제/실증 리스크?",
+        "a": "기능성 상태=unknown 항목은 주장 불가. 속효('단 1일') 표현 금지. 절대표현(최초/1위/무결점) 금지."
+      },
+      {
+        "q": "근거 없는 효능 주장?",
+        "a": "claim-basis 근거 없는 효능(미백)은 unsupported로 카피 배제."
+      },
+      {
+        "q": "VOC 0건 개념?",
+        "a": "기미, 미백, 주름, 여드름, EGF, 콜라겐 는 리뷰 0건 → 컨셉 주축 금지."
+      }
+    ]
+  },
+  "sensitive_labels": [
+    {
+      "label": "미백(기능성)",
+      "basis": null,
+      "status": "unknown"
+    },
+    {
+      "label": "주름개선(기능성)",
+      "basis": null,
+      "status": "unknown"
+    },
+    {
+      "label": "자외선차단(기능성)",
+      "basis": "func-uv_protection-1",
+      "status": "approved"
+    },
+    {
+      "label": "미백",
+      "basis": null,
+      "status": "unsupported"
+    }
+  ],
+  "output_type": {
+    "regulatory_domain": "cosmetic",
+    "deliverable_format": "multipage_bm"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "concept_axis": "C-science",
+  "rtb": [
+    {
+      "id": "rtb-1",
+      "claim": "베이스 성분 함유(성분 사실)",
+      "claim_strength": "factual",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    }
+  ]
+}

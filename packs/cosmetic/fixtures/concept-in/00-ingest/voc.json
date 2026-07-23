@@ -1,0 +1,56 @@
+{
+  "source": {
+    "bundle": "bundle-cosmetic",
+    "parser": "rfc4180 (BOM 제거, python csv)",
+    "rows": 18
+  },
+  "review_count": {
+    "collected": 18,
+    "site_total": 1834
+  },
+  "rating": 4.7,
+  "rating_distribution": {
+    "5": 11,
+    "4": 7
+  },
+  "option_distribution": {
+    "21호": 10,
+    "23호": 8
+  },
+  "keyword_frequency": {
+    "커버": 6,
+    "기미": 0,
+    "촉촉": 5,
+    "밀착": 4,
+    "화사": 3,
+    "미백": 0,
+    "주름": 0,
+    "여드름": 0,
+    "EGF": 0,
+    "콜라겐": 0
+  },
+  "persona_signals": {
+    "어머니": 0,
+    "엄마": 1,
+    "선물": 3
+  },
+  "top_phrases": {
+    "쿠션": 7,
+    "좋아서": 6,
+    "발색": 5,
+    "발색이": 4,
+    "만족합니다": 3,
+    "발색도": 3,
+    "촉촉하고": 3
+  },
+  "top_phrases_efficacy_filtered": {},
+  "product_facts": {
+    "pack_count": null,
+    "key_ingredients": [],
+    "components": []
+  },
+  "offer": {
+    "price": 32000,
+    "discount": 20
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/plan-block.schema.json",
+  "title": "plan/NN-<type>.json — 기획안 블록 (주장-각주 페어링, 설계 §7.3)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "order", "headline", "subcopy", "bodyText", "visual", "claims", "footnotes", "approval_state"],
+  "properties": {
+    "type": {
+      "comment": "블록 유효 카탈로그(23종)는 포맷 캐논 정본 packs/_format/<fmt>/canon.json 의 types 가 소유(4단계, C 메커니즘: 닫힌 enum → 구조적 패턴 완화). 스키마는 구조 검증만 — 카탈로그 대조는 validate_storyboard._canon 이 canon.json 으로 강제.",
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]*$"
+    },
+    "order": { "type": "integer", "minimum": 1 },
+    "headline": { "type": "string", "minLength": 2 },
+    "subcopy": { "type": "string" },
+    "bodyText": { "type": "array", "items": { "type": "string" } },
+    "visual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["photo", "graph", "swatch", "chat", "nukki"] },
+        "render_mode": {
+          "enum": ["image", "html_only"],
+          "description": "선택 속성(부재=후방호환 default=사진형 이미지 생성). html_only=그래픽 성격 블록(뱃지·배너·인증카드·요약표) — 표시·심의·게재는 인라인 HTML/SVG 텍스트 레이어로만 하고 baked PNG 를 <img> 로 참조하지 않는다(F1(C) 규제안전, check_render_refs 가 전 도메인 fail-closed). image_engine._block_emits_image 가 값을 읽어 굽기 여부를 정한다: 규제도메인(drug/quasi_drug/health_food)은 아예 미생성, 화장품은 디자이너 참고용으로 굽되 산출물엔 안 실림."
+        },
+        "ref": { "type": ["string", "null"] },
+        "concept": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["subject", "reference"],
+          "properties": {
+            "subject":     { "type": "string" },
+            "composition": { "type": "string" },
+            "mood": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "color_temp": { "type": "string" },
+                "lighting":   { "type": "string" },
+                "texture":    { "type": "string" }
+              }
+            },
+            "palette":      { "type": "array", "items": { "type": "string" } },
+            "typography":   { "type": "string" },
+            "aspect_ratio": { "type": "string" },
+            "handoff_note": { "type": "string" },
+            "reference": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["own_asset_path"],
+              "properties": {
+                "own_asset_path":          { "type": "string", "pattern": "^inputs/assets/" },
+                "direction":               { "type": "string" },
+                "crawl_pattern_ref":       { "type": ["string", "null"] },
+                "reference_image_id":      { "type": ["string", "null"], "pattern": "^[A-Za-z0-9._-]+#[0-9]{2,}$", "description": "M2(G3): 00g example-analysis.reference_images[].id(<example_id>#NN) 로 조인. 메타 SSoT=00g." },
+                "pixel_reference_allowed": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "chart_data": {
+          "type": "object",
+          "description": "인체적용시험 수치 차트 데이터 (clinicalEvidence/beforeAfter 블록 전용; image_engine 생성 대상 아님)",
+          "additionalProperties": false,
+          "required": ["chart_type", "series"],
+          "properties": {
+            "chart_type": { "enum": ["bar", "line"] },
+            "series": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["label", "value"],
+                "properties": {
+                  "label": { "type": "string" },
+                  "value": { "type": "number" },
+                  "unit":  { "type": "string" }
+                }
+              }
+            },
+            "callouts":     { "type": "array", "items": { "type": "string" } },
+            "footnote_ref": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target_text", "claim_strength", "evidence_ref", "footnote_id"],
+        "properties": {
+          "target_text": { "type": "string" },
+          "claim_strength": { "enum": ["factual", "emotional", "superlative", "efficacy", "speed"] },
+          "evidence_ref": { "type": ["string", "null"] },
+          "footnote_id": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "footnotes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text"],
+        "properties": {
+          "id": { "type": "string" },
+          "text": { "type": "string" }
+        }
+      }
+    },
+    "approval_state": { "enum": ["draft", "review_passed", "review_flagged", "human_approved"] }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "analyzed_dir": "inputs/bundle/images/detail",
+  "total_images": 13,
+  "blocks": [
+    {
+      "block_type": "hero",
+      "shot_type": "제품 단독 누끼",
+      "composition_note": "정면 클로즈업, 브랜드 컬러 배경, 충분한 여백",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/01.jpg"
+      ]
+    },
+    {
+      "block_type": "problem",
+      "shot_type": "상황 연출컷",
+      "composition_note": "일상 장면 중심, 공감 카피 오버레이 공간",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/02.jpg"
+      ]
+    },
+    {
+      "block_type": "socialProof",
+      "shot_type": "수치·뱃지 그래픽",
+      "composition_note": "큰 숫자와 보조 텍스트, 정렬된 카드 배치",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/03.jpg"
+      ]
+    },
+    {
+      "block_type": "solution",
+      "shot_type": "제품 중심 연출컷",
+      "composition_note": "제품을 화면 중앙에, 깔끔한 배경",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/04.jpg"
+      ]
+    },
+    {
+      "block_type": "rtbSummary",
+      "shot_type": "아이콘+키워드 그리드",
+      "composition_note": "3-4개 균일 그리드, 일관된 간격",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/05.jpg"
+      ]
+    },
+    {
+      "block_type": "ingredientTech",
+      "shot_type": "성분·구성 그래픽",
+      "composition_note": "성분 비주얼과 라벨, 클린한 배경",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/06.jpg"
+      ]
+    },
+    {
+      "block_type": "colorSwatch",
+      "shot_type": "색상 스와치",
+      "composition_note": "색상 팔레트 나열, 톤 비교 배치",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/07.jpg"
+      ]
+    },
+    {
+      "block_type": "reviewCapture",
+      "shot_type": "리뷰 카드",
+      "composition_note": "별점과 인용, 말풍선형 카드",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/08.jpg"
+      ]
+    },
+    {
+      "block_type": "howToUse",
+      "shot_type": "사용 단계 컷",
+      "composition_note": "스텝 번호와 손동작, 순서대로 배열",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/09.jpg"
+      ]
+    },
+    {
+      "block_type": "targetAudience",
+      "shot_type": "라이프스타일 분위기컷",
+      "composition_note": "인물 분위기 중심, 밝은 일상 톤",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/10.jpg"
+      ]
+    },
+    {
+      "block_type": "brandTrust",
+      "shot_type": "수상·기술 뱃지",
+      "composition_note": "로고와 뱃지 정렬, 신뢰감 있는 톤",
+      "motion": false,
+      "source_files": [
+        "inputs/bundle/images/detail/11.jpg"
+      ]
+    },
+    {
+      "block_type": "brandBanner",
+      "shot_type": "브랜드 헤리티지 배너",
+      "composition_note": "브랜드명 중심, 절제된 배경",
+      "motion": true,
+      "source_files": [
+        "inputs/bundle/images/detail/12.gif"
+      ]
+    },
+    {
+      "block_type": "buyingGuide",
+      "shot_type": "구성·배송 안내",
+      "composition_note": "구성품 나열, 표·아이콘 정리",
+      "motion": true,
+      "source_files": [
+        "inputs/bundle/images/detail/13.gif"
+      ]
+    }
+  ],
+  "source": {
+    "from": "inputs/bundle/images",
+    "extracted_by": "ingest.py (deterministic, no-pixel)"
+  }
+}

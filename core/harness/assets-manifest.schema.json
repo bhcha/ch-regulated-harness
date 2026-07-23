@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/assets-manifest.schema.json",
+  "title": "assets-manifest.json — 이미지 매니페스트 (설계 §6.0)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["own_assets", "bundle_images"],
+  "properties": {
+    "own_assets": {
+      "type": "object",
+      "description": "inputs/assets/ 자사 홍보/BM 이미지(디자인 src 허용 소스).",
+      "additionalProperties": false,
+      "required": ["count", "files"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "min_required": { "type": "integer" },
+        "sufficient": { "type": "boolean" },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "ext"],
+            "properties": {
+              "path": { "type": "string" },
+              "ext": { "type": "string" },
+              "role": {
+                "type": "string",
+                "enum": ["package_front", "usage_shot", "logo", "ingredient_panel", "other"],
+                "description": "선택(S1/F5c). 사람이 00a-intake 승인에서 선언한 자산 세부역할이 자산 사이드카(asset-roles.json)를 거쳐 전파된 값. 하류 master_reference 가 package_front 를 우선 선택하는 soft 힌트. 미기재면 역할 무구분(후방호환·골든 불변)."
+              }
+            }
+          }
+        }
+      }
+    },
+    "bundle_images": {
+      "type": "object",
+      "description": "크롤 원본(분석/레퍼런스 전용, 디자인 src 금지).",
+      "additionalProperties": false,
+      "required": ["detail", "main"],
+      "properties": {
+        "detail": { "$ref": "#/$defs/imgGroup" },
+        "main": { "$ref": "#/$defs/imgGroup" }
+      }
+    }
+  },
+  "$defs": {
+    "imgGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "static", "gif"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "static": { "type": "integer", "minimum": 0 },
+        "gif": { "type": "integer", "minimum": 0 },
+        "gif_files": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

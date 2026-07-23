@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/canon-coverage.schema.json",
+  "title": "canon-coverage.json — 주요 구성요소 커버리지 리포트 (체크 단계 산출)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["scope", "components", "missing_required", "all_required_covered", "present_blocks"],
+  "properties": {
+    "scope": { "enum": ["outline", "plan", "design"] },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "required", "evidence_gated", "covered", "status", "present_by"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "required": { "type": "boolean" },
+          "evidence_gated": { "type": "boolean" },
+          "covered": { "type": "boolean" },
+          "status": { "type": "string" },
+          "present_by": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "missing_required": { "type": "array", "items": { "type": "string" } },
+    "all_required_covered": { "type": "boolean" },
+    "present_blocks": { "type": "array", "items": { "type": "string" } },
+    "per_option_missing": {
+      "type": "object",
+      "description": "M3: outline 선택 전 각 옵션 독립 평가 결과({옵션id: 누락 required[]}). 합집합-false-pass 차단.",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+    "disallowed_present": {
+      "type": "array",
+      "description": "RCA 8장: 포맷 disallowed_blocks 에 걸린 존재 블록 목록(가시화 보조 게이트). 위반 시에만 존재.",
+      "items": { "type": "string" }
+    }
+  }
+}

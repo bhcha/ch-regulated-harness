@@ -1,0 +1,11 @@
+{
+  "verdict": "pass",
+  "engine": "subagent",
+  "confidence": 0.9,
+  "violations": [],
+  "escalate": false,
+  "id": "outline-verdict-97d170e1",
+  "critic_ran": false,
+  "critic_outcome": "skipped",
+  "review_depth": "rule_engine_only"
+}

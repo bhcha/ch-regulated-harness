@@ -1,0 +1,35 @@
+적대적 재리뷰(W3-R4). 추정이 아니라 코드로 논증하라. 없는 결함을 만들지 마라.
+
+W3-R3 에서 critical 0 · **high 1** · medium 2 를 냈다. 현재 워킹 diff 는 그 3건 수정
+(`chat/src/worker/supervisor.ts` · `chat/src/worker/cli-session-runner.ts` + 테스트). 불변식 12 = `.dev-loop-w2/review-brief.md`.
+
+## 적용된 수정
+1. **[high 하트비트 실패 은폐]**: `createHeartbeatWriter` 의 bare `catch{}` → `established` 플래그 상태기계.
+   **첫 발행**(spawn 시 register) 실패 = **throw**(`heartbeat_unwritable`) → `superviseSession` 이 이미 뜬 그룹 SIGKILL +
+   registry release + settle(알람 무장 전이라 백스톱 없는 세션이 조용히 안 돎). **이후 발행** 실패 = stderr 감사 1줄 + 계속
+   (첫 발행 성공했으면 유효 pgid 파일이 이미 디스크에 있어 백스톱 존재 · 일시 EIO 로 건강한 세션 죽이는 건 과함). runner 는
+   heartbeat_unwritable 을 전이확인 전 실패로.
+2. **[medium#1 출력캡 groupAlive 조기반환 유실]**: `capKillObserved` 클로저 플래그를 `onSelfExit` 의 groupAlive
+   조기반환 **전에** 세팅 → kill_at reap 분기가 killed 아닌 `output_cap` 으로 settle. runner 는 실패로 차단.
+3. **[medium#2 never-throw 누수]**: `sdkGenTimeout()`/`sdkMaxTurns()` 를 try/catch 안으로(`config_error`). `main()` 을
+   `emitAndExit(RunJobResult)` 공유로 리팩터 + 전체 래핑 → 스펙 읽기/JSON.parse/배선 throw 도 구조화 config_error 를
+   stdout 에 내고 exit 1(type-only RunJobResult import — 런타임 소거, 순환 없음).
+
+## 판정 요청
+⑴ high 가 **완전히** 닫혔는가 — 첫 발행 실패 경로가 알람 무장 전에 그룹 SIGKILL + settle 하는가? `established` 플래그의
+   재진입(fail-path release 가 다시 publish) 이 **재-throw 하지 않는가**(그 방어가 실제로 되는가)? 이후 발행 실패를
+   '감사+계속'으로 둔 판단이 백스톱 무결성을 실제로 지키는가(첫 발행 성공 후엔 stale 스냅샷이라도 있으니 W4 가 회수 가능 —
+   맞는가, 아니면 register/release 순서상 stale 이 잘못된 pgid 를 가리킬 수 있는가)?
+⑵ medium#1 이 닫혔는가 — capKillObserved 가 **모든** settle 경로(직접·kill_at reap·조기반환 후)에서 보존되는가?
+   cap-kill 인데 그룹이 kill_at 까지 생존하는 경우(reap_failed)도 실패인가?
+⑶ medium#2 가 닫혔는가 — 이제 `runJobSession` 이 던질 수 있는 경로가 **정말 없는가**(config 읽기·복구 조립·스펙 배선
+   전부 커버)? `main()` 의 emitAndExit 이 **두 번 exit** 하거나 stdout 이중 기록하는 경로는? config_error 를 두 곳
+   (runner 가드 + main 진입점 catch)에서 내는데 중복·불일치는 없는가?
+⑶ 새 outcome(heartbeat_unwritable·config_error·output_cap·spawn_failed·recovery_compose_error)이 runner 의
+   RunJobFailReason 유니온과 **타입 수준에서** 전부 매칭되는가(하나라도 빠지면 컴파일은 되는데 런타임에 미처리로 새는가)?
+⑷ 그 외 새 결함.
+
+⚠ 테스트 실행 금지(읽기전용 EPERM). ⚠ 실 claude 세션 금지. 사람이 조용한 창 확인: build ✓ · 단위 642/642 ·
+stub E2E 4/4(단독) · core 무수정.
+
+산출: severity · 파일:라인 · 불변식 번호 · 재현 시나리오. 마지막 한 줄: "W3-R4 판정: critical/high N건".

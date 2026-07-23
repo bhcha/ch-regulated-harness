@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "pipeline-routes",
+  "description": "WS-ROUTES 선언적 라우트 테이블. 비동결. 선형 successor 맵 + 페이즈별 max_iterations 만 담는다(조건부 술어 미포함). 페이즈 집합은 동결 state.schema.json 의 phase enum 과 '정확히' 일치하도록 닫혀 있다(const/enum) — 라우트가 비동결이라도 동결 외 페이즈를 도입하지 못하게 막는 가드레일. 신규 페이즈는 state.schema.json 동결 변경과 동반해야만 추가된다.",
+  "type": "object",
+  "required": ["entry", "end", "phases"],
+  "additionalProperties": false,
+  "$defs": {
+    "phase_id": {
+      "enum": ["00a-intake", "00-ingest", "00e-evidence", "00g-guideline", "01-brief", "02-concept", "03-storyboard", "04-keyvisual", "done"]
+    },
+    "route": {
+      "type": "object",
+      "required": ["next", "max_iterations"],
+      "additionalProperties": false,
+      "properties": {
+        "next": { "$ref": "#/$defs/phase_id" },
+        "max_iterations": { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+  "properties": {
+    "$schema": { "type": "string" },
+    "_comment": { "type": "string" },
+    "entry": { "const": "00-ingest" },
+    "end": { "const": "done" },
+    "phases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["00a-intake", "00-ingest", "00e-evidence", "00g-guideline", "01-brief", "02-concept", "03-storyboard", "04-keyvisual"],
+      "properties": {
+        "00a-intake":    { "$ref": "#/$defs/route" },
+        "00-ingest":     { "$ref": "#/$defs/route" },
+        "00e-evidence":  { "$ref": "#/$defs/route" },
+        "00g-guideline": { "$ref": "#/$defs/route" },
+        "01-brief":      { "$ref": "#/$defs/route" },
+        "02-concept":    { "$ref": "#/$defs/route" },
+        "03-storyboard": { "$ref": "#/$defs/route" },
+        "04-keyvisual":  { "$ref": "#/$defs/route" }
+      }
+    }
+  }
+}

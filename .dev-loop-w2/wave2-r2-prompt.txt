@@ -1,0 +1,48 @@
+적대적 재리뷰(W2-R2). 추정이 아니라 코드로 논증하라. 없는 결함을 만들지 마라.
+
+W2 에서 당신은 critical 0 · **high 1**(프로젝트/로컬 settings 가 워커 경계에 합성됨) · **medium 1**(MCP 표면이
+세션 계획 밖) 을 냈고, "W5 로 미룰 이유가 없다 — 지금 `--setting-sources user` 를 고정하는 것이 fail-closed" 라고 했다.
+그대로 적용했다. 현재 워킹 diff 를 검증하라(`chat/src/worker/cli-session.ts` + 테스트만 변경).
+
+## 적용된 수정
+- argv 에 **`--setting-sources user`** 고정(project·local 제외 · 워커 소유 `$CLAUDE_CONFIG_DIR/settings.json` 은 계속 로드).
+- argv 에 **`--strict-mcp-config`** 고정(`--mcp-config` 미지정 = MCP 0) + env 에 **`ENABLE_CLAUDEAI_MCP_SERVERS=false`**.
+- 둘 다 variadic(`--allowedTools` 등) 앞의 값 구간에 배치. `-- <prompt>` 종결자 유지.
+
+## 구현자가 **당신의 지적 2건을 반박**했다 — 판정하라
+1. **[당신의 low: "`Write(...)` 는 매칭 안 되는 죽은 중복 규칙"] → 구현자는 "리뷰가 틀렸다"며 남겼다.**
+   근거로 CLI 바이너리(2.1.212)의 권한규칙 검증 테이블을 인용했다:
+   `filePatternTools:["Read","Write","Edit","Glob","NotebookRead","NotebookEdit","Cd"]` · `qvl(e){return eLn.filePatternTools.includes(e)}`
+   → `Write` 는 **1급 file-pattern rule tool 이지 Edit 의 별칭이 아니다**. 당신 근거로 추정되는 문서 문구
+   ("Merged with paths from `Edit(...)` allow permission rules")는 **샌드박스의 allowWrite/denyWrite 경로 병합 서브시스템**
+   얘기지 규칙 어휘가 아니다. 지웠으면 **state.json 의 살아있는 deny 를 삭제**할 뻔했다.
+   → 이 반박이 맞는가? (바이너리 근거 vs 문서 근거 — 어느 쪽이 규칙 매칭의 진실인지 논증하라.)
+2. **구현자가 당신이 놓친 결합을 발견했다**: `core/.claude/settings.local.json` = `{"enabledMcpjsonServers": []}` 이고
+   이것이 **오늘 유일하게 `core/.mcp.json`(openalex-paper-search)을 억제**하고 있다. 그런데 그건 **local 소스**라
+   `--setting-sources user` 가 그 억제를 **걷어낸다** → **Fix 1 단독은 MCP 표면을 오히려 넓힌다.**
+   즉 Fix 2 는 장식이 아니라 Fix 1 의 백파이어를 막는 짝이다(결합 회귀 테스트로 고정함).
+   → 이 분석이 맞는가? 다른 백파이어 짝이 더 있는가(예: local/project 가 오늘 억제 중인 다른 것)?
+
+## 구현자가 파서 레벨로 확인한 것(재검증)
+- `--setting-sources` 는 파스 시점 값 검증(`Invalid setting source: bogusvalue. Valid options are: user, project, local`).
+- `ENABLE_CLAUDEAI_MCP_SERVERS` 극성: `vu()` 가 `["0","false","no","off"]` 를 비활성으로 파싱, 호출부가
+  `[claudeai-mcp] Disabled via env var` 로그 → `=false` 가 진짜 끈다.
+- 무력화 실험 3건 전부 fast-fail(289/282/279ms).
+
+## 구현자가 스스로 밝힌 미보증(독립 판정)
+1. `user` 가 우리 `CLAUDE_CONFIG_DIR` 로 실제 해석되는지 **미검증** — 아니면 우리 deny 가 조용히 증발.
+   단 그 층은 defense-in-depth 이고(주 경계 = cwd + allow 규칙 부재), project/local 제외는 어느 쪽이든 순개선이라는 주장.
+2. `--strict-mcp-config`·connector env 는 파서/바이너리 레벨만 확인, 라이브 미실행.
+3. `Write(...)`/`Edit(...)` 의 `//abs/**` 글롭이 의도대로 매칭되는지 미확인(A-3 은 `Read(//**)` 만 실측).
+4. 조립 테스트는 **우리가 만드는 문자열**만 고정하지 CLI 가 강제하는 것을 고정하지 않는다 → CLI 업그레이드 시 카나리 필수.
+
+## 임무
+1) 위 반박 2건 판정(구현자가 맞나, 당신이 맞나 — 근거로).
+2) high·medium 이 실제로 닫혔는지. 새 결함(특히 플래그 배치가 variadic 에 삼켜지는지, `--` 종결자와의 상호작용).
+3) 미보증 4건의 severity 판정(과장/축소).
+4) 그 외 새 결함.
+
+⚠ 테스트 실행 금지(읽기전용 샌드박스 EPERM). ⚠ **실 `claude` 세션 spawn 금지**(구독 과금 · ⓓ 게이트 미해소).
+파서 레벨 `--help` 조회는 허용. 사람이 조용한 창에서 확인: build ✓ · 단위 581/581 · stub E2E 4/4 · core 무수정.
+
+산출: severity · 파일:라인 · 불변식 번호 · 재현 시나리오. 마지막 한 줄: "W2-R2 판정: critical/high N건".

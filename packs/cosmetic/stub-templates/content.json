@@ -1,0 +1,19 @@
+{
+  "_comment": "화장품 stub 콘텐츠 템플릿(도메인 소유, 5단계-B). stub_stage 의 화장품-전용 콘텐츠 리터럴(누출 표현·카피·명사)을 팩이 소유해 core 도메인 어휘를 소거하되 stub 산출 바이트는 불변(값=현행 stub_stage 리터럴의 축자 복사). 비화장품 도메인은 이 리터럴 경로(_is_cosmetic else 분기 = 도메인-중립 generic 폴백)에 도달하지 않고 core 기본값을 쓴다. %s 는 런타임 phrase 포맷 자리.",
+  "functional_labels": {"whitening": "미백(기능성)", "wrinkle": "주름개선(기능성)", "uv_protection": "자외선차단(기능성)"},
+  "reco_rationale": "VOC 상위어(%s)가 감성·사용경험 언어이고 효능어(미백 등)는 희소 → 감성 축(B)을 top-1 추천. 효능축(A)은 기능성 승인 근거가 없어 절제 카피로 한정.",
+  "legal_km_headline_suffix": "기능성화장품",
+  "noun": "쿠션",
+  "brief_differentiator_1": "본품+리필 구성",
+  "brief_today_alternatives": ["타사 쿠션", "파운데이션+컨실러"],
+  "plan_colorswatch_headline": "피부톤에 맞춘 색상",
+  "plan_rtbsummary_body": ["%s감 좋은 데일리 마무리", "촉촉한 사용감", "피부 밀착", "본품+리필 구성"],
+  "plan_targetaudience_body": ["매일 가볍게 %s가 필요한 분", "촉촉한 마무리를 원하는 분", "가족 선물을 찾는 분(VOC 가설)"],
+  "reco_pref": ["B-emotional", "A-efficacy", "C-science"],
+  "axis_b_emotional_rtb": "매일 쓰기 좋은 %s감",
+  "axis_b_emotional_km": "오늘도 %s",
+  "axis_b_emotional": {"id": "B-emotional", "label": "감성·자기관리", "angle": "VOC 소비자 언어 기반 일상 경험"},
+  "axis_a_fallback_claim": "메이크업으로 결점을 자연스럽게 가려준다",
+  "axis_a_fallback_head": "%s, 일상 커버",
+  "faq_external_answer": "본품 15g + 리필 15g (product.json 근거)"
+}

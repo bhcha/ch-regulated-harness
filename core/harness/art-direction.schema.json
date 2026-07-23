@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/art-direction.schema.json",
+  "title": "art-direction.json — 전역 아트디렉션(브랜드킷) (개선계획 이슈4 P0-ⓠ)",
+  "comment": "스토리보드 기획안(plan) 단계에서 '한 번' 정의하는 전 블록 공통 톤앤매너. 블록 visual.concept 가 이를 상속(블록은 composition/subject/aspect_ratio 등 고유만). 톤 일관성의 선결 조건. master_palette 는 블록 palette 의 상위집합이어야 한다(validate-stage fail-closed).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["master_palette", "color_temp", "lighting", "typography", "master_reference"],
+  "properties": {
+    "master_palette": {
+      "type": "array",
+      "minItems": 1,
+      "description": "전역 마스터 팔레트. 모든 블록 visual.concept.palette 는 이 집합의 부분집합이어야 한다(분열 방지). 항목은 비어있지 않은 색 토큰(hex/색상명).",
+      "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+    },
+    "color_temp": { "type": "string", "description": "전역 색온도(warm|cool|neutral 등). 블록 mood.color_temp 의 기본." },
+    "lighting": { "type": "string", "description": "전역 라이팅 셋업(명명된 조명, 예: three-point softbox)." },
+    "typography": { "type": "string", "description": "전역 타이포(예: Pretendard / 굵기 방향)." },
+    "master_reference": {
+      "type": "string",
+      "pattern": "^inputs/assets/",
+      "description": "마스터 제품 reference 시트 1장(자사 자산). 모든 블록 이미지 호출의 첫 입력으로 재사용(일관성 1차 레버)."
+    },
+    "mood_keywords": {
+      "type": "array",
+      "description": "전역 무드 형용사(블록별 분열 대신 단일화). 효능·절대 표현 금지.",
+      "items": { "type": "string" }
+    },
+    "notes": { "type": "string" }
+  }
+}

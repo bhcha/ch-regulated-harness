@@ -1,0 +1,35 @@
+{
+  "concept_axis": "B-emotional",
+  "key_messages": [
+    {
+      "id": "km-1",
+      "slot": "emotional",
+      "headline": "오늘도 커버",
+      "voc_phrase": "커버",
+      "claim_strength": "emotional",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    },
+    {
+      "id": "km-2",
+      "slot": "emotional",
+      "headline": "오늘도 촉촉",
+      "voc_phrase": "촉촉",
+      "claim_strength": "emotional",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    },
+    {
+      "id": "km-3",
+      "slot": "emotional",
+      "headline": "오늘도 밀착",
+      "voc_phrase": "밀착",
+      "claim_strength": "emotional",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    }
+  ]
+}

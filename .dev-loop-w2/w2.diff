@@ -1,0 +1,2912 @@
+diff --git a/chat/.gitignore b/chat/.gitignore
+index 6b34cc3..b0230de 100644
+--- a/chat/.gitignore
++++ b/chat/.gitignore
+@@ -2,4 +2,6 @@ node_modules/
+ .state/
+ data/
+ jobs/pending/
++jobs/claimed/
++jobs/failed/
+ *.log
+diff --git a/chat/jobs/README.md b/chat/jobs/README.md
+index c1c312b..ef457b6 100644
+--- a/chat/jobs/README.md
++++ b/chat/jobs/README.md
+@@ -1,40 +1,211 @@
+-# chat/jobs — 생성 브리지(C2) 잡 큐
++# chat/jobs — 생성 잡 큐 (프로토콜 v2)
+ 
+ 챗 레이어는 **온라인에서 실엔진 생성을 스스로 띄우지 않는다**(헤드리스 실엔진 = core fail-closed, C3 금지).
+-대신 `BridgeGenExecutor` 가 생성 요청을 이 폴더에 **파일로 적재**하고, **운영자의 Claude Code 세션**이 그 파일을
+-소비해 세션 내(insession) 생성으로 런을 전이시킨다. 챗 레이어는 next-action 폴링으로 전이를 감지해 재개한다.
++대신 `BridgeGenExecutor` 가 생성 요청을 이 폴더에 **파일로 적재**하고, **소비자**가 그 파일을 집어 세션 내(insession)
++생성으로 런을 전이시킨다. 챗 레이어는 next-action 폴링으로 전이를 감지해 재개한다.
+ 
+-> S-1(Agent SDK 세션의 insession 마커) 검증 전까지 이 브리지가 1차 기본 경로다. 오프라인/CI 는 `StubDirectGenExecutor`
+-> 가 `run-stage.sh` 를 직접 돌린다(결정적) — 이 폴더를 쓰지 않는다.
++소비자는 셋이고, **이 폴더의 규약이 그 셋의 유일한 이음새**다:
++
++| 소비자 | 누구 | 상태 |
++|---|---|---|
++| 사람 운영자 | 운영자의 Claude Code 세션이 잡을 손으로 소비 | 오늘의 기본 경로 |
++| 무인 데몬 | 별도 프로세스가 잡마다 세션을 띄워 소비 | 후속 단계 |
++| 봇 | 잡을 **적재**하고 전이를 기다리는 쪽(소비자 아님) | 현행 |
++
++> 오프라인/CI 는 `StubDirectGenExecutor` 가 `run-stage.sh` 를 직접 돌린다(결정적) — 이 폴더를 쓰지 않는다.
++> 규약의 코드 SSoT = [`../src/kernel/job-protocol.ts`](../src/kernel/job-protocol.ts). 이 문서와 그 모듈은 같은
++> 변경에서 함께 고친다(규약이 두 곳에 있으면 갈라진다).
+ 
+ ## 디렉터리
+ 
+-- `jobs/pending/<run_id>-<stage>.json` — 대기 중 생성 잡(브리지가 원자 기록). **gitignore**(운영 산출).
+-  - 형식: `{ "run_id": "...", "stage": "guideline|brief|concept|...", "kind": "generate" }`
++전부 **gitignore**(운영 산출물).
++
++```
++jobs/pending/<run_id>-<stage>.json           # 적재된 잡(아직 아무도 안 집음)
++jobs/claimed/<소비자>/<run_id>-<stage>.json   # 그 소비자가 집은 잡(작업 중)
++jobs/failed/<run_id>-<stage>.json            # 실패·만료 격리
++jobs/failed/<run_id>-<stage>.json.reason     #   그 사유(사람이 읽는 한 줄)
++```
++
++한 런의 한 단계 = 잡 1건이다(파일명이 `<run_id>-<stage>`). 같은 단계를 다시 요청하면 같은 이름을 덮어쓴다 —
++중복 잡이 쌓이지 않는다.
++
++## 잡 파일 형식(v2)
++
++```json
++{
++  "version": 2,
++  "kind": "generate",
++  "run_id": "chat-slack-C0…-895939",
++  "stage": "intake",
++  "job_id": "3f2a…",
++  "enqueued_at": "2026-07-16T12:04:37.000Z",
++  "expires_at": "2026-07-16T12:19:37.000Z"
++}
++```
++
++| 필드 | 뜻 |
++|---|---|
++| `kind` | 항상 `generate`. 승인·선택 같은 **결정은 큐를 타지 않는다**(사람이 버튼으로 — 무인화 범위는 생성뿐). |
++| `run_id`·`stage` | `run-stage.sh <stage> <run_id>` 인자. |
++| `version` | 프로토콜 버전. 없으면 v1 레거시 잡(아래 절 참조). |
++| `job_id` | 이 적재 1건의 도장. 봇의 회수가 '자기 잡'만 지우게 한다. |
++| `enqueued_at` | 적재 시각(ISO-8601 UTC). |
++| `expires_at` | **절대 마감** = `enqueued_at` + `CHAT_BRIDGE_TIMEOUT`(기본 900초). 종단 마감 단일 원천. |
++
++`expires_at` 이 기간이 아니라 **절대시각**인 이유: 늦게 집은 소비자는 잡이 언제 적재됐는지 모른다. 절대시각이라야
++"지금 집어도 되나"를 스스로 판단할 수 있다. 봇의 대기 마감도 같은 값에서 나온다(시계가 둘이면 어긋난다).
++
++## 수명주기
++
++```
++적재(봇)   pending/X   (expires_at = 적재시각 + CHAT_BRIDGE_TIMEOUT)
++   ↓ 소비자가 2중 검사 → 통과하면 클레임(mv pending/X claimed/<나>/X)
++작업       claimed/<나>/X 를 들고 세션 안에서 산출물 작성 → run-stage 전이
++   ↓
++성공       rm claimed/<나>/X          (봇은 next-action 폴링으로 전이를 감지 — 카드가 자동 갱신된다)
++실패       mv claimed/<나>/X failed/X + X.reason 기록   (부분 성공 없음)
++```
++
++검사에서 걸러진 잡의 처분:
++
++| 판정 | 처분 |
++|---|---|
++| 만료(남은 시간 < 필요 시간) | `failed/` + `.reason` — 집지 않는다 |
++| 이미 전이됨(그 단계 차례가 아님) | 잡 삭제 — 할 일이 이미 끝났다 |
++| 마감 미기재(v1 레거시) | 손대지 않는다(사람 소비자 몫) |
++| next-action 조회 실패 | 손대지 않는다(판단 불가 — 다음 회차에 다시 본다) |
++
++## 소비자 규약 — 집고 나서 2중 검사
++
++**사람이든 데몬이든 똑같이**, 일을 시작하기 전에 둘 다 확인한다. 하나라도 어긋나면 일하지 않는다.
++
++1. **시간이 되는가** — `지금 + 이 잡에 쓸 시간 + 기동 여유 ≤ expires_at`.
++   '마감이 아직 안 지났나'가 아니라 **'끝낼 수 있나'** 를 본다. 마감 1분 전에 10분짜리 생성을 시작하면, 봇은 이미
++   포기해 실패 안내를 띄웠는데 결과만 뒤늦게 도착한다(현업이 본 것과 실제가 어긋난다).
++2. **아직 그 차례인가** — `bash <core>/scripts/next-action.sh <run_id>` 의 `step` 이 `generate` 이고 `stage` 가
++   잡의 stage 와 같아야 한다. `step` 만 보면 안 된다: 그건 페이즈를 가로지르는 전역이라, 다음 단계의 생성 차례를
++   옛 잡의 차례로 오인한다.
++
++**★ 순서: 먼저 집고(claim), 집은 것을 검사한다.** 검사부터 하면 **검사한 잡과 집은 잡이 다를 수 있다** — `mv` 는
++잡이 아니라 **경로**를 집는데, 그 사이 같은 이름으로 새 잡이 들어올 수 있기 때문이다(같은 단계를 다시 요청하면
++같은 이름을 덮어쓴다). 그러면 검사 안 한 잡을 들고 일하거나, 멀쩡한 새 잡을 남의 판정으로 `failed/` 에 처박는다.
++집은 뒤에 검사하면 검사 대상과 처분 대상이 같음이 보장되고(경합에 진 쪽은 아무것도 만지지 않는다), 느린
++next-action 조회 동안 마감이 닳는 문제도 같이 사라진다.
++
++예외 하나 — **v1 레거시(마감 미기재)는 집지도 않는다**: 그건 파일만 열어 보면 알 수 있고(셸 0), 집었다 되돌리면
++사람이 손으로 소비 중인 파일을 흔들게 된다(아래 'v1 레거시 잡' 절).
++
++**클레임은 `mv`(rename) 로 한다.** 두 소비자가 같은 잡을 동시에 집으면 rename 은 하나만 성공하고 나머지는
++"파일이 없다"로 진다 — 원자성을 OS 가 보장한다. 잠금 파일이나 "있는지 보고 옮기기"로 대신하지 않는다(그건 경합에 열려 있다).
++
++## 사람 소비자 규약(운영자)
++
++운영자가 손으로 소비할 때도 위 규약을 그대로 따른다. 소비자 이름은 자기 토큰 하나를 정해 쓴다
++(영숫자·`.`·`_`·`-` 64자 이내, 예 `op-chabh`). `.` 이나 `..` 는 이름이 아니라 경로 이동이라 쓰지 않는다 —
++`.` 은 클레임이 `claimed/` 바로 밑에 놓여 reaper 가 못 찾고, `..` 는 잡을 `jobs/` 밖으로 내보낸다(코드도 거부한다).
++
++```bash
++cd chat
++
++# 0) 대기줄 훑기 — 어떤 잡이 있는지만 본다(여기서 읽은 내용으로 판정하지 않는다: 아래 2)에서 집은 실물로 다시 본다)
++ls jobs/pending/
++
++#    여기서 가르는 것은 하나뿐 — 마감(expires_at)이 아예 없으면 v1 레거시 잡이니 집지 말고
++#    아래 'v1 레거시 잡' 절의 방식으로 소비한다.
++grep expires_at jobs/pending/<run_id>-<stage>.json
++
++# 1) 클레임 — **검사보다 먼저**(위 '집고 나서 2중 검사' 절). mv 가 성공해야 내 잡이다
++#    (실패 = 누가 먼저 집었다 → 그냥 넘어간다)
++mkdir -p jobs/claimed/<내이름>
++mv jobs/pending/<run_id>-<stage>.json jobs/claimed/<내이름>/
++
++# 2) 집은 실물을 읽는다 — run_id·stage·expires_at. 아래 두 검사는 전부 이 파일에 대해서 한다
++cat jobs/claimed/<내이름>/<run_id>-<stage>.json
++
++# 3) 검사 ①(시간): 지금(UTC)과 expires_at 을 견준다. 남은 시간이 '이 단계에 쓸 시간'보다 짧으면
++#    전이하지 않는다 → 아래 '마감이 지났거나 빠듯할 때'로 간다.
++date -u +%Y-%m-%dT%H:%M:%SZ
++
++# 4) 검사 ②(차례): step=generate 이고 stage 가 집은 잡의 stage 와 같은지 확인
++bash "$HARNESS_ROOT/scripts/next-action.sh" <run_id>
++#    이미 전이됐으면(그 차례가 아님) 할 일이 이미 끝난 것 → 잡을 지우고 끝낸다(재실행 금지)
++#    rm jobs/claimed/<내이름>/<run_id>-<stage>.json
++
++# 5) 작업 — 둘 다 통과했을 때만. Claude Code 세션 안에서 그 단계 산출물을 **먼저 작성**한다
++#    (슬래시 `/<stage>` 스킬 또는 직접 작성)
++
++# 6) 전이 — 검증·전이는 스크립트가 한다(산출물이 없으면 스크립트가 친절히 중단한다)
++HARNESS_CLI=claude HARNESS_GEN_MODE=insession bash "$HARNESS_ROOT/scripts/run-stage.sh" <stage> <run_id>
++
++# 7) 마무리
++rm jobs/claimed/<내이름>/<run_id>-<stage>.json                     # 성공 → 잡 삭제(전이는 봇이 폴링으로 감지)
++
++# 또는 실패·포기 (failed/ 는 gitignore 라 새 체크아웃엔 없다 — 먼저 만든다)
++mkdir -p jobs/failed
++mv jobs/claimed/<내이름>/<run_id>-<stage>.json jobs/failed/
++echo "사유 한 줄" > jobs/failed/<run_id>-<stage>.json.reason
++```
++
++**마감(`expires_at`)이 지났거나 빠듯하면 전이하지 않는다.** 잡을 `failed/` 로 옮기고 사유에 "만료"를 적는다
++(`mkdir -p jobs/failed` 먼저 — 위와 같다).
++현업은 이미 실패 안내를 받은 뒤라, 늦은 전이는 "스레드엔 실패라고 떴는데 런은 넘어가 있는" 어긋남을 만든다.
++꼭 이어서 해야 하면 **스레드에서 그 단계를 다시 요청**하게 해 새 잡(새 마감)을 받는다 — 현업이 실패 카드의
++[상태 다시 확인] → [다시 만들기] 를 누르면 된다(아래 봇 규약).
++
++**이 보증은 절차적이다.** 데몬은 잡의 종료 시각을 마감에 묶어 구조적으로 못 넘기게 하지만, 사람에게 타이머를
++강제할 수는 없다 — 그래서 위 규약이 곧 보증이다. 어긋났을 때의 안전망은 현업이 실패 카드의
++**[상태 다시 확인]** 을 눌러 지금 상태를 다시 받는 것이고, 그 아래 최종 방어는 core 의 락·멱등 게이트다.
++
++## 봇 규약(BridgeGenExecutor)
++
++- **적재**: `expires_at`(= 적재시각 + `CHAT_BRIDGE_TIMEOUT`)과 `job_id` 를 실어 원자 기록(tmp+rename).
++- **대기**: next-action 폴링으로 전이를 감지하면 남은 pending 잡을 정리하고 완료 처리.
++- **타임아웃 = 회수**: 대기 상한을 넘기면 아직 `pending/` 에 있는 **자기 잡**(job_id 대조)을 거둬들인다 — 봇이
++  포기한 뒤 소비자가 뒤늦게 집어 '봇 몰래' 되살리는 창을 닫는다. 같은 단계로 새로 적재된 잡(job_id 다름)은 남의
++  요청이라 건드리지 않는다.
++- **회수 실패 = 늦은 성공 가능**: 이미 클레임된 잡은 회수할 수 없다(봇은 남의 프로세스를 죽이지 못한다). 그때는
++  실패 카드의 **[상태 다시 확인]** 버튼이 화해를 맡는다 — 누르면 next-action 을 다시 읽어 지금 게이트 카드를
++  그린다(상태를 바꾸지 않는 읽기 전용이라 어떤 게이트도 우회하지 않는다).
++- **회수 성공 = 요청이 사라짐 → [다시 만들기]**: 아무도 안 집은 채 봇이 포기하면 그 요청은 큐에서 없어지는데,
++  core 는 그대로 그 단계 생성 차례에 서 있다. 그래서 [상태 다시 확인] 이 next-action 을 다시 읽어 **여전히 생성
++  차례**임을 확인하면, 봇은 "만드는 중"이라 둘러대지 않고 **[다시 만들기]** 버튼을 낸다. 그 클릭은 옛 잡을
++  되살리는 게 아니라 **새 요청(새 `job_id`·새 `expires_at`)** 을 적재한다 — 누르는 순간 다시 한 번 next-action 을
++  확인하므로, 그새 소비자가 늦게 성공했으면 요청 대신 지금 게이트 카드가 뜬다(끝난 일을 다시 시키지 않는다).
++
++## 고아 클레임 회수(reaper)
++
++소비자가 잡을 집은 채 죽으면 `claimed/<소비자>/` 에 고아가 남는다. reaper 는 고아를 **무조건 재큐하지 않고 같은
++2중 검사를 다시 건다**: 아직 시간이 있고 여전히 그 차례일 때만 `pending/` 으로 되돌리고, 만료면 `failed/`,
++이미 전이됐으면 삭제한다(stale 재실행 차단). 살아 있는 소비자의 클레임과 판단 불가(조회 실패)는 손대지 않는다.
++
++소비자는 **기동 시 reaper 를 먼저 돌린 뒤 폴링을 시작한다** — 지난 생의 고아를 남겨 둔 채 새로 집으면 같은 이름의
++클레임을 자기가 덮어써 그 기록을 잃는다. 사람 운영자도 같다: 자기 `claimed/<내이름>/` 에 남은 잡이 있으면 새 잡을
++집기 전에 그것부터 정리한다(끝냈으면 삭제, 아니면 위 2중 검사대로 복귀·격리).
++
++## v1 레거시 잡(마감 없는 잡)
+ 
+-## 운영자 소비 규약(한 런의 한 단계)
++프로토콜 v1 은 `{run_id, stage, kind}` 만 썼다 — `expires_at` 이 없다. 그런 잡은 시간 검사를 할 수 없으므로
++**자동 소비 대상이 아니다**(마감이 없으면 데몬의 구조적 보증이 성립하지 않는다). 처분:
+ 
+-1. `jobs/pending/` 에 새 잡 파일이 있으면 그 `run_id`·`stage` 를 읽는다.
+-2. Claude Code 세션 안에서 해당 단계 산출물을 **먼저 작성**한다(슬래시 `/<stage>` 스킬 또는 직접 작성).
+-3. 전이:
+-   ```
+-   HARNESS_CLI=claude HARNESS_GEN_MODE=insession bash scripts/run-stage.sh <stage> <run_id>
+-   ```
+-   (검증·전이는 스크립트가 한다. 산출물이 없으면 스크립트가 친절히 중단한다.)
+-4. 전이가 끝나면(다음 게이트 도달) 챗 레이어의 폴링이 이를 감지해 카드가 자동 갱신된다. 처리한 잡 파일은 지운다.
++- 무인 데몬: 집지 않고 **그대로 둔다**(`failed/` 로 강등하지도 않는다 — 남의 대기줄을 함부로 치우지 않는다).
++- 사람 소비자: v1 잡은 애초에 **운영자 세션 소비**를 전제로 적재된 것이라, 위 사람 규약대로 소비하면 된다.
++  시간 검사 대신 **검사 ②(차례)** 를 반드시 확인한다 — 그게 그 잡이 아직 유효한지의 유일한 근거다.
++- 데몬에 넘기려면: 스레드에서 그 단계를 다시 요청해 **새 잡(v2)** 을 받는 것이 정석이다. 부득이하면 운영자가
++  `expires_at`(ISO-8601 UTC)과 `job_id` 를 채워 다시 저장한다 — 마감을 새로 거는 것은 사람의 결정이다.
+ 
+ ## 완료 판정
+ 
+-브리지는 `next-action.sh <run_id>` 의 `step` 이 `generate` 를 벗어나면(사람/심의 게이트 도달) 생성 완료로 본다.
+-`BridgeGenExecutor.timeoutMs`(기본 10분) 안에 전이가 없으면 대기 시간 초과로 실패 처리한다(무한 대기 금지).
++브리지는 `next-action.sh <run_id>` 의 `step` 이 `generate` 를 벗어나거나 `stage` 가 바뀌면(사람/심의 게이트 도달)
++생성 완료로 본다. `CHAT_BRIDGE_TIMEOUT`(기본 900초) 안에 전이가 없으면 대기 시간 초과로 실패 처리한다(무한 대기 금지).
+ 
+-## P4 / S-1 — 생성 무인화 스파이크 (Agent SDK 세션 워커)
++## P4 / S-1 — 생성 무인화 스파이크 (세션 워커)
+ 
+-**질문:** 운영자 세션(C2 브리지)을 Agent SDK 세션 워커로 대체해 브리프 너머까지 **무인** 완주할 수 있는가?
++**질문:** 운영자 세션(C2 브리지)을 무인 세션 워커로 대체해 브리프 너머까지 **무인** 완주할 수 있는가?
+ 
+ **설계(코드에 반영됨):** `kernel/gen-executor.ts` 의 세 번째 구현 `AgentSdkGenExecutor` 가 그 자리다.
+-- 실제 생성은 주입된 `sdkGenerate(rid, stage)` 가 한다 — Claude Agent SDK 로 세션 안에서 산출물을 쓰고
+-  `HARNESS_CLI=claude HARNESS_GEN_MODE=insession run-stage.sh <stage> <rid>` 로 전이시킨다(운영자가 하던 일을 SDK 가).
++- 실제 생성은 주입된 `sdkGenerate(rid, stage)` 가 한다 — 세션 안에서 산출물을 쓰고
++  `HARNESS_CLI=claude HARNESS_GEN_MODE=insession run-stage.sh <stage> <rid>` 로 전이시킨다(운영자가 하던 일을 대신).
+ - 이 클래스는 그 뒤 `next-action` 으로 전이를 확인한다(브리지와 **동일한 완료 계약**: 요청 stage 가 더 이상 현재 생성
+   대상이 아니면 완료). 확인 안 되면 fail-closed.
+ 
+@@ -42,9 +213,10 @@
+ +`sdkGenerate` 배선 **둘 다** 있을 때만 AgentSdk 로 승격. 하나라도 없으면 브리지로 폴백(S-1 실패/미배선이 다른 단계를
+ 막지 않음 — 계획 P4). 이 레포엔 `sdkGenerate` 가 배선돼 있지 않아 온라인은 항상 브리지(동작 불변).
+ 
+-**검증 상태(스파이크 경계):** Agent SDK 배선·insession 세션 마커(신뢰 감지)는 이 레포에 없어 **오프라인 검증 불가(live-only)**.
++**검증 상태(스파이크 경계):** 세션 워커 배선·insession 세션 마커(신뢰 감지)는 이 레포에 없어 **오프라인 검증 불가(live-only)**.
+ - 검증된 것(오프라인 단위 테스트): `selectGenExecutor` 분기(오프→Stub, 온라인 무-S1→Bridge, S-1+SDK→AgentSdk, S-1-무SDK→Bridge),
+-  `AgentSdkGenExecutor` 의 계약(미배선 fail-closed · 성공+전이확인 · 전이미확인 실패 · 중복 즉시반환).
+-- 미검증(라이브 필요): 실제 Agent SDK 세션 워커가 insession 산출물을 쓰고 전이시키는 것, 세션 신뢰 마커 감지.
+-- **결론:** S-1 승격 경로는 코드로 준비됐고 C2 브리지가 검증된 폴백으로 남아 있다. 무인화 활성화 = `sdkGenerate` 구현 배선
+-  + `CHAT_GEN_UNMANNED_S1=1` (core 무수정). 라이브 검증은 후속.
++  `AgentSdkGenExecutor` 의 계약(미배선 fail-closed · 성공+전이확인 · 전이미확인 실패 · 중복 즉시반환),
++  프로토콜 v2 수명주기(만료 미클레임 · 전이완료 삭제 · 경합 rename 승자 1명 · reaper 2중 검사 · 봇 타임아웃 회수).
++- 미검증(라이브 필요): 실제 세션 워커가 insession 산출물을 쓰고 전이시키는 것, 세션 신뢰 마커 감지.
++- **결론:** 무인 소비자가 붙을 자리(프로토콜 v2)는 준비됐고 C2 브리지가 검증된 폴백으로 남아 있다. 무인화 활성화 =
++  소비자 구현 배선 + `CHAT_GEN_UNMANNED_S1=1` (core 무수정). 라이브 검증은 후속.
+diff --git a/chat/src/adapters/slack/render.ts b/chat/src/adapters/slack/render.ts
+index 9fac883..b65dd7a 100644
+--- a/chat/src/adapters/slack/render.ts
++++ b/chat/src/adapters/slack/render.ts
+@@ -14,9 +14,11 @@
+ import { Actions, Button, Card, CardText, Select, SelectOption } from "chat";
+ import type { ButtonElement, CardChild, CardElement, SelectOptionElement } from "chat";
+ import {
++  GENERATE_RETRY_ACTION_ID,
+   INGEST_STAGED_ACTION_ID,
+   NL_INTAKE_CONFIRM_ACTION_ID,
+   RA_CONFIRM_ACTION_ID,
++  RECONCILE_ACTION_ID,
+   SETUP_ACTION_IDS,
+ } from "../../kernel/interaction.js";
+ import type {
+@@ -24,6 +26,8 @@ import type {
+   ConfirmGatePresentation,
+   DonePresentation,
+   EscalationPresentation,
++  FailurePresentation,
++  GenerateRetryPresentation,
+   ImageOptionSetPresentation,
+   IngestPromptPresentation,
+   NlProposalPresentation,
+@@ -36,7 +40,14 @@ import type {
+ } from "../../kernel/presentation.js";
+ 
+ // 어댑터가 재노출(구 cards.ts 호환 · 봇 배선/테스트 참조).
+-export { INGEST_STAGED_ACTION_ID, NL_INTAKE_CONFIRM_ACTION_ID, RA_CONFIRM_ACTION_ID, SETUP_ACTION_IDS };
++export {
++  GENERATE_RETRY_ACTION_ID,
++  INGEST_STAGED_ACTION_ID,
++  NL_INTAKE_CONFIRM_ACTION_ID,
++  RA_CONFIRM_ACTION_ID,
++  RECONCILE_ACTION_ID,
++  SETUP_ACTION_IDS,
++};
+ 
+ // ── 카드 고유 UI 문구 (라벨 passthrough 대상 아님 — 카드 자체 chrome) ─────────
+ const SETUP_PROMPT =
+@@ -52,6 +63,9 @@ const OPTION_REPLY_HINT =
+   "마음에 드는 안의 [이걸로]를 눌러 주세요. 직접 쓰고 싶으면 이 스레드에 답글로 적어 주셔도 돼요.";
+ const IMAGE_OPTION_HINT = "위 미리보기 중 마음에 드는 디자인의 [이걸로]를 눌러 주세요.";
+ const NL_PROPOSAL_TITLE = "이렇게 이해했어요";
++const FAILURE_RECONCILE_HINT =
++  "그새 처리가 끝났을 수도 있어요 — [상태 다시 확인]을 누르면 지금 상태를 다시 알려드릴게요.";
++const GENERATE_RETRY_HINT = "[다시 만들기]를 누르면 처음부터 다시 요청할게요.";
+ const VERDICT_STATUS: Record<VerdictOutcome, string> = {
+   pass: "통과 🟢",
+   revise: "보완 🟠",
+@@ -127,6 +141,51 @@ export function renderProgress(p: ProgressPresentation): CardElement {
+   return Card({ title: p.header, children: [CardText(p.message)] });
+ }
+ 
++/**
++ * 실패 카드 — 사유(passthrough) + [상태 다시 확인]. 그 버튼은 **읽기 전용 화해**다: 봇이 대기 상한에 포기한 뒤에도
++ *   잡을 집어 간 소비자가 늦게 성공할 수 있어(프로토콜 v2 보증 3분법), 사람이 지금 상태를 다시 물을 수 있어야 한다.
++ */
++export function renderFailure(p: FailurePresentation): CardElement {
++  return Card({
++    title: p.header,
++    children: [
++      CardText(p.message), // 워커의 평이 회신(passthrough)
++      CardText(FAILURE_RECONCILE_HINT),
++      Actions([
++        Button({
++          id: RECONCILE_ACTION_ID,
++          label: "상태 다시 확인",
++          style: "primary",
++          value: payload(p.rid, "reconcile"),
++        }),
++      ]),
++    ],
++  });
++}
++
++/**
++ * 생성 재요청 카드 — 상태 안내(passthrough) + [다시 만들기]. 커널이 **지금도 그 단계 생성 차례임을 확인했을 때만**
++ *   내보내는 표현이라(회수된 요청), 이 버튼은 옛 요청을 되살리는 게 아니라 새 요청(새 마감)을 만든다.
++ *   value 의 stage 는 도장(stamp) — 커널이 지금 단계와 대조해 옛 카드 클릭을 걸러낸다.
++ */
++export function renderGenerateRetry(p: GenerateRetryPresentation): CardElement {
++  return Card({
++    title: p.header,
++    children: [
++      CardText(p.message),
++      CardText(GENERATE_RETRY_HINT),
++      Actions([
++        Button({
++          id: GENERATE_RETRY_ACTION_ID,
++          label: "다시 만들기",
++          style: "primary",
++          value: payload(p.rid, "generate", { stage: p.stage }),
++        }),
++      ]),
++    ],
++  });
++}
++
+ /** 에스컬레이션 복구 카드 — [한 번 더 시도](raise-limit). 라벨(gateLabel/hint)은 passthrough. */
+ export function renderEscalation(p: EscalationPresentation): CardElement {
+   const children: CardChild[] = [CardText("여러 번 고쳐도 규정 점검을 통과하지 못했어요.")];
+@@ -309,6 +368,10 @@ export function toCard(p: Presentation): CardElement {
+       return renderIngestPrompt(p);
+     case "Progress":
+       return renderProgress(p);
++    case "Failure":
++      return renderFailure(p);
++    case "GenerateRetry":
++      return renderGenerateRetry(p);
+     case "ApproveGate":
+       return renderApproveGate(p);
+     case "ConfirmGate":
+diff --git a/chat/src/config.ts b/chat/src/config.ts
+index 3388a5b..5a25b59 100644
+--- a/chat/src/config.ts
++++ b/chat/src/config.ts
+@@ -126,11 +126,14 @@ export function slackTokens(): SlackTokens {
+ }
+ 
+ /**
+- * 챗 레이어 로컬 저장 루트(절대경로). .gitignore 대상: .state/·data/·jobs/pending/.
++ * 챗 레이어 로컬 저장 루트(절대경로). .gitignore 대상: .state/·data/·jobs/{pending,claimed,failed}/.
+  *   · state:       커스텀 파일 StateAdapter 백엔드 + run_id↔thread 매핑
+  *   · data:        수신 첨부/산출물 스냅샷 등
+  *   · jobs:        잡큐 루트(run별 FIFO)
+- *   · jobsPending: 대기 중 잡(전이 전 · 워커가 소비)
++ *   · jobsPending: 대기 중 생성 잡(소비자가 집기 전)
++ *   · jobsClaimed: 소비자가 집은 잡(`claimed/<소비자>/` — 클레임-by-rename 의 목적지)
++ *   · jobsFailed:  실패·만료 격리 잡(+ `.reason` 사유 파일)
++ * 잡 큐 3면의 규약 = kernel/job-protocol.ts(프로토콜 v2) · 사람용 문서 = jobs/README.md.
+  * env 오버라이드: CHAT_STATE_DIR · CHAT_DATA_DIR · CHAT_JOBS_DIR.
+  */
+ export interface StoragePaths {
+@@ -138,6 +141,8 @@ export interface StoragePaths {
+   data: string;
+   jobs: string;
+   jobsPending: string;
++  jobsClaimed: string;
++  jobsFailed: string;
+ }
+ export function storagePaths(): StoragePaths {
+   const state = readEnv("CHAT_STATE_DIR") ?? join(PACKAGE_ROOT, ".state");
+@@ -148,6 +153,8 @@ export function storagePaths(): StoragePaths {
+     data: resolve(data),
+     jobs: resolve(jobs),
+     jobsPending: resolve(join(jobs, "pending")),
++    jobsClaimed: resolve(join(jobs, "claimed")),
++    jobsFailed: resolve(join(jobs, "failed")),
+   };
+ }
+ 
+@@ -192,6 +199,64 @@ export function nlFileRoots(): string[] {
+     .filter((s) => s.length > 0 && isAbsolute(s));
+ }
+ 
++/**
++ * NL 파서 선택 스위치(chat-dual-surface-plan 5-1 · env 규약표) — env CHAT_NL_PARSER(기본 "auto").
++ *   허용: auto|stub|cli|api. 그 외 **비-빈** 값은 오설정이므로 즉시 예외(fail-fast) — 운영 중 "왜 stub 이지?"
++ *   미스터리를 기동 시점에서 끊는다(계획 4절 '명시 스위치 + fail-fast'). 빈/미설정은 기본 auto.
++ * @throws 알 수 없는 값이면 Error(한국어 안내).
++ */
++export function nlParser(): "auto" | "stub" | "cli" | "api" {
++  const raw = readEnv("CHAT_NL_PARSER");
++  if (raw === undefined) return "auto";
++  if (raw === "auto" || raw === "stub" || raw === "cli" || raw === "api") return raw;
++  throw new Error(
++    `CHAT_NL_PARSER 값이 올바르지 않습니다: "${raw}" — auto|stub|cli|api 중 하나여야 합니다.`,
++  );
++}
++
++/**
++ * '초 단위 env' → 밀리초 상한(공용 규약). 숫자 아님·0 이하 같은 비정상 값은 조용히 기본값으로 폴백하고(잘못된 설정이
++ *   무한/즉시 타임아웃을 만들지 않게), 유효값이라도 **하한 1000ms**로 clamp 한다 — 서브초(예 0.0001초→0ms)로
++ *   반올림되면 상한이 사실상 0/즉시가 돼 '언제나 kill 할 수 있어야 한다'·'적재된 잡을 누군가는 집을 수 있어야 한다'는
++ *   전제가 깨진다.
++ */
++function timeoutEnvMs(name: string, defaultMs: number): number {
++  const raw = readEnv(name);
++  if (raw === undefined) return defaultMs;
++  const sec = Number(raw);
++  if (!Number.isFinite(sec) || sec <= 0) return defaultMs;
++  return Math.max(1000, Math.round(sec * 1000));
++}
++
++/**
++ * CliNlParser 1콜 wall-clock 상한 — env CHAT_NL_CLI_TIMEOUT(**초 단위**), 반환은 **밀리초**. 기본 120000ms(=120초).
++ *   비정상 값·clamp 규약은 timeoutEnvMs 참조(멈춘 CLI 를 언제나 죽일 수 있도록 최소 1초 보장).
++ */
++export function nlCliTimeout(): number {
++  return timeoutEnvMs("CHAT_NL_CLI_TIMEOUT", 120_000);
++}
++
++/**
++ * 봇(브리지) 생성 대기 상한 — env CHAT_BRIDGE_TIMEOUT(**초 단위**), 반환은 **밀리초**. 기본 900000ms(=900초).
++ *   구 하드코딩 600000ms 를 env 로 승격한 값이다(chat-dual-surface-plan 6절 env 규약).
++ *
++ * ⚠ 이 값은 봇의 폴링 상한이자 **잡 `expires_at` 의 원천**이다(적재시각 + 이 값 = 절대 마감). 봇·소비자가 같은
++ *   마감을 보게 하려면 마감의 출처가 하나여야 한다(이중 시계 금지) — 그래서 두 쓰임이 같은 함수를 읽는다.
++ *   비정상 값·하한 1000ms clamp 는 timeoutEnvMs 규약(서브초 마감이면 적재되자마자 만료돼 아무도 못 집는다).
++ */
++export function bridgeTimeout(): number {
++  return timeoutEnvMs("CHAT_BRIDGE_TIMEOUT", 900_000);
++}
++
++/**
++ * cli 파서 과금 활성화 게이트 ack 여부(계획 5-1·잠긴 결정 6) — env CHAT_NL_CLI_VERIFIED === "1" 일 때만 true.
++ *   운영자가 첫 실콜의 과금 귀속(구독/크레딧/API 중 어디에 잡히는지)을 실측 확인했다는 명시 ack 다.
++ *   이 확인 전에는 selectNlParser 의 auto 경로에서 cli 를 제외한다(명시 CHAT_NL_PARSER=cli opt-in 만 허용).
++ */
++export function nlCliVerified(): boolean {
++  return readEnv("CHAT_NL_CLI_VERIFIED") === "1";
++}
++
+ /**
+  * 생성 무인화(S-1 · P4) 채택 여부 — env CHAT_GEN_UNMANNED_S1="1" 일 때만 true. 기본 false → 온라인 생성은
+  *   검증된 C2 브리지(운영자 세션 소비)를 쓴다. true 라도 Agent SDK 호출(sdkGenerate)이 배선돼 있어야 실제로
+diff --git a/chat/src/kernel/flow.ts b/chat/src/kernel/flow.ts
+index 189d1b5..365e2e6 100644
+--- a/chat/src/kernel/flow.ts
++++ b/chat/src/kernel/flow.ts
+@@ -21,14 +21,22 @@ import { toViewModel, type ViewModel } from "./viewmodel.js";
+ import { saveWorkingBackwardsText, stageIntakeFolder } from "./intake.js";
+ import { newRun as defaultNewRun } from "./harness-cli.js";
+ import { readNextAction as defaultReadNextAction } from "./contract-client.js";
+-import { NL_INTAKE_CONFIRM_ACTION_ID, SETUP_ACTION_IDS, RA_CONFIRM_ACTION_ID } from "./interaction.js";
+-import { selectNlParser, validateIntakeFiles, type NlIntent, type NlParser } from "./nl/index.js";
++import {
++  GENERATE_RETRY_ACTION_ID,
++  NL_INTAKE_CONFIRM_ACTION_ID,
++  RECONCILE_ACTION_ID,
++  SETUP_ACTION_IDS,
++  RA_CONFIRM_ACTION_ID,
++} from "./interaction.js";
++import { fieldsUncertain, selectNlParser, validateIntakeFiles, type NlIntent, type NlParser } from "./nl/index.js";
+ import type { ChatPort } from "./ports.js";
+ import type {
+   ApproveGatePresentation,
+   ConfirmGatePresentation,
+   DonePresentation,
+   EscalationPresentation,
++  FailurePresentation,
++  GenerateRetryPresentation,
+   ImageOptionSetPresentation,
+   IngestPromptPresentation,
+   NlProposalPresentation,
+@@ -154,6 +162,20 @@ function setupP(c: { product?: string; domain?: string; format?: string } = {}):
+ function progressP(vm: ViewModel, message: string): ProgressPresentation {
+   return { type: "Progress", rid: vm.rid, header: vm.header, message };
+ }
++/** 실패 카드 — 사유 + [상태 다시 확인](늦은 성공 화해 · 읽기 전용). */
++function failureP(vm: ViewModel, message: string): FailurePresentation {
++  return { type: "Failure", rid: vm.rid, header: vm.header, message };
++}
++/** 생성 재요청 카드 — 생성 차례인데 아무도 만들고 있지 않을 때(회수된 요청)의 출구. 방아쇠는 사람의 버튼. */
++function generateRetryP(vm: ViewModel, stage: string): GenerateRetryPresentation {
++  return {
++    type: "GenerateRetry",
++    rid: vm.rid,
++    header: vm.header,
++    message: "아직 만들어지지 않았어요 — 다시 요청할 수 있어요.",
++    stage,
++  };
++}
+ function ingestP(vm: ViewModel): IngestPromptPresentation {
+   return { type: "IngestPrompt", rid: vm.rid, header: vm.header, gateLabel: vm.gateLabel, hint: vm.hint };
+ }
+@@ -249,10 +271,12 @@ async function handleNlSetup(threadId: string, gw: Gateway, intent: NlIntent): P
+ async function handleNlIntake(threadId: string, gw: Gateway, intent: NlIntent): Promise<void> {
+   await gw.chat.subscribe(threadId);
+   // ⚠ 새 인입 제안은 이전 인입 제안을 즉시 무효화한다(Codex P3 HIGH): 선언이 바뀌었으므로 옛 제안 대기는 폐기.
+-  //   아래에서 '전부 통과 + 3필드 완비'일 때만 새 대기를 심는다 — 거부/불완전이면 대기가 없어, 옛 카드 클릭은
+-  //   pending 부재로 no-op(거부된 재선언 뒤 옛 카드로 부분 확정하는 것 차단).
++  //   아래에서 '전부 통과 + 3필드 완비'일 때만 새 대기(intake)를, 제품명만 미정이면 새 draft(intake_draft)를 심는다 —
++  //   거부/불완전이면 대기가 없어, 옛 카드 클릭·옛 draft 완성이 pending 부재로 no-op(거부된 재선언 뒤 옛 자료 확정 차단).
++  //   ⚠ intake 뿐 아니라 intake_draft 도 비운다: 거부된 재선언이 옛 draft 를 남기면 뒤이은 제품명 답글이 옛 파일로
++  //     완성돼 버린다(fail-closed 위반 · Codex intake_draft HIGH).
+   const prior = await gw.pending.get(threadId);
+-  if (prior?.kind === "intake") await gw.pending.clear(threadId);
++  if (prior?.kind === "intake" || prior?.kind === "intake_draft") await gw.pending.clear(threadId);
+   const roots = gw.nlFileRoots();
+   const v = validateIntakeFiles(intent.files, roots);
+   // 파일 경로를 하나도 못 잡음(빈 목록/파싱 실패).
+@@ -289,7 +313,12 @@ async function handleNlIntake(threadId: string, gw: Gateway, intent: NlIntent):
+       nonce,
+     });
+     confirm = { actionId: NL_INTAKE_CONFIRM_ACTION_ID, label: "이 자료로 시작", payload: JSON.stringify({ nonce }) };
++  } else if (intent.domain && intent.format) {
++    // 제품명만 미정(파일·도메인·포맷은 있음): 제안 맥락을 draft 대기로 심어, 다음 답글(제품명)이 이 제안을
++    //   완성하게 한다(P3-2 보완). draft 는 확정 버튼이 없다 — 완성돼야 [이 자료로 시작] 이 붙는다.
++    await gw.pending.set(threadId, { kind: "intake_draft", files: intent.files, domain: intent.domain, format: intent.format });
+   }
++  // (도메인/포맷까지 미정이면 draft 를 심지 않는다 — 되물음만; 사람이 자연어로 다시 선언한다. rule 8: 도메인은 사람 선언.)
+   const proposal: NlProposalPresentation = {
+     type: "NlProposal",
+     kind: "intake",
+@@ -353,6 +382,80 @@ async function confirmNlIntake(
+   return { enqueued: job };
+ }
+ 
++/**
++ * [상태 다시 확인] — 실패 카드의 **화해**(잡 큐 프로토콜 v2 보증 3분법의 봇 몫). next-action 을 다시 읽어 지금
++ *   게이트 카드를 그린다. 늦게 성공한 생성(봇이 포기한 뒤 소비자가 끝낸 경우)을 사람이 JSON 손편집 없이 따라잡는 길이다.
++ *
++ * 승인자 가드가 없는 이유: **상태를 바꾸지 않는다**(잡 0 · next-action 은 읽기 전용) — 4동작의 '본다'에 해당한다.
++ * run_id 는 스레드↔run 매핑으로 해석한다(버튼 value 의 run_id 불신 — 변조된 value 가 남의 런 상태를 이 스레드에
++ *   그리게 하지 않는다). 매핑이 없으면 확인할 대상이 없으므로 no-op.
++ */
++async function reconcile(threadId: string, gw: Gateway): Promise<void> {
++  const rid = await gw.map.runForThread(threadId);
++  if (!rid) return;
++  const na = await gw.readNext(rid).catch(() => null);
++  if (!na) {
++    await gw.chat.render(
++      threadId,
++      progressP(toViewModel(stubNext(rid)), "지금 상태를 확인하지 못했어요 — 잠시 후 다시 눌러 주세요."),
++    );
++    return;
++  }
++  const p = await presentationForStatusCheck(na);
++  await gw.chat.render(threadId, p ?? progressP(toViewModel(na), "아직 진행 중이에요 — 잠시 후 다시 확인해 주세요."));
++}
++
++/**
++ * [다시 만들기] — 회수된 생성의 출구(보증 3분법의 봇 몫 나머지 절반). **옛 요청을 되살리지 않는다**: 기존 생성 잡
++ *   경로로 다시 넣어 **새 마감(expires_at)이 붙은 새 요청**을 만든다(프로토콜 v2 — stale 부활 금지).
++ *
++ * ⚠ 방아쇠 전에 core 에 되묻는다(진실의 출처 = next-action): 지금도 그 단계 생성 차례일 때만 요청한다. 그 사이
++ *   소비자가 늦게 성공했거나 다음 단계로 넘어갔으면 요청 대신 지금 게이트 카드를 그린다 — 봇의 옛 타이머를 근거로
++ *   이미 끝난 일을 다시 시키지 않는다.
++ * run_id 는 스레드↔run 매핑으로 해석한다(reconcile 과 동일 — 버튼 value 의 run_id 불신). 버튼이 실은 stage 는
++ *   **도장(stamp)** 이다: 지금 단계와 다르면 옛 카드를 보고 누른 것이라 만들지 않는다(다안 [이걸로] 와 같은 결).
++ */
++async function retryGenerate(
++  threadId: string,
++  actor: string,
++  stampStage: string | undefined,
++  gw: Gateway,
++): Promise<{ enqueued?: Job } | void> {
++  const rid = await gw.map.runForThread(threadId);
++  if (!rid) return; // 스레드에 run 이 없으면 다시 만들 대상이 없다.
++  const na = await gw.readNext(rid).catch(() => null);
++  if (!na) {
++    await gw.chat.render(
++      threadId,
++      progressP(toViewModel(stubNext(rid)), "지금 상태를 확인하지 못했어요 — 잠시 후 다시 눌러 주세요."),
++    );
++    return;
++  }
++  if (na.action !== "generate" || !na.stage || (stampStage !== undefined && stampStage !== na.stage)) {
++    // 지금은 생성 차례가 아니거나(늦은 성공·다음 단계로 전진) 옛 카드의 클릭 — 상태만 다시 보여준다(잡 0).
++    const p = await presentationForStatusCheck(na);
++    await gw.chat.render(threadId, p ?? progressP(toViewModel(na), "아직 진행 중이에요 — 잠시 후 다시 확인해 주세요."));
++    return;
++  }
++  const job: Job = { kind: "generate", run_id: rid, actor, payload: { stage: na.stage } };
++  await gw.queue.submit(job);
++  await gw.chat.render(threadId, progressP(toViewModel(na), "다시 요청했어요 — 다 만들어지면 알려드릴게요."));
++  return { enqueued: job };
++}
++
++/**
++ * 사람이 '지금 어떻게 됐어요?'라고 물었을 때의 표현([상태 다시 확인] · 자연어 실행 요청). presentationForNext 와
++ *   같되 **생성 차례면 [다시 만들기] 카드**를 낸다.
++ *   이유: 사람이 물어보는 시점의 '생성 차례'는 봇이 이미 포기한 뒤다(실패 카드에서만 [상태 다시 확인]이 나온다).
++ *   그 요청은 회수돼 큐에 없으므로 버튼 없는 "만드는 중이에요…"는 사실이 아니고, 출구도 없다(런이 고립된다).
++ * ⚠ 자동 이어가기(presentationForOutcome)는 이 표현을 쓰지 않는다 — 그쪽은 카드를 낸 직후 생성 잡을 넣으므로
++ *   정말 만드는 중이고, 재요청 버튼을 붙이면 진행 중인 생성에 중복 요청을 부른다.
++ */
++async function presentationForStatusCheck(na: NextAction): Promise<Presentation | null> {
++  if (na.action === "generate" && na.stage) return generateRetryP(toViewModel(na), na.stage);
++  return presentationForNext(na);
++}
++
+ /**
+  * 대기 없는 답글 처리(P3): 스레드에 run 이 있고 자연어가 게이트 실행 의도("승인해줘"·"시작해줘"·"이걸로")면
+  *   현재 게이트의 버튼 카드를 다시 띄운다(NL 은 실행하지 않음 — 잠긴 결정 6). 그 외 자유 답글은 무시.
+@@ -365,10 +468,48 @@ async function handleNoPendingReply(threadId: string, text: string, gw: Gateway)
+   const intent = await gw.nl.parse(t, { hasRun: true });
+   if (intent.kind !== "execute") return; // 실행 의도가 아니면 아무것도 안 함.
+   const na = await gw.readNext(rid).catch(() => stubNext(rid));
+-  const p = await presentationForNext(na);
++  // 물어본 사람에게도 [다시 만들기] 출구를 준다(버튼 클릭과 같은 화면) — 여기서 실행하지는 않는다(잠긴 결정 6).
++  const p = await presentationForStatusCheck(na);
+   if (p) await gw.chat.render(threadId, p);
+ }
+ 
++/** 답글 선두의 봇 멘션 토큰(`<@U…>` 또는 `@U…` 형태) 1개 제거 — 재멘션으로 답할 때 제품명에 멘션이 섞이지 않게. */
++function stripLeadingMention(text: string): string {
++  return (text ?? "").replace(/^\s*<?@[A-Za-z0-9._-]+>?\s+/, "");
++}
++
++/** 파일 맥락 신호 ①: 절대경로 토큰(확장자 유무·종류 무관 — 파서가 못 잡은 경로도 포착). */
++const FILE_PATH_TOKEN = /(?:^|[\s"'(<])\/[^\s"'>]/;
++/**
++ * 파일 맥락 신호 ②: 파일/자료를 **가리키는 말**(명사). 한국어는 부분문자열, 영어는 단어경계(\b) —
++ *   영어 부분문자열 오탐(profile/documentation/ladder) 방지.
++ */
++const FILE_NOUN = /(파일|첨부|자료|문서|성적서)/;
++const FILE_NOUN_EN = /\b(file|files|document|documents|report|reports|material|materials|attach|upload)\b/i;
++/** 변경 동사 — **그 자체로는 파일 얘기가 아니다**(설정·제품명도 "바꿔"·"추가"의 대상이 된다). */
++const MUTATE_VERB = /(빼|제거|삭제|없이|바꿔|교체|추가)/;
++const MUTATE_VERB_EN = /\b(remove|without|replace|delete|add|drop)\b/i;
++
++/**
++ * 답글이 **파일/자료를 바꾸거나 빼려는 의도**를 담고 있는가 — intake_draft 완성 시 fail-closed 판단용(Codex intake_draft
++ *   HIGH). 이게 참인데 파서가 파일을 깨끗이 못 잡았으면, 옛 draft 파일로 조용히 완성하지 않고 되묻는다(현업이 바꾸려던
++ *   자료가 옛 자료로 확정되는 것 차단). 판정은 두 단계다:
++ *
++ *   ① **파일 맥락**(절대경로 토큰 · 파일/자료 명사) → 무조건 참. 제품명에 그 낱말이 섞인 과탐도 안전 방향으로 남긴다
++ *      (예 "…문서…" → 되물음). 여기서 파서가 뽑은 제품명을 근거로 예외를 두면 "이 자료 빼고 제품명은 X" 가 옛 자료로 확정된다.
++ *   ② 파일 맥락 없이 **변경 동사만** 있으면(예 "한장으로 바꿔줘") 파일 얘기로 단정하지 않는다 — 그 답글을 파서가
++ *      설정/제품명 선언으로 이해했으면 그 선언으로 본다. 이해하지 못했으면(무엇을 바꾸라는지 불명) 여전히 참 =
++ *      fail-closed(예 "그거 빼줘"). 동사만으로 참을 내던 옛 규칙은 설정 보완("한장으로 바꿔줘")까지 거부해 draft 를
++ *      날렸다 — 자료를 지키려다 대화를 막았다.
++ */
++function replyTargetsFiles(text: string, parsed: NlIntent): boolean {
++  const t = text ?? "";
++  if (FILE_PATH_TOKEN.test(t) || FILE_NOUN.test(t) || FILE_NOUN_EN.test(t)) return true; // ① 파일 맥락
++  if (!MUTATE_VERB.test(t) && !MUTATE_VERB_EN.test(t)) return false; // 변경 의도 자체가 없음 — 평문(제품명)
++  // ② 변경 동사만 — 파서가 설정/제품명 선언으로 이해했으면 그 선언, 아니면 무엇을 바꾸려는지 불명이라 fail-closed.
++  return !(parsed.domain || parsed.format || parsed.product);
++}
++
+ // ── 핸들러(순수) — fake 이벤트·게이트웨이로 테스트 ───────────────────────────
+ 
+ /**
+@@ -444,6 +585,19 @@ export async function onAction(event: ButtonPressed, gw: Gateway): Promise<{ enq
+     return confirmNlIntake(threadId, actor, gw, nonce);
+   }
+ 
++  // ── [상태 다시 확인](실패 카드) → 상태 재조회 후 지금 게이트 카드 재게시(잡 0 · 읽기 전용 화해) ──
++  if (actionId === RECONCILE_ACTION_ID) {
++    if (!threadId) return;
++    return reconcile(threadId, gw);
++  }
++
++  // ── [다시 만들기](생성 재요청 카드) → 상태 재확인 후 **새 요청**(새 마감)으로 생성 잡 재적재 ──
++  //   value 의 stage 만 도장으로 쓴다(run_id 는 스레드 매핑이 진실 — 변조 value 로 남의 런을 만들지 못하게).
++  if (actionId === GENERATE_RETRY_ACTION_ID) {
++    if (!threadId) return;
++    return retryGenerate(threadId, actor, parseActionValue(value)?.stage, gw);
++  }
++
+   // ── RA 확인 카드의 명시 확인 클릭 → approve(ra_ok=true) 잡(승인자만) ──
+   if (actionId === RA_CONFIRM_ACTION_ID) {
+     const parsed = parseActionValue(value);
+@@ -601,6 +755,62 @@ export async function onReply(ev: TextReply, gw: Gateway): Promise<void> {
+     return;
+   }
+ 
++  // intake_draft 대기(P3-2 보완): 제품명만 미정인 인입 제안에서 온 답글 = 제품명. 되물음에 대한 직접 답이므로
++  //   자유-파싱하지 않고 답 그대로를 제품명으로 채택한다(도메인 추론 아님 → rule 8 무관). 완성 → handleNlIntake 가
++  //   경로를 재검증하고 [이 자료로 시작] 버튼 제안으로 승격한다(방아쇠는 여전히 버튼 — 잠긴 결정 6).
++  if (pending.kind === "intake_draft") {
++    if (hasAttachments) return; // 첨부는 무시(draft 보존)
++    const t = stripLeadingMention(text).trim();
++    if (!t) return; // 빈 답글 무시(draft 보존)
++    const draft = pending; // 평문 답=제품명 경로에서 쓸 파일·도메인·포맷을 파싱 전에 포착
++    // ⚠ 경쟁 차단(intake 분기와 동일): 비동기 재파싱 전에 draft 대기를 먼저 비운다.
++    // ⚠ 재선언 대응(Codex intake_draft HIGH #2): 구독 스레드에선 재멘션/재선언도 여기(onReply)로 온다 —
++    //   답글을 무조건 제품명으로 삼으면 '거부돼야 할 재선언'이 옛 draft 의 제품명으로 삼켜져 옛 파일이 확정된다.
++    //   그래서 먼저 재파싱해 새 선언인지 가른다: 파일 재선언→새 제안(옛 draft 폐기) · 설정 재선언(파일 없음)→draft
++    //   파일과 병합 · 그 외(평문)만 → 되물음의 답=제품명으로 draft 완성(자유-파싱 아님이라 rule 8 무관).
++    await gw.pending.clear(threadId);
++    const parsed = await gw.nl.parse(t, { hasRun: false });
++    // ① 새 파일 재선언(파싱 성공) → 새로 검증·제안(옛 draft 폐기 · 잘못된 파일은 handleNlIntake 가 fail-closed 거부).
++    if (parsed.kind === "intake" && parsed.files.length > 0) {
++      await handleNlIntake(threadId, gw, parsed);
++      return;
++    }
++    // ② 답글이 파일/자료 변경 의도(경로 토큰·파일 명사·정체불명 변경 지시)를 담았는데 파싱이 깨끗한 파일을 못 냄
++    //    → **fail-closed**. Codex intake_draft HIGH: 공백/미인식/확장자-밖 경로 재선언·파일 제거 의도가 옛 draft
++    //    파일 완성으로 새는 것 차단(판정 상세 = replyTargetsFiles).
++    if (replyTargetsFiles(t, parsed)) {
++      await gw.chat.render(
++        threadId,
++        progressP(
++          toViewModel(stubNext(makeRunId(threadId))),
++          "자료를 바꾸거나 빼려면, 쓸 파일 경로를 모두 포함해 새 메시지로 저를 다시 멘션해 주세요(제품명만 답글로 주시면 그건 제품명으로 처리돼요).",
++        ),
++      );
++      return;
++    }
++    // ③ 파일 의도 없음 → 옛 draft 파일 유지 안전. 되물음의 답=제품명(+파싱된 설정 refinement 병합).
++    //    제품명은 '파싱된 product' 우선, 그게 없고 답글이 순수 평문(설정필드·파일 0)이면 답글 전체를 제품명으로.
++    //    설정 재선언(도메인/포맷만, 제품명 없음)이면 product 미설정 → handleNlIntake 가 draft 를 다시 심어 제품명을 재요청.
++    const isBare = !parsed.domain && !parsed.format && !parsed.product && parsed.files.length === 0;
++    const product = parsed.product ?? (isBare ? t : undefined);
++    const merged = {
++      domain: parsed.domain ?? draft.domain,
++      format: parsed.format ?? draft.format,
++      ...(product ? { product } : {}),
++    };
++    const completed: NlIntent = {
++      kind: "intake",
++      files: draft.files,
++      ...merged,
++      // ⚠ 미확신은 **병합 결과에서 다시 계산**한다(하드코딩 [] 금지): 답글이 설정만 고치면(예 "한장") 제품명이 여전히
++      //   비는데, uncertain 이 비어 있으면 handleNlIntake 가 되물음도 확정 버튼도 없는 카드를 낸다(대화가 막힌다).
++      uncertain: fieldsUncertain(merged),
++      confidence: 0.9,
++    };
++    await handleNlIntake(threadId, gw, completed);
++    return;
++  }
++
+   // intake 대기(P3-2): 확정은 버튼(confirmNlIntake)이지만, 구독된 스레드라 **재멘션·재선언도 여기(onReply)로 온다**.
+   //   새 자연어 선언이면 다시 파싱해 해당 핸들러로 넘긴다 — handleNlIntake 가 이전 인입 대기를 무효화하고 다시 제안한다
+   //   (거부/불완전이면 대기 없음 → 옛 카드 확정 불가). 그 외(잡담·실행요청)는 무시(확정은 버튼 — 잠긴 결정 6).
+@@ -671,8 +881,10 @@ export async function onOutcome(outcome: WorkerOutcome, gw: Gateway): Promise<vo
+   if (!threadId) return;
+ 
+   // 실패면 자동 재시도하지 않고 사유를 알린다 — next-action 이 그대로라 같은 잡을 무한 재큐하는 것 방지.
++  //   카드에 [상태 다시 확인]을 붙인다(프로토콜 v2 화해): 생성 대기 상한 초과처럼 '봇은 포기했지만 소비자가
++  //   늦게 성공할 수 있는' 실패가 있어, 사람이 스스로 지금 상태를 물어볼 수 있어야 스레드가 고아가 되지 않는다.
+   if (!outcome.ok) {
+-    await gw.chat.render(threadId, progressP(toViewModel(outcome.next ?? stubNext(outcome.run_id)), outcome.message));
++    await gw.chat.render(threadId, failureP(toViewModel(outcome.next ?? stubNext(outcome.run_id)), outcome.message));
+     return;
+   }
+ 
+diff --git a/chat/src/kernel/gen-executor.ts b/chat/src/kernel/gen-executor.ts
+index 6d1ded1..e29394e 100644
+--- a/chat/src/kernel/gen-executor.ts
++++ b/chat/src/kernel/gen-executor.ts
+@@ -19,12 +19,19 @@
+  *
+  * 불변식: state.json 직접 쓰기 0. 브리지는 pending 잡 '파일'만 기록하고 전이는 core scripts(세션)가 한다.
+  */
+-import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
++import { unlink } from "node:fs/promises";
+ import { join } from "node:path";
+-import { randomUUID } from "node:crypto";
+-import { genUnmannedS1, isOffline, isSafeRunId, storagePaths } from "../config.js";
++import { bridgeTimeout, genUnmannedS1, isOffline, isSafeRunId, storagePaths } from "../config.js";
+ import { runStage as defaultRunStage, type HarnessResult } from "./harness-cli.js";
+ import { readNextAction as defaultReadNextAction } from "./contract-client.js";
++import {
++  buildGenerateJob,
++  isGenerateTurn,
++  isSafeStage,
++  jobFileName,
++  recallPendingJob,
++  writePendingJob,
++} from "./job-protocol.js";
+ import type { GenExecutor } from "../types/jobs.js";
+ import type { NextAction } from "../types/contract.js";
+ 
+@@ -71,7 +78,7 @@ export interface BridgeDeps {
+   jobsPendingDir?: string;
+   /** 폴링 간격(ms, 기본 3000). */
+   pollIntervalMs?: number;
+-  /** 최대 대기(ms, 기본 600000=10분). 초과 시 Error(무한대기 금지). */
++  /** 최대 대기(ms, 기본 config.bridgeTimeout() = env CHAT_BRIDGE_TIMEOUT · 900초). 초과 시 Error(무한대기 금지). */
+   timeoutMs?: number;
+   /** 테스트 주입: sleep. */
+   sleep?: (ms: number) => Promise<void>;
+@@ -81,19 +88,24 @@ export interface BridgeDeps {
+ 
+ const defaultSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+ 
+-/** stage 는 파일명/셸 인자로 쓰이므로 안전 토큰만(소문자·숫자·하이픈). 경로분리·`..` 차단. */
+-const SAFE_STAGE = /^[a-z0-9-]+$/;
+-
+-/** 생성 인자 검증 — 변조된 잡의 run_id/stage 가 파일경로를 탈출(`../`)하는 것 차단(양 실행기 공통). */
++/** 생성 인자 검증 — 변조된 잡의 run_id/stage 가 파일경로를 탈출(`../`)하는 것 차단(세 실행기 공통). */
+ function assertGenArgs(run_id: string, stage: string): void {
+   if (!isSafeRunId(run_id)) throw new Error(`gen-executor: run_id 형식이 안전하지 않습니다: ${run_id}`);
+-  if (!SAFE_STAGE.test(stage)) throw new Error(`gen-executor: stage 형식이 안전하지 않습니다: ${stage}`);
++  if (!isSafeStage(stage)) throw new Error(`gen-executor: stage 형식이 안전하지 않습니다: ${stage}`);
+ }
+ 
+ /**
+- * BridgeGenExecutor — 셸을 직접 띄우지 않고 pending 잡 파일을 적재한 뒤, 운영자 Claude Code 세션이
+- *   세션 내(insession) 생성으로 전이시키기를 next-action 폴링으로 기다린다(전이 감지 시 resolve).
++ * BridgeGenExecutor — 셸을 직접 띄우지 않고 pending 잡 파일을 적재한 뒤, 소비자(운영자 Claude Code 세션 ·
++ *   후속의 무인 데몬)가 세션 내(insession) 생성으로 전이시키기를 next-action 폴링으로 기다린다(전이 감지 시 resolve).
+  *   무한 대기 금지 — timeoutMs 초과 시 명확한 Error. 파일 기록만(state 직접쓰기 0).
++ *
++ * 프로토콜 v2 에서 봇 몫(chat-dual-surface-plan 3절 — 큐·커널 로직은 그대로, 봇 변경은 additive):
++ *   · 적재하는 잡에 `expires_at`(= 적재시각 + timeoutMs) 을 싣는다 — 봇의 폴링 마감과 **같은 값**이다(이중 시계 금지).
++ *   · 대기 상한 초과 시 아직 pending 인 **자기 잡을 회수**한다(나중 소비자가 봇 몰래 되살리는 창을 닫는다).
++ *   · 회수 실패(이미 클레임됨) = 늦은 성공이 가능하다는 뜻 → 그 화해는 실패 카드의 [상태 다시 확인] 버튼이 한다
++ *     (보증 3분법의 봇 몫 — 봇은 소비자를 죽일 수 없으므로 UX 로 닫는다).
++ *   · 회수 성공 = 요청이 사라졌다는 뜻(core 는 그대로 생성 차례) → [상태 다시 확인]이 그 사실을 확인하고 [다시 만들기]
++ *     카드를 낸다(flow.presentationForStatusCheck). 그 클릭은 옛 잡 부활이 아니라 이 실행기를 다시 타는 **새 요청**이다.
+  */
+ export class BridgeGenExecutor implements GenExecutor {
+   private readonly readNext: (rid: string) => Promise<NextAction>;
+@@ -106,7 +118,7 @@ export class BridgeGenExecutor implements GenExecutor {
+     this.readNext = deps.readNext ?? defaultReadNextAction;
+     this.jobsPendingDir = deps.jobsPendingDir ?? storagePaths().jobsPending;
+     this.pollIntervalMs = deps.pollIntervalMs ?? 3000;
+-    this.timeoutMs = deps.timeoutMs ?? 600_000;
++    this.timeoutMs = deps.timeoutMs ?? bridgeTimeout();
+     this.sleep = deps.sleep ?? defaultSleep;
+     // 주입 없으면 Date.now — 애플리케이션 런타임 코드라 사용 가능(Workflow 스크립트 아님).
+     this.now = deps.now ?? (() => Date.now());
+@@ -117,46 +129,50 @@ export class BridgeGenExecutor implements GenExecutor {
+     // ★ check-first: 요청한 stage 가 더 이상 현재 생성 대상이 아니면(중복 클릭·이미 다음 단계로 진행) pending
+     //   파일을 쓰지 않고 즉시 반환. 안 그러면 아무도 소비 안 하는 stale 잡 파일이 남아 엉뚱한 게이트에 처리될 수 있다.
+     if (this.transitioned(await this.readNext(run_id), stage)) return;
+-    await this.writePendingJob(run_id, stage);
+-    const deadline = this.now() + this.timeoutMs;
++    // 종단 마감 단일 원천(프로토콜 v2): 잡의 expires_at 과 봇의 폴링 마감을 **한 시각**에서 계산한다 —
++    //   따로 재면 봇이 포기한 뒤에도 소비자가 '아직 안 늦었다'고 보는 어긋남이 생긴다.
++    const enqueuedAtMs = this.now();
++    const job = buildGenerateJob({ run_id, stage, enqueuedAtMs, timeoutMs: this.timeoutMs });
++    await writePendingJob(this.jobsPendingDir, job);
++    const deadline = enqueuedAtMs + this.timeoutMs; // = Date.parse(job.expires_at)
+     for (;;) {
+       const na = await this.readNext(run_id);
++      // ⚠ 순서 주의(의도): 마감 검사보다 **전이 검사가 먼저**다. 마감이 지난 뒤에 본 전이라도 그건 '실제로 된 것'이라
++      //   성공으로 보고한다 — 우리 타이머가 지났다는 이유로 끝난 일을 실패로 알리면 카드가 사실과 어긋난다.
++      //   (봇이 이미 포기해 실패 카드를 띄운 뒤의 늦은 전이는 이 루프 밖의 일이라 [상태 다시 확인]이 맡는다.)
+       if (this.transitioned(na, stage)) {
+         await this.cleanupPendingJob(run_id, stage); // 전이 완료 → 남은 pending 파일 정리(stale 방지)
+         return; // 생성 완료 → 게이트 도달
+       }
+       if (this.now() >= deadline) {
++        // 봇 타임아웃 = 회수: 아직 pending 인 **자기 잡**만 거둬들인다(job_id 대조 — 같은 단계로 새로 적재된
++        //   잡이 있으면 그건 남의 요청이라 손대지 않는다). 이미 클레임됐으면 회수 실패 → 늦은 성공이 가능하다.
++        const recalled = await recallPendingJob(this.jobsPendingDir, job);
+         throw new Error(
+-          `브리지 생성 대기 시간 초과(run=${run_id}, stage=${stage}) — 운영자 세션이 아직 처리하지 않았습니다. ` +
+-            `pending 잡: ${this.jobsPendingDir}/${run_id}-${stage}.json`,
++          recalled
++            ? `브리지 생성 대기 시간 초과(run=${run_id}, stage=${stage}) — 아무도 처리하지 않아 대기 중이던 요청을 거둬들였습니다.`
++            : // 회수 실패의 사정은 여럿이다(소비자가 집어 감 · 만료 처분됨 · 새 잡이 덮어씀) — 봇은 구분하지 못하므로
++              // 단정하지 않는다. 어느 쪽이든 사람이 확인할 길은 같다([상태 다시 확인]).
++              `브리지 생성 대기 시간 초과(run=${run_id}, stage=${stage}) — 대기 중이던 요청을 회수하지 못했습니다` +
++              `(소비자가 이미 집었거나 처분된 상태). 늦게 완료될 수 있습니다([상태 다시 확인]으로 화해).`,
+         );
+       }
+       await this.sleep(this.pollIntervalMs);
+     }
+   }
+ 
+-  /** 전이 완료 후 남은 pending 잡 파일 정리(운영자가 이미 지웠으면 no-op). */
+-  private async cleanupPendingJob(run_id: string, stage: string): Promise<void> {
+-    await unlink(join(this.jobsPendingDir, `${run_id}-${stage}.json`)).catch(() => {});
+-  }
+-
+   /**
+-   * 생성 완료 판정 — 요청한 stage 가 더 이상 '현재 생성 대상'이 아니면 전이로 본다.
+-   *   step 은 페이즈 횡단 전역이라 `step!=generate` 만 보면 stale brief 요청을 다음 단계(concept)의 generate 와
+-   *   혼동한다 → 현재 generate 대상 stage(na.stage)가 요청 stage 와 같을 때만 '아직 대기'로 본다.
++   * 전이 완료 후 남은 pending 잡 파일 정리(소비자가 이미 지웠으면 no-op).
++   *   ⚠ 회수(recall)와 달리 job_id 를 대조하지 않는다 — 전이가 확인된 시점엔 그 rid·stage 의 **어떤** 잡도
++   *     이미 stale 이다(그 단계 생성 차례가 지났다). 반대로 회수는 아직 그 차례라 남의 새 잡을 지우면 안 된다.
+    */
+-  private transitioned(na: NextAction, requestedStage: string): boolean {
+-    return !(na.step === "generate" && na.stage === requestedStage);
++  private async cleanupPendingJob(run_id: string, stage: string): Promise<void> {
++    await unlink(join(this.jobsPendingDir, jobFileName(run_id, stage))).catch(() => {});
+   }
+ 
+-  /** pending 잡 파일 원자 기록(tmp+rename). 운영자 세션이 이 파일을 소비한다(jobs/README.md 규약). */
+-  private async writePendingJob(run_id: string, stage: string): Promise<void> {
+-    await mkdir(this.jobsPendingDir, { recursive: true });
+-    const dest = join(this.jobsPendingDir, `${run_id}-${stage}.json`);
+-    const tmp = join(this.jobsPendingDir, `.${run_id}-${stage}.json.tmp-${randomUUID()}`);
+-    const body = JSON.stringify({ run_id, stage, kind: "generate" }, null, 2);
+-    await writeFile(tmp, body, "utf8");
+-    await rename(tmp, dest);
++  /** 생성 완료 판정 — 요청한 stage 가 더 이상 '현재 생성 대상'이 아니면 전이로 본다(판정 SSoT = job-protocol). */
++  private transitioned(na: NextAction, requestedStage: string): boolean {
++    return !isGenerateTurn(na, requestedStage);
+   }
+ }
+ 
+@@ -202,8 +218,9 @@ export class AgentSdkGenExecutor implements GenExecutor {
+       throw new Error(`AgentSdk 생성 후 전이 미확인(run=${run_id}, stage=${stage}) — 세션 워커가 전이시키지 못했습니다.`);
+     }
+   }
++  /** 브리지와 동일 판정(SSoT = job-protocol.isGenerateTurn). */
+   private transitioned(na: NextAction, requestedStage: string): boolean {
+-    return !(na.step === "generate" && na.stage === requestedStage);
++    return !isGenerateTurn(na, requestedStage);
+   }
+ }
+ 
+diff --git a/chat/src/kernel/interaction.ts b/chat/src/kernel/interaction.ts
+index 3ff3212..e4c7846 100644
+--- a/chat/src/kernel/interaction.ts
++++ b/chat/src/kernel/interaction.ts
+@@ -23,3 +23,20 @@ export const INGEST_STAGED_ACTION_ID = "ingest-staged";
+  *   이 클릭만이 스테이징 스냅샷 + intake 잡을 만든다(NL 은 실행하지 않음 — 잠긴 결정 6). run_id 는 스레드↔대기(intake)로 해석.
+  */
+ export const NL_INTAKE_CONFIRM_ACTION_ID = "nl-intake-confirm";
++
++/**
++ * 실패 카드의 [상태 다시 확인] 버튼 actionId — **늦은 성공 화해**(잡 큐 프로토콜 v2 보증 3분법의 봇 몫).
++ *   생성 잡이 봇의 대기 상한을 넘겨 실패 카드가 뜬 뒤에도, 이미 잡을 집어 간 소비자는 **늦게 성공**할 수 있다
++ *   (봇은 남의 프로세스를 죽일 수 없다). 그때 스레드가 실패 카드로 굳어 고아가 되지 않도록, 사람이 지금 상태를
++ *   다시 물어볼 수 있게 한다 — 상태를 바꾸지 않는 **읽기 전용** 동작이라 JSON 손편집 없이 화해가 끝난다.
++ */
++export const RECONCILE_ACTION_ID = "reconcile";
++
++/**
++ * 생성 재요청 카드의 [다시 만들기] 버튼 actionId — **회수된 생성의 출구**([상태 다시 확인]의 나머지 절반).
++ *   봇이 대기 상한에 포기하면 아직 안 집힌 요청은 큐에서 거둬들여지는데, core 는 여전히 그 단계 생성 차례라
++ *   스레드가 "만드는 중이에요…"(버튼 없음)로 굳어 아무 챗 동작으로도 요청을 되살릴 수 없다. 이 클릭이 그 길이다.
++ *   ⚠ 옛 요청 부활이 아니라 **새 요청(새 마감)** 이다 — 커널이 core 에 되물어 지금도 그 단계 생성 차례일 때만
++ *     기존 생성 잡 경로로 다시 넣는다(늦게 성공한 생성을 덮어쓰지 않는다 · 잡 큐 프로토콜 v2).
++ */
++export const GENERATE_RETRY_ACTION_ID = "generate-retry";
+diff --git a/chat/src/kernel/job-protocol.ts b/chat/src/kernel/job-protocol.ts
+new file mode 100644
+index 0000000..ae376b5
+--- /dev/null
++++ b/chat/src/kernel/job-protocol.ts
+@@ -0,0 +1,571 @@
++/**
++ * job-protocol.ts — 생성 잡 파일 큐 **프로토콜 v2**(경로·시계·next-action 전부 주입 · 플랫폼 무지).
++ *
++ * 이 파일 큐가 세 소비자(봇 · 무인 데몬 · 사람 운영자)의 **유일한 이음새**다(chat-dual-surface-plan 잠긴 결정 2).
++ *   수명주기: `pending/<rid>-<stage>.json → claimed/<consumer>/… → 성공 삭제 · 실패 failed/ + .reason`
++ *   사람이 읽는 규약 문서 = `chat/jobs/README.md`(이 모듈과 같은 변경에서 개정한다 — 규약이 두 곳에 있으면 갈라진다).
++ *
++ * 세 축:
++ *   ① **절대 마감**(`expires_at`) — 적재시각+대기상한을 잡에 박아 둔다. duration 이 아니라 절대시각이라야
++ *      늦게 집은 소비자가 적재 시각을 몰라도 '이미 늦었다'를 스스로 안다.
++ *   ② **클레임-by-rename** — 원자성 원천은 OS 다. 두 소비자가 같은 잡을 집으면 rename 이 하나만 성공하고
++ *      패자는 원본 소실(ENOENT)로 조용히 진다. ⚠ 잠금파일·'있는지 보고 옮기기'로 대체하지 않는다(그건 경합에 열려 있다).
++ *   ③ **2중 검사** — 일하기 전에 둘 다 확인한다: ㉠ 남은 시간이 잡 예산+기동 여유보다 크다 ㉡ next-action 이
++ *      여전히 그 단계 생성 차례다. 하나라도 어긋나면 일하지 않는다(만료→failed · 전이완료→삭제).
++ *
++ * 보증 3분법(같은 계획): 데몬=구조적(kill_at 결박 — 후속 단계) · 사람=절차(README 규약) ·
++ *   봇=화해([상태 다시 확인] — 늦은 성공을 따라잡고, 회수돼 사라진 요청은 [다시 만들기]로 새 마감을 받는다).
++ *   이 모듈은 셋이 공유하는 '검사·클레임' 만 소유한다 — 세션 실행·kill 스케줄은 소비자 몫이다.
++ *
++ * 불변식: state.json 직접 쓰기 0(잡 파일만 만진다). 봇 프로세스 밖(데몬)에서도 import 되므로 전역 설정·플랫폼에
++ *   의존하지 않는다 — 디렉터리·시계·next-action 조회는 전부 인자로 받는다.
++ */
++import { link, mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
++import { basename, join } from "node:path";
++import { randomUUID } from "node:crypto";
++import { isSafeRunId } from "../config.js";
++import type { NextAction } from "../types/contract.js";
++import type { GenerateJobFile } from "../types/jobs.js";
++
++/** 잡 파일에 기재하는 프로토콜 버전(부재 = v1 레거시). */
++export const JOB_PROTOCOL_VERSION = 2;
++
++/** ENOENT(이미 없어짐) 판정 — 경합 패배·멱등 재호출의 **정상 신호**라 예외로 올리지 않는다. */
++function isEnoent(e: unknown): boolean {
++  return typeof e === "object" && e !== null && (e as { code?: string }).code === "ENOENT";
++}
++
++/** EEXIST(이미 있음) — link() 기반 no-clobber 이동의 정상 신호. */
++function isEexist(e: unknown): boolean {
++  return typeof e === "object" && e !== null && (e as { code?: string }).code === "EEXIST";
++}
++
++/** 실패 사유 파일 접미사 — `failed/<rid>-<stage>.json.reason`. */
++const REASON_SUFFIX = ".reason";
++
++/** stage 는 파일명 세그먼트가 되므로 안전 토큰만(소문자·숫자·하이픈). 경로분리·`..` 차단. */
++const SAFE_STAGE = /^[a-z0-9-]+$/;
++/**
++ * 소비자 id 는 `claimed/<consumer>/` 디렉터리명이 된다 — 같은 이유로 안전 토큰만.
++ *   ⚠ 문자 클래스만으론 부족하다: `.` 와 `..` 는 이 패턴을 통과하지만 디렉터리명이 아니라 **경로 이동**이다.
++ *     `.` = 클레임이 `claimed/` 바로 밑에 놓여 reaper 의 소비자 폴더 스캔에 영영 안 잡히고(고아 회수 불능),
++ *     `..` = jobs 루트로 나가 수명주기(pending·claimed·failed) 밖으로 잡이 사라진다. isSafeRunId 와 같은 규칙으로 막는다.
++ */
++const SAFE_CONSUMER = /^[A-Za-z0-9._-]{1,64}$/;
++
++/** 소비자 id 안전 판정(`claimed/<consumer>/` 디렉터리명이 될 수 있는가). 점 세그먼트(`.`·`..`)는 거부. */
++export function isSafeConsumerId(consumerId: string): boolean {
++  if (typeof consumerId !== "string") return false;
++  if (consumerId === "." || consumerId === "..") return false;
++  return SAFE_CONSUMER.test(consumerId);
++}
++
++export function isSafeStage(stage: string): boolean {
++  return SAFE_STAGE.test(stage);
++}
++
++/** 잡 인자 검증 — 변조된 잡의 run_id/stage 가 파일경로를 탈출(`../`)하는 것을 파일 접촉 전에 차단. */
++export function assertJobArgs(run_id: string, stage: string): void {
++  if (!isSafeRunId(run_id)) throw new Error(`job-protocol: run_id 형식이 안전하지 않습니다: ${run_id}`);
++  if (!isSafeStage(stage)) throw new Error(`job-protocol: stage 형식이 안전하지 않습니다: ${stage}`);
++}
++
++function assertConsumerId(consumerId: string): void {
++  if (!isSafeConsumerId(consumerId)) {
++    throw new Error(`job-protocol: 소비자 id 형식이 안전하지 않습니다: ${consumerId}`);
++  }
++}
++
++/** 프로토콜 디렉터리 3면. 경로 조립 SSoT 는 config.storagePaths — 여기서 다시 join 하지 않는다(jobDirsOf 참조). */
++export interface JobDirs {
++  pending: string;
++  claimed: string;
++  failed: string;
++}
++
++/** config.storagePaths() 모양 → JobDirs(이름만 바꾼다 · 경로 계산 없음). 데몬·봇이 같은 경로를 보게 하는 어댑터. */
++export function jobDirsOf(paths: { jobsPending: string; jobsClaimed: string; jobsFailed: string }): JobDirs {
++  return { pending: paths.jobsPending, claimed: paths.jobsClaimed, failed: paths.jobsFailed };
++}
++
++/** 잡 파일명 — 한 런의 한 단계 = 잡 1건(재적재는 같은 이름을 덮어쓴다 → 중복 잡이 쌓이지 않는다). */
++export function jobFileName(run_id: string, stage: string): string {
++  assertJobArgs(run_id, stage);
++  return `${run_id}-${stage}.json`;
++}
++
++// ── 잡 만들기·읽기·쓰기 ────────────────────────────────────────────────────────
++
++/** 절대 마감(ISO-8601 UTC) = 적재시각 + 대기 상한. 사람 소비자도 읽는 파일이라 기계·사람 공용 문자열로 싣는다. */
++export function computeExpiresAt(enqueuedAtMs: number, timeoutMs: number): string {
++  return new Date(enqueuedAtMs + timeoutMs).toISOString();
++}
++
++/** 잡의 절대 마감(ms). 부재·형식오류 = null(= 마감 미기재 · v1 레거시 잡). */
++export function parseDeadline(job: GenerateJobFile): number | null {
++  const raw = job.expires_at;
++  if (typeof raw !== "string" || raw === "") return null;
++  const ms = Date.parse(raw);
++  return Number.isFinite(ms) ? ms : null;
++}
++
++export interface BuildJobInput {
++  run_id: string;
++  stage: string;
++  /** 적재 시각(ms) — 호출부 주입(테스트 결정성). */
++  enqueuedAtMs: number;
++  /** 봇 대기 상한(ms · config.bridgeTimeout). expires_at 의 원천. */
++  timeoutMs: number;
++}
++
++/** v2 잡 파일 1건 조립(순수). expires_at 은 여기서만 만든다 — 마감 원천이 흩어지지 않게. */
++export function buildGenerateJob(input: BuildJobInput): GenerateJobFile {
++  assertJobArgs(input.run_id, input.stage);
++  return {
++    version: JOB_PROTOCOL_VERSION,
++    kind: "generate",
++    run_id: input.run_id,
++    stage: input.stage,
++    job_id: randomUUID(),
++    enqueued_at: new Date(input.enqueuedAtMs).toISOString(),
++    expires_at: computeExpiresAt(input.enqueuedAtMs, input.timeoutMs),
++  };
++}
++
++/**
++ * pending 잡 파일 원자 기록(tmp+rename — 소비자가 반쯤 쓰인 파일을 읽는 일이 없게). @returns 기록 경로.
++ *
++ * ⚠ **같은 이름의 기존 잡은 덮어쓴다(의도)**: 파일명이 `<rid>-<stage>` 라 기존 잡은 정의상 *같은 일*의 옛 요청이다
++ *   (봇은 그 단계 생성 차례일 때만 적재한다 — check-first). 새 잡이 마감만 더 넉넉할 뿐 요구는 같으므로, 옛 요청을
++ *   지우는 게 아니라 **더 신선한 것으로 승격**하는 것이다. v1 레거시 잡이 v2 로 바뀌는 정상 경로이기도 하다
++ *   (jobs/README 'v1 레거시 잡' 절 — 그래서 이 덮어쓰기가 '레거시 잡 파괴'가 아니다).
++ */
++export async function writePendingJob(pendingDir: string, job: GenerateJobFile): Promise<string> {
++  const name = jobFileName(job.run_id, job.stage);
++  await mkdir(pendingDir, { recursive: true });
++  const dest = join(pendingDir, name);
++  // tmp 는 '.' 로 시작 — listPendingJobs 가 건너뛴다(반쯤 쓰인 파일이 잡으로 보이지 않게).
++  const tmp = join(pendingDir, `.${name}.tmp-${randomUUID()}`);
++  await writeFile(tmp, `${JSON.stringify(job, null, 2)}\n`, "utf8");
++  await rename(tmp, dest);
++  return dest;
++}
++
++/**
++ * 잡 파일 읽기 + 최소 형태 검증. **없음(ENOENT)·깨짐·형태 불일치 = null**(모르는 파일은 일감이 아니다).
++ *   ⚠ 그 외 fs 오류(EACCES·EIO·EMFILE…)는 **삼키지 않고 던진다**: '일시적으로 못 읽음'과 '내용이 깨졌음'은 다르다.
++ *     둘을 뭉뚱그리면 reaper 가 멀쩡한 잡을 디스크 딸꾹질 한 번에 failed/ 로 강등한다(호출부는 재시도해야 한다).
++ */
++export async function readJobFile(path: string): Promise<GenerateJobFile | null> {
++  let text: string;
++  try {
++    text = await readFile(path, "utf8");
++  } catch (e) {
++    if (isEnoent(e)) return null; // 없음 = 잡 아님(경합 패배·이미 처분됨).
++    throw e; // 읽기 실패 ≠ 깨진 잡 — 호출부가 재시도하게 올린다.
++  }
++  let parsed: unknown;
++  try {
++    parsed = JSON.parse(text);
++  } catch {
++    return null;
++  }
++  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return null;
++  const j = parsed as Record<string, unknown>;
++  if (j.kind !== "generate") return null;
++  if (typeof j.run_id !== "string" || !isSafeRunId(j.run_id)) return null;
++  if (typeof j.stage !== "string" || !isSafeStage(j.stage)) return null;
++  // 미지 필드는 그대로 보존(forward-compat) — 재구성하지 않고 캐스팅만.
++  return parsed as GenerateJobFile;
++}
++
++/**
++ * pending/ 의 잡 목록(파일명 오름차순 = 결정적 순서). 숨김(tmp)·비-json·형태 불일치는 건너뛴다.
++ *   **파일명 규약(`<rid>-<stage>.json`)을 지키는 것만** 잡으로 본다: 하류(takePendingJob·claimJob)가 잡 내용에서
++ *   canonical 이름을 다시 만들어 쓰므로, 이름이 어긋난 파일을 잡으로 넘기면 매 회차 '찾을 수 없음'만 되풀이한다.
++ */
++export async function listPendingJobs(
++  pendingDir: string,
++): Promise<Array<{ path: string; job: GenerateJobFile }>> {
++  let names: string[];
++  try {
++    names = await readdir(pendingDir);
++  } catch (e) {
++    if (isEnoent(e)) return []; // 폴더가 아직 없음 = 잡 없음.
++    throw e; // 권한·IO 오류를 '빈 큐'로 위장하지 않는다(있는 일감이 조용히 사라진다).
++  }
++  const out: Array<{ path: string; job: GenerateJobFile }> = [];
++  for (const name of names.sort()) {
++    if (name.startsWith(".") || !name.endsWith(".json")) continue;
++    const path = join(pendingDir, name);
++    const job = await readJobFile(path);
++    if (!job || jobFileName(job.run_id, job.stage) !== name) continue;
++    out.push({ path, job });
++  }
++  return out;
++}
++
++// ── 2중 검사 ──────────────────────────────────────────────────────────────────
++
++/**
++ * 2중 검사 판정 사유. 소비자(데몬·사람)는 이 값으로 클레임/포기를 가른다:
++ *   ok           → 클레임하고 일한다
++ *   expired      → 마감까지 남은 시간이 잡 예산+기동 여유에 못 미친다 → failed/ 격리(늦은 성공 창 자체를 없앤다)
++ *   transitioned → 그 단계 생성 차례가 아니다(이미 됐거나 다음으로 감) → 잡 삭제(stale 재실행 차단)
++ *   no_deadline  → expires_at 미기재(v1 레거시 잡) → 자동 소비 대상 아님(마감을 못 걸어 구조적 보증이 성립 안 함) · 사람 소비자 몫
++ *   unreadable   → next-action 조회 실패 → 판단 불가라 손대지 않는다(다음 회차 재시도 — 조회 실패로 잡을 버리지 않는다)
++ */
++export type JobCheckReason = "ok" | "expired" | "transitioned" | "no_deadline" | "unreadable";
++
++export interface JobCheck {
++  ok: boolean;
++  reason: JobCheckReason;
++  /** 진단용 상세(로그·failed/ 사유 파일). 사람 카드 문구가 아니다. */
++  detail?: string;
++}
++
++/**
++ * 검사 ㉠(시간) — 순수. `지금 + 잡 예산 + 기동 여유 ≤ expires_at` 이어야 집는다.
++ *   '마감이 아직 안 지났나'가 아니라 '**끝낼 수 있나**'를 본다 — 마감 3초 전에 8분짜리 잡을 시작하면 실패 카드 뒤
++ *   늦은 성공이 되기 때문이다(그 창을 시작 전에 없앤다).
++ */
++export function checkBudget(
++  job: GenerateJobFile,
++  nowMs: number,
++  budgetMs: number,
++  startupMarginMs: number,
++): JobCheck {
++  const deadline = parseDeadline(job);
++  if (deadline === null) {
++    return { ok: false, reason: "no_deadline", detail: "expires_at 미기재(v1 레거시 잡) — 자동 소비 대상 아님" };
++  }
++  const need = budgetMs + startupMarginMs;
++  const remain = deadline - nowMs;
++  if (remain < need) {
++    return { ok: false, reason: "expired", detail: `남은 시간 ${remain}ms < 필요 ${need}ms(예산 ${budgetMs} + 기동여유 ${startupMarginMs})` };
++  }
++  return { ok: true, reason: "ok" };
++}
++
++/**
++ * 검사 ㉡(차례) — 지금 이 단계의 생성 차례인가. 봇(브리지)의 전이 감지와 **같은 판정**을 쓴다(이중 진실 금지).
++ *   step 은 페이즈 횡단 전역이라 `step==generate` 만 보면 stale 한 brief 잡을 다음 단계(concept)의 차례와 혼동한다
++ *   → stage 까지 같아야 '아직 그 잡의 차례'다.
++ */
++export function isGenerateTurn(na: NextAction, stage: string): boolean {
++  return na.step === "generate" && na.stage === stage;
++}
++
++export interface DoubleCheckDeps {
++  /** 현재시각(ms) — 주입(테스트 결정성). */
++  now: () => number;
++  /** 잡 wall-clock 예산(ms) — 소비자가 자기 값을 준다(데몬 = CHAT_SDK_GEN_TIMEOUT · 후속 단계 소유). */
++  budgetMs: number;
++  /** 기동 여유(ms) — 검사·클레임·세션 spawn 오버헤드 몫. */
++  startupMarginMs: number;
++  /** next-action 조회(읽기 전용). */
++  readNext: (rid: string) => Promise<NextAction>;
++}
++
++/**
++ * 2중 검사 — 시간(㉠) 먼저, 차례(㉡) 나중. 순서 주의: ㉠ 이 셸 없이 즉답이라 마감 지난 잡에 next-action spawn 비용을
++ *   쓰지 않는다. 둘 다 통과해야만 ok(하나라도 어긋나면 일하지 않는다 — fail-closed).
++ *
++ * ⚠ ㉠은 ㉡ **뒤에 한 번 더** 본다: ㉡의 next-action 조회는 셸 spawn 이라 수백 ms가 걸릴 수 있고, 그동안 기동 여유가
++ *   닳는다. 조회 전 시각으로만 판정하면 '검증할 땐 있던 예산'이 일을 시작할 땐 없다. 재검사는 순수 계산이라 공짜다.
++ */
++export async function doubleCheckJob(job: GenerateJobFile, deps: DoubleCheckDeps): Promise<JobCheck> {
++  const budget = checkBudget(job, deps.now(), deps.budgetMs, deps.startupMarginMs);
++  if (!budget.ok) return budget;
++  let na: NextAction;
++  try {
++    na = await deps.readNext(job.run_id);
++  } catch (e) {
++    const msg = e instanceof Error ? e.message : String(e);
++    return { ok: false, reason: "unreadable", detail: `next-action 조회 실패: ${msg}` };
++  }
++  if (!isGenerateTurn(na, job.stage)) {
++    return {
++      ok: false,
++      reason: "transitioned",
++      detail: `그 단계 생성 차례가 아님(현재 step=${String(na.step)} stage=${na.stage ?? "-"})`,
++    };
++  }
++  return checkBudget(job, deps.now(), deps.budgetMs, deps.startupMarginMs); // 조회에 걸린 시간만큼 예산 재확인
++}
++
++// ── 클레임·정리(rename 기반) ───────────────────────────────────────────────────
++
++/**
++ * 클레임 = `rename(pending/X → claimed/<consumer>/X)`. **경합의 승자는 OS 가 정한다**: 동시에 집으면 rename 이
++ *   하나만 성공하고 나머지는 원본이 사라져 ENOENT → null(깨끗한 패배). 승자만 그 잡을 만진다.
++ * @returns 승자면 claimed 경로, 패자·이미 없어짐이면 null.
++ */
++export async function claimJob(
++  dirs: JobDirs,
++  job: GenerateJobFile,
++  consumerId: string,
++): Promise<string | null> {
++  assertConsumerId(consumerId);
++  const name = jobFileName(job.run_id, job.stage);
++  const destDir = join(dirs.claimed, consumerId);
++  await mkdir(destDir, { recursive: true });
++  const to = join(destDir, name);
++  try {
++    await rename(join(dirs.pending, name), to);
++    return to;
++  } catch (e) {
++    if (isEnoent(e)) return null; // 누가 먼저 집었거나 봇이 회수함 — 정상 패배.
++    throw e;
++  }
++}
++
++/** 성공 = 잡 파일 삭제(수명주기 종료). 이미 없으면 no-op(멱등). */
++export async function completeJob(claimedPath: string): Promise<void> {
++  try {
++    await unlink(claimedPath);
++  } catch (e) {
++    if (!isEnoent(e)) throw e;
++  }
++}
++
++/**
++ * 실패 = `failed/X` + 사유 파일(`X.reason`). 부분 성공은 없다 — 실패한 잡은 큐에서 빠지고 사람이 본다.
++ *
++ * 순서: **잡을 먼저 옮기고 사유를 쓴다.** 반대로 하면(사유 먼저) 사유 파일 경로가 잡보다 먼저 존재해, 같은 잡을
++ *   처분하려던 다른 호출이 자기 실패를 정리하며 **승자의 사유 파일을 지운다**(사유 없는 실패 잡). 이 순서면 진 쪽은
++ *   아무것도 쓰지 않는다. 남는 위험은 '옮긴 직후 죽어 사유가 안 써지는' 창(µs)뿐이고, 그건 사유 없는 실패 잡 하나로
++ *   그친다(파일은 남아 사람이 본다).
++ *   ⚠ 호출 전제: **그 잡을 소유한 상태**(클레임 승자)여야 한다 — takePendingJob 은 클레임 뒤에만 부른다.
++ *   ⚠ 알려진 한계: failed 경로도 `<rid>-<stage>` 라, 같은 단계의 잡 둘이 **동시에 살아 있다가 둘 다 실패**하면
++ *     나중 것이 앞의 기록을 덮는다(사유가 다른 실패를 가리킬 수 있다). 그 상황 자체가 이미 비정상이고(같은 단계를
++ *     두 소비자가 동시에 생성 — core 락·멱등 게이트가 상태는 지킨다), 실패 기록 한 줄의 정확도 문제라 파일명에
++ *     job_id 를 붙여 사람 규약(jobs/README 의 `mv … failed/`)을 복잡하게 만드는 대신 이 한계를 남긴다.
++ * @returns failed 경로.
++ */
++export async function failJob(dirs: JobDirs, fromPath: string, reason: string): Promise<string> {
++  const name = basename(fromPath);
++  await mkdir(dirs.failed, { recursive: true });
++  const dest = join(dirs.failed, name);
++  await rename(fromPath, dest);
++  await writeFile(`${dest}${REASON_SUFFIX}`, `${reason}\n`, "utf8");
++  return dest;
++}
++
++/**
++ * 클레임 해제 = pending 복귀(reaper 가 고아 클레임을 되돌릴 때). **no-clobber**: 같은 이름의 새 잡이 이미
++ *   대기 중이면 그 새 잡(마감이 더 넉넉하다)을 옛 고아로 덮지 않고, 고아 쪽을 버린다(중복 잡 제거).
++ *   link+unlink 를 쓰는 이유 = rename 은 무조건 덮어써서 '있는지 보고 옮기기'의 경합 창이 생기기 때문.
++ * @returns 실제로 복귀시켰으면 true, 새 잡이 있어 버렸으면 false.
++ */
++export async function releaseJob(dirs: JobDirs, claimedPath: string): Promise<boolean> {
++  const name = basename(claimedPath);
++  await mkdir(dirs.pending, { recursive: true });
++  const dest = join(dirs.pending, name);
++  try {
++    await link(claimedPath, dest);
++  } catch (e) {
++    if (!isEexist(e)) throw e;
++    await completeJob(claimedPath); // 새 잡이 이미 대기 중 — 고아는 중복이라 버린다.
++    return false;
++  }
++  await completeJob(claimedPath); // 하드링크 성공 → 원본 링크 제거(= 이동 완료).
++  return true;
++}
++
++/**
++ * 봇 타임아웃 회수 — **자기 잡일 때만** pending 에서 거둬들인다(job_id 대조). 소비자가 이미 클레임했으면(파일 없음)
++ *   no-op 이고, 같은 단계로 **새 잡이 다시 적재**됐으면(job_id 다름) 건드리지 않는다 — 남의 요청을 지우면 그 요청이 증발한다.
++ *
++ * **이 회수는 2차 방어다(1차는 마감 그 자체).** 봇이 타임아웃하는 순간은 정의상 `now ≥ expires_at` 이라, 남아 있는
++ *   잡은 이미 만료다 — 어떤 소비자가 집으려 해도 2중 검사 ㉠에 걸려 failed/ 로 간다. 회수는 그 뻔한 결말을 앞당기는
++ *   **정리**일 뿐이라 실패해도 안전하다(그래서 읽기 오류도 '회수 못 함'으로 환원한다).
++ * ⚠ 읽기-후-삭제라 원자적이지 않다. 창이 좁게 유지되는 근거는 **적재자가 하나**라는 배치 전제다: pending/ 을 쓰는 것은
++ *   봇뿐이고(Socket Mode 봇은 워크스페이스당 1 프로세스), 그 잡큐는 run 별 FIFO 라 같은 run 의 다음 생성 잡은 이
++ *   execute 가 끝난 **뒤에** 적재된다. job_id 대조는 그 위의 2차 방어다. 봇을 다중화하려면(같은 jobs/ 를 공유하는
++ *   2 프로세스) 이 회수도 클레임처럼 rename 기반으로 바꿔야 한다 — 다만 그 배치는 카드·잡 중복부터 깨진다.
++ * @returns 실제로 회수했으면 true.
++ */
++export async function recallPendingJob(pendingDir: string, job: GenerateJobFile): Promise<boolean> {
++  const path = join(pendingDir, jobFileName(job.run_id, job.stage));
++  // 읽기 실패(권한·IO)는 '회수 못 함'으로 환원한다 — 봇의 타임아웃 보고를 fs 예외로 바꾸지 않는다(사람 문구가 사라진다).
++  const cur = await readJobFile(path).catch(() => null);
++  // job_id 는 v2 잡에만 있다 — 둘 다 '비지 않은 문자열'이고 같을 때만 자기 잡으로 인정(옛/변조 잡 오삭제 차단).
++  if (!cur || !job.job_id || cur.job_id !== job.job_id) return false;
++  try {
++    await unlink(path);
++    return true;
++  } catch (e) {
++    if (isEnoent(e)) return false; // 그 사이 누가 집었다 — 정상.
++    throw e;
++  }
++}
++
++// ── 소비자 진입점(집기) ────────────────────────────────────────────────────────
++
++/** 잡 1건을 집으려는 시도의 결과. */
++export type TakeAction =
++  | "claimed" /** 2중 검사 통과 + rename 승리 → 이 소비자가 일한다(path 는 claimed 경로) */
++  | "lost" /** 경합 패배·이미 사라짐 — 다른 소비자 몫(조용히 넘어간다) */
++  | "failed" /** 만료·형식 오류 → failed/ 격리(+ .reason) */
++  | "dropped" /** 전이 완료 → 잡 삭제(할 일이 이미 끝났다) */
++  | "skipped"; /** 레거시(미클레임) · 판단 불가(복귀) — 일감으로 삼지 않는다 */
++
++export interface TakeResult {
++  action: TakeAction;
++  reason: JobCheckReason;
++  /** action="claimed" 일 때의 claimed 경로. */
++  path?: string;
++  detail?: string;
++}
++
++export interface TakeDeps extends DoubleCheckDeps {
++  dirs: JobDirs;
++  /** 이 소비자의 id(= `claimed/<consumerId>/` 디렉터리명 · 안전 토큰). */
++  consumerId: string;
++}
++
++/**
++ * **소비자 1급 경로** — pending 잡 1건을 집어 2중 검사를 걸고 그 결과대로 처분한다(사람 소비자도 같은 규약을 손으로 따른다):
++ *   통과 → 그대로 보유(작업) · 만료 → failed/ · 전이완료 → 삭제 · 레거시/판단불가 → 대기줄 복귀.
++ *   검사 실패 잡을 그냥 두지 않고 **처분까지** 하는 이유: 남겨두면 다음 회차마다 같은 검사·spawn 을 되풀이하고
++ *   사람 눈에도 '대기 중'으로 보인다(큐가 거짓말을 한다).
++ *
++ * ★ 순서가 핵심 — **먼저 집고(claim), 집은 것을 검사한다.** 반대로 하면(검사 후 집기) 검사한 잡과 집은 잡이 다를 수
++ *   있다: rename 은 잡이 아니라 **경로**를 집는데, 그 사이 같은 이름으로 새 잡이 들어올 수 있기 때문이다. 그러면
++ *   ㉠ 검사 안 한 잡을 들고 일하거나 ㉡ 멀쩡한 새 잡을 남의 판정으로 failed/ 에 처박는다. 소유한 뒤 검사하면 검사
++ *   대상과 처분 대상이 같음이 보장되고(경합 패배자는 아무것도 만지지 않는다), 느린 next-action 조회 동안 예산이
++ *   닳는 문제도 같이 사라진다(검사 시각이 소유 이후다).
++ *   예외 하나 — **v1 레거시는 집지도 않는다**: 마감이 없다는 건 파일만 보고 알 수 있고(셸 0), 집었다 되돌리면 사람이
++ *   손으로 소비 중인 파일을 매 회차 흔들게 된다(contract: 레거시는 사람 몫).
++ */
++export async function takePendingJob(job: GenerateJobFile, deps: TakeDeps): Promise<TakeResult> {
++  assertJobArgs(job.run_id, job.stage);
++  // 0) 순수 사전 필터(파일만 보고 판단 · fs 접촉 0): 레거시 잡은 애초에 집지 않는다.
++  if (parseDeadline(job) === null) {
++    return { action: "skipped", reason: "no_deadline", detail: "expires_at 미기재(v1 레거시 잡) — 사람 소비자 몫" };
++  }
++  // 1) 집는다(경합의 승자는 OS 가 정한다).
++  const path = await claimJob(deps.dirs, job, deps.consumerId);
++  if (path === null) return { action: "lost", reason: "ok" };
++  try {
++    // 2) 집은 **실물**을 읽는다 — 검사도 처분도 이 실물에 대해서만 한다(목록의 잡은 '뭔가 있다'는 힌트일 뿐).
++    const mine = await readJobFile(path);
++    if (!mine) {
++      await failJob(deps.dirs, path, "잡 파일을 읽을 수 없음(형식 오류)");
++      return { action: "failed", reason: "unreadable", detail: "잡 파일 형식 오류" };
++    }
++    // 3) 2중 검사 → 처분. 판정 불가·레거시면 되돌린다(버리지 않는다 — 다음 회차·사람이 다시 본다).
++    const check = await doubleCheckJob(mine, deps);
++    const detail = check.detail ? { detail: check.detail } : {};
++    if (check.ok) return { action: "claimed", reason: "ok", path };
++    if (check.reason === "expired") {
++      await failJob(deps.dirs, path, check.detail ?? "만료(expires_at 초과)");
++      return { action: "failed", reason: check.reason, ...detail };
++    }
++    if (check.reason === "transitioned") {
++      await completeJob(path); // 이미 됐다 → 재실행 금지.
++      return { action: "dropped", reason: check.reason, ...detail };
++    }
++    await releaseJob(deps.dirs, path); // no_deadline(사전 필터 뒤 바뀐 경우) · unreadable
++    return { action: "skipped", reason: check.reason, ...detail };
++  } catch (e) {
++    // 소유한 채 판단·처분에 실패하면(IO 오류 등) 대기줄로 되돌리고 예외를 올린다. 안 그러면 그 잡은 살아 있는
++    //   소비자의 claimed/ 에 갇힌다 — reaper 는 산 소비자의 클레임을 건드리지 않으므로 재기동 전까지 아무도 못 집는다
++    //   (고아가 아니라 '실종'이라 더 나쁘다). 되돌리기 실패는 삼킨다 — 원래 원인을 가리면 안 된다.
++    await releaseJob(deps.dirs, path).catch(() => {});
++    throw e;
++  }
++}
++
++// ── reaper(고아 클레임 회수) ───────────────────────────────────────────────────
++
++export interface ReapDeps extends DoubleCheckDeps {
++  dirs: JobDirs;
++  /**
++   * 그 소비자가 아직 살아 있는가(하트비트 등) — **필수**. 기본값을 두지 않는 이유: '살아 있음' 판정은 소비자 구현의
++   *   지식이고(데몬=하트비트 파일 · 사람=알 수 없음), 여기서 아무 기본값이나 쓰면 **일하는 중인 소비자의 잡을
++   *   빼앗는다**. 판단은 호출부가 명시한다.
++   */
++  isConsumerAlive: (consumerId: string) => boolean | Promise<boolean>;
++}
++
++export interface ReapResult {
++  path: string;
++  consumer: string;
++  /** alive=살아 있어 건너뜀 · released=pending 복귀 · dropped=중복이라 버림 · failed=만료 격리 · completed=전이완료 삭제 · skipped=판단 불가 */
++  action: "alive" | "released" | "dropped" | "failed" | "completed" | "skipped";
++  reason: JobCheckReason | "alive";
++  detail?: string;
++}
++
++/**
++ * 기동 reaper — `claimed/<consumer>/` 의 **고아**(살아 있지 않은 소비자의 클레임)를 회수한다. 고아를 무조건
++ *   재큐하지 않고 **같은 2중 검사**를 다시 건다: 만료됐거나 이미 전이됐으면 복귀시키지 않는다(stale 재실행 차단).
++ *   살아 있는 소비자의 클레임과 판단 불가(next-action 조회 실패)는 손대지 않는다(fail-closed).
++ *
++ * ⚠ 호출 순서 규약: 소비자는 **기동 시 이 reaper 를 먼저 돌린 뒤 폴링을 시작한다**. 지난 생의 고아
++ *   (`claimed/<자기 id>/`)를 남겨 둔 채 새로 집으면 같은 이름의 클레임을 자기가 덮어써 그 기록을 잃는다.
++ */
++export async function reapClaimedJobs(deps: ReapDeps): Promise<ReapResult[]> {
++  let consumers: string[];
++  try {
++    consumers = (await readdir(deps.dirs.claimed, { withFileTypes: true }))
++      .filter((d) => d.isDirectory())
++      .map((d) => d.name)
++      .sort();
++  } catch (e) {
++    if (isEnoent(e)) return []; // claimed/ 없음 = 고아 없음.
++    throw e; // 권한·IO 오류를 '고아 없음'으로 위장하지 않는다.
++  }
++  const out: ReapResult[] = [];
++  for (const consumer of consumers) {
++    const dir = join(deps.dirs.claimed, consumer);
++    // ENOENT = 그 사이 비워짐(정상). 그 외 오류는 '잡 없음'으로 위장하지 않고 올린다.
++    const names = (
++      await readdir(dir).catch((e: unknown) => {
++        if (isEnoent(e)) return [] as string[];
++        throw e;
++      })
++    ).sort();
++    // 생사 판정은 소비자당 **한 번**만 — 한 pass 안에서 같은 소비자의 잡들이 서로 다른 판정을 받으면
++    //   (스캔 도중 죽었을 때) 일부만 빼앗기는 어중간한 상태가 된다. 판정이 바뀌면 다음 pass 가 처리한다.
++    const alive = await deps.isConsumerAlive(consumer);
++    for (const name of names) {
++      if (name.startsWith(".") || !name.endsWith(".json")) continue;
++      const path = join(dir, name);
++      if (alive) {
++        out.push({ path, consumer, action: "alive", reason: "alive" });
++        continue;
++      }
++      const job = await readJobFile(path);
++      if (!job) {
++        // 깨진 잡 파일 = 판단 불가 → 사람이 보게 failed/ 로(큐에 남겨 되풀이 읽지 않는다).
++        await failJob(deps.dirs, path, "잡 파일을 읽을 수 없음(형식 오류)");
++        out.push({ path, consumer, action: "failed", reason: "unreadable", detail: "잡 파일 형식 오류" });
++        continue;
++      }
++      const check = await doubleCheckJob(job, deps);
++      const detail = check.detail ? { detail: check.detail } : {};
++      if (check.ok || check.reason === "no_deadline") {
++        // ok = 아직 시간이 있다 → 대기줄 복귀. no_deadline = 레거시라 데몬이 못 집는다 → 사람이 찾을 대기줄로 되돌린다.
++        const released = await releaseJob(deps.dirs, path);
++        out.push({ path, consumer, action: released ? "released" : "dropped", reason: check.reason, ...detail });
++        continue;
++      }
++      if (check.reason === "expired") {
++        await failJob(deps.dirs, path, check.detail ?? "만료(expires_at 초과)");
++        out.push({ path, consumer, action: "failed", reason: check.reason, ...detail });
++        continue;
++      }
++      if (check.reason === "transitioned") {
++        await completeJob(path); // 이미 됐다 → 재큐 금지(늦은 중복 생성 차단).
++        out.push({ path, consumer, action: "completed", reason: check.reason, ...detail });
++        continue;
++      }
++      // unreadable — 조회 실패로 잡을 버리거나 되살리지 않는다(다음 회차 재시도).
++      out.push({ path, consumer, action: "skipped", reason: check.reason, ...detail });
++    }
++  }
++  return out;
++}
+diff --git a/chat/src/kernel/pending-input.ts b/chat/src/kernel/pending-input.ts
+index c31ffc2..e38f579 100644
+--- a/chat/src/kernel/pending-input.ts
++++ b/chat/src/kernel/pending-input.ts
+@@ -9,6 +9,8 @@
+  *   · setup    — 새 작업 설정 중(도메인/포맷 Select 선택값 수집, [시작] 전)
+  *   · wb       — 워킹백워드 본문 붙여넣기 대기(답글 텍스트 → working-backwards.md)
+  *   · feedback — 보완 사유 대기(답글 텍스트 → revise 잡)
++ *   · intake_draft — NL 파일 인입 제안이 **제품명만 미정**일 때의 대기(P3-2 보완). 파싱된 파일·도메인·포맷을 담아,
++ *                    다음 답글(제품명)을 받으면 완성해 [이 자료로 시작] 버튼 제안으로 승격한다. 확정 버튼 없음(미완성).
+  *   · intake   — NL 파일 인입 제안 확정 대기(P3-2 · 확정 버튼 클릭 시 스테이징 + intake 잡). 확정 시점에 경로를 재검증한다.
+  *
+  * 저장: 주어진 StateAdapter(get/set/delete) 위에 예약 키 `input:<threadId>` 로. TTL 기본 24h(방치 정리).
+@@ -20,6 +22,7 @@ export type PendingInput =
+   | { kind: "setup"; product?: string; domain?: string; format?: string }
+   | { kind: "wb"; rid: string }
+   | { kind: "feedback"; rid: string }
++  | { kind: "intake_draft"; files: NlFileRef[]; domain: string; format: string }
+   | { kind: "intake"; files: NlFileRef[]; domain: string; format: string; product: string; nonce: string };
+ 
+ const KEY = (threadId: string): string => `input:${threadId}`;
+diff --git a/chat/src/kernel/presentation.ts b/chat/src/kernel/presentation.ts
+index d734a84..2fd6052 100644
+--- a/chat/src/kernel/presentation.ts
++++ b/chat/src/kernel/presentation.ts
+@@ -40,6 +40,40 @@ export interface ProgressPresentation {
+   message: string;
+ }
+ 
++/**
++ * 실패 안내 + [상태 다시 확인](화해 버튼). 잡이 실패했을 때의 카드다.
++ *   버튼이 필요한 이유(잡 큐 프로토콜 v2 · 보증 3분법의 봇 몫): 생성이 봇의 대기 상한을 넘겨 실패 카드가 뜬 뒤에도
++ *   이미 잡을 집어 간 소비자는 **늦게 성공**할 수 있다. 그러면 스레드만 실패 카드로 굳는다 — 사람이 지금 상태를
++ *   다시 물어 카드를 맞출 수 있게 한다. **읽기 전용**(상태 변이 0)이라 어떤 게이트도 우회하지 않는다.
++ */
++export interface FailurePresentation {
++  type: "Failure";
++  rid: string;
++  /** header = phase_label passthrough(변형 금지). */
++  header: string;
++  /** 실패 사유(평이 한국어 — 내부 코드·경로 비노출. worker 의 회신 문구). */
++  message: string;
++}
++
++/**
++ * 생성 재요청 + [다시 만들기] — 회수된 생성의 **출구**(프로토콜 v2 화해의 나머지 절반).
++ *   봇이 대기 상한에 포기하면 아직 아무도 안 집은 요청은 큐에서 거둬들여진다. 그런데 core 는 그대로 그 단계
++ *   생성 차례에 서 있으므로, 사람이 [상태 다시 확인]을 눌러도 버튼 없는 "만드는 중이에요…"만 뜬다 —
++ *   사실도 아니고(아무도 안 만든다) 출구도 없다(어떤 챗 동작으로도 요청을 되살릴 수 없다). 이 표현이 그 출구다.
++ *   ⚠ 옛 요청을 되살리는 게 아니라 **새 요청(새 마감)** 을 만든다(v2: stale 부활 금지). 그래서 이 카드는
++ *     **상태를 다시 읽어 여전히 그 단계 생성 차례임이 확인됐을 때만** 나온다(늦은 성공을 덮어쓰지 않는다).
++ */
++export interface GenerateRetryPresentation {
++  type: "GenerateRetry";
++  rid: string;
++  /** header = phase_label passthrough(변형 금지). */
++  header: string;
++  /** 평이 안내 한 줄(현재 상태 서술). */
++  message: string;
++  /** 다시 만들 단계 — 버튼에 실려 옛 카드 클릭(그 사이 단계가 바뀜)을 가른다. */
++  stage: string;
++}
++
+ /** 단안 승인/보완 게이트. */
+ export interface ApproveGatePresentation {
+   type: "ApproveGate";
+@@ -188,6 +222,8 @@ export type Presentation =
+   | SetupPresentation
+   | IngestPromptPresentation
+   | ProgressPresentation
++  | FailurePresentation
++  | GenerateRetryPresentation
+   | ApproveGatePresentation
+   | ConfirmGatePresentation
+   | VerdictPresentation
+diff --git a/chat/src/types/jobs.ts b/chat/src/types/jobs.ts
+index f0eacbf..db98168 100644
+--- a/chat/src/types/jobs.ts
++++ b/chat/src/types/jobs.ts
+@@ -80,6 +80,36 @@ export interface JobSubmitter {
+   submit(job: Job): Promise<void>;
+ }
+ 
++/**
++ * 생성 잡 **파일**(큐 프로토콜 v2) — 위 Job(인메모리 큐 1건)과 다른 계약이다: 이건 `jobs/` 파일 큐에 적재돼
++ *   **봇·소비 데몬·사람 운영자 셋이 공유하는 유일한 규약**이다(chat/jobs/README.md · 프로세스 경계를 넘는다).
++ *
++ * v2 가 더한 것(chat-dual-surface-plan 잠긴 결정 2):
++ *   · expires_at — 절대 마감(적재시각 + CHAT_BRIDGE_TIMEOUT). **종단 마감 단일 원천**이라 늦게 집은 소비자가
++ *     스스로 '이미 늦었다'를 안다(duration 이 아니라 절대시각인 이유 — 소비자는 적재 시각을 모른다).
++ *   · job_id — 적재 1건의 식별자. 봇의 회수(recall)가 '자기 잡'만 지우게 한다(같은 이름의 새 잡 오삭제 차단).
++ *
++ * ⚠ 읽기 후방호환: v1(구 브리지)은 `{run_id, stage, kind}` 만 썼다 → v2 필드는 전부 **선택**이다. 마감이 없는
++ *   v1 잡을 어떻게 다룰지는 job-protocol 의 2중 검사가 정한다(no_deadline = 자동 소비 대상 아님 · 사람 소비자 몫).
++ */
++export interface GenerateJobFile {
++  /** 파일 큐에 적재되는 잡은 생성뿐이다(승인·선택 등 결정은 사람이 버튼으로 — 큐를 타지 않는다). */
++  kind: "generate";
++  run_id: string;
++  /** run-stage 인자(guideline/brief/concept/...). */
++  stage: string;
++  /** 프로토콜 버전(v2 부터 기재). 부재 = v1 레거시 잡. */
++  version?: number;
++  /** 이 적재 1건의 식별자(v2). 회수·정리가 '자기 잡'인지 대조하는 도장(stamp). */
++  job_id?: string;
++  /** 적재 시각(ISO-8601 UTC · v2). 소비자의 대기시간 관측용. */
++  enqueued_at?: string;
++  /** 절대 마감(ISO-8601 UTC · v2) = enqueued_at + CHAT_BRIDGE_TIMEOUT. 종단 마감 단일 원천. */
++  expires_at?: string;
++  /** 미지 필드 허용(forward-compat — 소비자가 새 필드를 더해도 파싱이 깨지지 않게). */
++  [k: string]: unknown;
++}
++
+ /**
+  * GenExecutor — 생성(run-stage <stage>) 위임 계약.
+  *   두 구현이 이 인터페이스를 만족한다:
+diff --git a/chat/test/adapters/slack/render.test.ts b/chat/test/adapters/slack/render.test.ts
+index 65ca75a..767b645 100644
+--- a/chat/test/adapters/slack/render.test.ts
++++ b/chat/test/adapters/slack/render.test.ts
+@@ -11,6 +11,8 @@ import {
+   renderConfirmGate,
+   renderDone,
+   renderEscalation,
++  renderFailure,
++  renderGenerateRetry,
+   renderImageOptionSet,
+   renderIngestPrompt,
+   renderNlProposal,
+@@ -19,14 +21,18 @@ import {
+   renderVerdict,
+   toCard,
+   toCards,
++  GENERATE_RETRY_ACTION_ID,
+   INGEST_STAGED_ACTION_ID,
+   NL_INTAKE_CONFIRM_ACTION_ID,
+   RA_CONFIRM_ACTION_ID,
++  RECONCILE_ACTION_ID,
+   SETUP_ACTION_IDS,
+ } from "../../../src/adapters/slack/render.js";
+ import type {
+   ApproveGatePresentation,
+   DonePresentation,
++  FailurePresentation,
++  GenerateRetryPresentation,
+   ImageOptionSetPresentation,
+   IngestPromptPresentation,
+   NlProposalPresentation,
+@@ -233,6 +239,63 @@ test("renderEscalation: [한 번 더 시도](raise-limit) 버튼 + 라벨 passth
+   expect(parseValue(btn!)).toEqual({ run_id: "r-lim", action: "raise-limit" });
+ });
+ 
++// ── 6′. 실패 카드(Failure · 화해 버튼) ───────────────────────────────────────
++function failureP(over: Partial<FailurePresentation> = {}): FailurePresentation {
++  return { type: "Failure", rid: "r-fail", header: "핵심 정리", message: "생성을 마치지 못했습니다.", ...over };
++}
++
++test("renderFailure: 사유(passthrough) + [상태 다시 확인](reconcile) 버튼 1개", () => {
++  const card = renderFailure(failureP());
++  const texts = walkTexts(card);
++  expect(texts).toContain("생성을 마치지 못했습니다."); // 워커 회신 그대로
++  expect(texts.some((t) => t.includes("상태 다시 확인"))).toBe(true); // 왜 눌러야 하는지 안내
++  const btns = walkButtons(card);
++  expect(btns).toHaveLength(1);
++  expect(btns[0]!.id).toBe(RECONCILE_ACTION_ID);
++  expect(btns[0]!.label).toBe("상태 다시 확인");
++  expect(parseValue(btns[0]!)).toEqual({ run_id: "r-fail", action: "reconcile" });
++});
++
++test("renderFailure: 승인/선택 같은 상태변이 버튼을 곁들이지 않는다(화해는 읽기 전용)", () => {
++  const ids = walkButtons(renderFailure(failureP())).map((b) => b.id);
++  expect(ids).not.toContain("approve");
++  expect(ids).not.toContain("revise");
++});
++
++// ── 6″. 생성 재요청 카드(GenerateRetry · 회수된 요청의 출구) ─────────────────
++function generateRetryP(over: Partial<GenerateRetryPresentation> = {}): GenerateRetryPresentation {
++  return { type: "GenerateRetry", rid: "r-1", header: "핵심 정리", message: "아직 만들어지지 않았어요 — 다시 요청할 수 있어요.", stage: "brief", ...over };
++}
++
++test("renderGenerateRetry: 안내(passthrough) + [다시 만들기] 버튼 1개(stage 도장 동봉)", () => {
++  const card = renderGenerateRetry(generateRetryP());
++  const texts = walkTexts(card);
++  expect(texts).toContain("아직 만들어지지 않았어요 — 다시 요청할 수 있어요."); // 커널 문구 그대로
++  expect(texts.some((t) => t.includes("다시 만들기"))).toBe(true); // 왜 눌러야 하는지 안내
++  const btns = walkButtons(card);
++  expect(btns).toHaveLength(1);
++  expect(btns[0]!.id).toBe(GENERATE_RETRY_ACTION_ID);
++  expect(btns[0]!.label).toBe("다시 만들기");
++  // 도장(stage) — 커널이 지금 단계와 대조해 옛 카드 클릭을 거른다.
++  expect(parseValue(btns[0]!)).toEqual({ run_id: "r-1", action: "generate", stage: "brief" });
++});
++
++test("renderGenerateRetry: 승인/선택 같은 결정 버튼을 곁들이지 않는다(재요청은 생성뿐)", () => {
++  const ids = walkButtons(renderGenerateRetry(generateRetryP())).map((b) => b.id);
++  expect(ids).not.toContain("approve");
++  expect(ids).not.toContain("revise");
++});
++
++test("toCard(GenerateRetry): 단일 카드", () => {
++  expect(toCards(generateRetryP())).toHaveLength(1);
++  expect(walkButtons(toCard(generateRetryP()))[0]!.id).toBe(GENERATE_RETRY_ACTION_ID);
++});
++
++test("toCard(Failure): 단일 카드", () => {
++  expect((toCard(failureP()) as { type?: string }).type).toBe("card");
++  expect(toCards(failureP())).toHaveLength(1);
++});
++
+ // ── 7. 다안 md 선택 카드(OptionSet · P1) ─────────────────────────────────────
+ test("renderOptionSet: 안별 카드 1장 + 트레일링 카드 · [이걸로] 버튼이 안마다 {run_id, action, option}", () => {
+   const cards = renderOptionSet(optionSetP());
+@@ -353,6 +416,7 @@ test("공통분모: 전 카드에 modal/text_input/file_input 요소 0 + 버튼
+     toCard(ingestP()),
+     toCard(approveP({ reviseAvailable: true, raOkRequired: true })),
+     toCard({ type: "Progress", rid: "r", header: "h", message: "진행 중" }),
++    toCard(failureP()),
+     toCard(verdictP({ outcome: "revise", stage: "brief" })),
+     toCard(verdictP({ outcome: "human" })),
+     toCard({ type: "Escalation", rid: "r", header: "h", gateLabel: "g", hint: "" }),
+diff --git a/chat/test/config.test.ts b/chat/test/config.test.ts
+new file mode 100644
+index 0000000..29ef68c
+--- /dev/null
++++ b/chat/test/config.test.ts
+@@ -0,0 +1,89 @@
++/**
++ * config.test.ts — config.ts 순수 헬퍼 검증(결정적 · env 조작만).
++ *
++ * 여기서는 '초 단위 env → ms 상한' 두 함수의 clamp 규약을 고정한다: 멈춘 CLI 를 항상 kill 할 수 있고(nlCliTimeout),
++ *   적재된 잡을 누군가는 집을 수 있도록(bridgeTimeout) 반환값이 0/서브초로 반올림되지 않아야 하며(하한 1000ms),
++ *   비정상 값은 각자의 안전 기본값으로 폴백해야 한다.
++ */
++import { afterEach, describe, expect, it } from "vitest";
++import { bridgeTimeout, nlCliTimeout, storagePaths } from "../src/config.js";
++
++const ENV = "CHAT_NL_CLI_TIMEOUT";
++const BRIDGE_ENV = "CHAT_BRIDGE_TIMEOUT";
++
++/** env 를 세팅(undefined 면 삭제)하고 nlCliTimeout() 을 부른다. */
++function withTimeoutEnv(value: string | undefined): number {
++  if (value === undefined) delete process.env[ENV];
++  else process.env[ENV] = value;
++  return nlCliTimeout();
++}
++
++/** env 를 세팅(undefined 면 삭제)하고 bridgeTimeout() 을 부른다. */
++function withBridgeEnv(value: string | undefined): number {
++  if (value === undefined) delete process.env[BRIDGE_ENV];
++  else process.env[BRIDGE_ENV] = value;
++  return bridgeTimeout();
++}
++
++describe("nlCliTimeout — 초→ms 변환 + clamp(하한 1초 · 비정상값 기본 120000)", () => {
++  afterEach(() => {
++    delete process.env[ENV]; // 다른 테스트에 새지 않게 정리
++  });
++
++  it('서브초("0.0001")는 0 으로 반올림되지 않고 하한 1000ms 로 clamp', () => {
++    expect(withTimeoutEnv("0.0001")).toBe(1000);
++  });
++
++  it('"0" → 비정상(0 이하)이므로 기본 120000ms', () => {
++    expect(withTimeoutEnv("0")).toBe(120000);
++  });
++
++  it('숫자 아님("abc") → 기본 120000ms', () => {
++    expect(withTimeoutEnv("abc")).toBe(120000);
++  });
++
++  it("미설정(unset) → 기본 120000ms", () => {
++    expect(withTimeoutEnv(undefined)).toBe(120000);
++  });
++
++  it('음수("-5") → 비정상이므로 기본 120000ms', () => {
++    expect(withTimeoutEnv("-5")).toBe(120000);
++  });
++
++  it('정상값("300"초) → 300000ms', () => {
++    expect(withTimeoutEnv("300")).toBe(300000);
++  });
++});
++
++describe("bridgeTimeout — 하드코딩 600초의 env 승격(기본 900초 · 잡 expires_at 의 원천)", () => {
++  afterEach(() => {
++    delete process.env[BRIDGE_ENV];
++  });
++
++  it("미설정(unset) → 기본 900000ms(=900초) — 구 하드코딩 600000ms 아님", () => {
++    expect(withBridgeEnv(undefined)).toBe(900_000);
++  });
++
++  it('정상값("600"초) → 600000ms', () => {
++    expect(withBridgeEnv("600")).toBe(600_000);
++  });
++
++  it("비정상값(숫자 아님·0·음수) → 기본 900000ms(잘못된 설정이 즉시 만료를 만들지 않게)", () => {
++    expect(withBridgeEnv("abc")).toBe(900_000);
++    expect(withBridgeEnv("0")).toBe(900_000);
++    expect(withBridgeEnv("-5")).toBe(900_000);
++  });
++
++  it('서브초("0.0001")는 하한 1000ms 로 clamp(적재되자마자 만료돼 아무도 못 집는 상황 방지)', () => {
++    expect(withBridgeEnv("0.0001")).toBe(1000);
++  });
++});
++
++describe("storagePaths — 잡 큐 3면(pending/claimed/failed)", () => {
++  it("jobs 루트 아래 pending·claimed·failed 절대경로를 낸다(프로토콜 v2 수명주기 디렉터리)", () => {
++    const p = storagePaths();
++    expect(p.jobsPending).toBe(`${p.jobs}/pending`);
++    expect(p.jobsClaimed).toBe(`${p.jobs}/claimed`);
++    expect(p.jobsFailed).toBe(`${p.jobs}/failed`);
++  });
++});
+diff --git a/chat/test/kernel/flow.test.ts b/chat/test/kernel/flow.test.ts
+index 54e1287..68c9608 100644
+--- a/chat/test/kernel/flow.test.ts
++++ b/chat/test/kernel/flow.test.ts
+@@ -25,7 +25,13 @@ import {
+ } from "../../src/kernel/flow.js";
+ import type { OptionsDoc } from "../../src/kernel/option-reader.js";
+ import type { KeyvisualOption } from "../../src/kernel/keyvisual-reader.js";
+-import { NL_INTAKE_CONFIRM_ACTION_ID, RA_CONFIRM_ACTION_ID, SETUP_ACTION_IDS } from "../../src/kernel/interaction.js";
++import {
++  GENERATE_RETRY_ACTION_ID,
++  NL_INTAKE_CONFIRM_ACTION_ID,
++  RA_CONFIRM_ACTION_ID,
++  RECONCILE_ACTION_ID,
++  SETUP_ACTION_IDS,
++} from "../../src/kernel/interaction.js";
+ import { StubNlParser } from "../../src/kernel/nl/index.js";
+ import { isSafeRunId } from "../../src/config.js";
+ import type { ButtonPressed, MentionReceived, TextReply } from "../../src/kernel/events.js";
+@@ -502,6 +508,186 @@ describe("onOutcome 자동 진행/실패", () => {
+     expect(jobs).toHaveLength(0);
+     expect(renders.length).toBeGreaterThan(0);
+   });
++
++  it("실패 카드는 Failure 표현(사유 + [상태 다시 확인] 화해) — 늦은 성공에 스레드가 굳지 않게(프로토콜 v2)", async () => {
++    const { gw, renders } = fakeGateway();
++    const out = { kind: "generate", run_id: "r", ok: false, message: "생성을 마치지 못했습니다.", next: na({ action: "generate", stage: "brief" }) } as WorkerOutcome;
++    await onOutcome(out, gw);
++    expect(renders.map((r) => r.p.type)).toEqual(["Failure"]);
++    expect(renders[0]!.p).toMatchObject({ type: "Failure", rid: "r", message: "생성을 마치지 못했습니다." });
++  });
++
++  it("next 를 못 읽은 실패도 Failure 표현(화해 버튼이 붙는다 — 그때가 가장 필요한 순간)", async () => {
++    const { gw, renders } = fakeGateway();
++    const out = { kind: "generate", run_id: "r", ok: false, message: "실패", next: null } as WorkerOutcome;
++    await onOutcome(out, gw);
++    expect(renders[0]!.p.type).toBe("Failure");
++  });
++});
++
++describe("[상태 다시 확인](RECONCILE) — 늦은 성공 화해 · 읽기 전용", () => {
++  it("현재 게이트 카드를 다시 그린다(잡 0 · 상태 변이 0)", async () => {
++    const { gw, jobs, renders } = fakeGateway({
++      map: {
++        runForThread: async () => "r-late",
++        threadForRun: async () => "th-1",
++        bindThreadToRun: async () => {},
++      } as unknown as Gateway["map"],
++      // 봇이 포기한 뒤 소비자가 늦게 성공 → 지금은 승인 차례다.
++      readNext: async () => na({ action: "approve", gate_label: "승인할 차례" }),
++    });
++    await onAction(button(RECONCILE_ACTION_ID, { value: JSON.stringify({ run_id: "r-late", action: "reconcile" }) }), gw);
++    expect(jobs).toHaveLength(0); // 읽기 전용 — 어떤 게이트도 우회하지 않는다
++    expect(renders.map((r) => r.p.type)).toEqual(["ApproveGate"]);
++  });
++
++  it("비승인자도 누를 수 있다(상태를 바꾸지 않는 '본다' 동작)", async () => {
++    const { gw, renders } = fakeGateway({
++      isApprover: () => false,
++      map: {
++        runForThread: async () => "r-late",
++        threadForRun: async () => "th-1",
++        bindThreadToRun: async () => {},
++      } as unknown as Gateway["map"],
++      readNext: async () => na({ action: "approve" }),
++    });
++    await onAction(button(RECONCILE_ACTION_ID), gw);
++    expect(renders.map((r) => r.p.type)).toEqual(["ApproveGate"]);
++  });
++
++  it("run_id 는 스레드 매핑으로만 해석 — 버튼 value 의 남의 run_id 를 따르지 않는다(변조 방어)", async () => {
++    const asked: string[] = [];
++    const { gw } = fakeGateway({
++      map: {
++        runForThread: async () => "r-mine",
++        threadForRun: async () => "th-1",
++        bindThreadToRun: async () => {},
++      } as unknown as Gateway["map"],
++      readNext: async (rid: string) => {
++        asked.push(rid);
++        return na({ action: "approve" });
++      },
++    });
++    await onAction(button(RECONCILE_ACTION_ID, { value: JSON.stringify({ run_id: "r-남의런", action: "reconcile" }) }), gw);
++    expect(asked).toEqual(["r-mine"]);
++  });
++
++  it("스레드에 run 이 없으면 no-op(확인할 대상 없음)", async () => {
++    const { gw, jobs, renders } = fakeGateway(); // runForThread → null
++    await onAction(button(RECONCILE_ACTION_ID), gw);
++    expect(jobs).toHaveLength(0);
++    expect(renders).toHaveLength(0);
++  });
++
++  it("상태 조회 실패 → 평이 안내(카드 없이 침묵하지 않는다)", async () => {
++    const { gw, renders } = fakeGateway({
++      map: {
++        runForThread: async () => "r-late",
++        threadForRun: async () => "th-1",
++        bindThreadToRun: async () => {},
++      } as unknown as Gateway["map"],
++      readNext: async () => {
++        throw new Error("셸 실패");
++      },
++    });
++    await onAction(button(RECONCILE_ACTION_ID), gw);
++    expect(renders).toHaveLength(1);
++    expect(renders[0]!.p).toMatchObject({ type: "Progress" });
++    expect((renders[0]!.p as { message: string }).message).toMatch(/확인하지 못했/);
++  });
++});
++
++describe("[다시 만들기](GENERATE_RETRY) — 회수된 생성의 출구(프로토콜 v2 · 새 요청)", () => {
++  /** 스레드 th-1 ↔ run r-1 이 바인딩된 게이트웨이. */
++  const boundGw = (over: Partial<Gateway> = {}): Harness =>
++    fakeGateway({
++      map: {
++        runForThread: async () => "r-1",
++        threadForRun: async () => "th-1",
++        bindThreadToRun: async () => {},
++      } as unknown as Gateway["map"],
++      ...over,
++    });
++
++  it("★ [상태 다시 확인] 인데 아직 생성 차례 → GenerateRetry 카드(버튼 없는 '만드는 중' 으로 굳지 않는다)", async () => {
++    // 봇이 대기 상한에 포기하며 요청을 회수했다 → 아무도 안 만드는데 core 는 그대로 생성 차례.
++    const { gw, jobs, renders } = boundGw({
++      readNext: async () => na({ rid: "r-1", action: "generate", stage: "brief", phase_label: "핵심 정리" }),
++    });
++    await onAction(button(RECONCILE_ACTION_ID), gw);
++    expect(jobs).toHaveLength(0); // [상태 다시 확인] 자체는 여전히 읽기 전용
++    expect(renders.map((r) => r.p.type)).toEqual(["GenerateRetry"]);
++    // rid·header 는 core 산출(next-action) passthrough — 카드가 지금 상태를 그대로 옮긴다.
++    expect(renders[0]!.p).toMatchObject({ type: "GenerateRetry", rid: "r-1", header: "핵심 정리", stage: "brief" });
++  });
++
++  it("자연어 실행 요청(진행해줘)에도 같은 출구를 준다(NL 은 실행하지 않음 — 카드만)", async () => {
++    const { gw, jobs, renders } = boundGw({ readNext: async () => na({ action: "generate", stage: "brief" }) });
++    await onReply(reply("th-1", "진행해줘"), gw); // pending 없음 → handleNoPendingReply
++    expect(jobs).toHaveLength(0); // 방아쇠는 버튼(잠긴 결정 6)
++    expect(renders.map((r) => r.p.type)).toEqual(["GenerateRetry"]);
++  });
++
++  it("★ 클릭 → 생성 잡 재적재(새 요청) · run_id 는 스레드 매핑 · stage 는 지금 차례의 것", async () => {
++    const asked: string[] = [];
++    const { gw, jobs, renders } = boundGw({
++      readNext: async (rid: string) => {
++        asked.push(rid);
++        return na({ action: "generate", stage: "brief" });
++      },
++    });
++    await onAction(
++      button(GENERATE_RETRY_ACTION_ID, { value: JSON.stringify({ run_id: "r-남의런", action: "generate", stage: "brief" }) }),
++      gw,
++    );
++    expect(asked).toEqual(["r-1"]); // 버튼 value 의 run_id 불신(reconcile 과 동일)
++    expect(jobs).toEqual([{ kind: "generate", run_id: "r-1", actor: "chat:slack:U1", payload: { stage: "brief" } }]);
++    expect(renders.map((r) => r.p.type)).toEqual(["Progress"]); // 재요청 접수 안내
++  });
++
++  it("★ 그새 늦게 성공했으면(생성 차례 아님) 만들지 않는다 — 지금 게이트 카드만(끝난 일 재실행 금지)", async () => {
++    const { gw, jobs, renders } = boundGw({ readNext: async () => na({ action: "approve", gate_label: "승인할 차례" }) });
++    await onAction(
++      button(GENERATE_RETRY_ACTION_ID, { value: JSON.stringify({ run_id: "r-1", action: "generate", stage: "brief" }) }),
++      gw,
++    );
++    expect(jobs).toHaveLength(0);
++    expect(renders.map((r) => r.p.type)).toEqual(["ApproveGate"]);
++  });
++
++  it("★ 옛 카드 클릭(도장 stage ≠ 지금 stage) → 만들지 않고 지금 단계의 재요청 카드만", async () => {
++    const { gw, jobs, renders } = boundGw({ readNext: async () => na({ action: "generate", stage: "concept" }) });
++    await onAction(
++      button(GENERATE_RETRY_ACTION_ID, { value: JSON.stringify({ run_id: "r-1", action: "generate", stage: "brief" }) }),
++      gw,
++    );
++    expect(jobs).toHaveLength(0);
++    expect(renders[0]!.p).toMatchObject({ type: "GenerateRetry", stage: "concept" });
++  });
++
++  it("스레드에 run 이 없으면 no-op · 상태 조회 실패면 평이 안내(잡 0)", async () => {
++    const none = fakeGateway(); // runForThread → null
++    await onAction(button(GENERATE_RETRY_ACTION_ID), none.gw);
++    expect(none.jobs).toHaveLength(0);
++    expect(none.renders).toHaveLength(0);
++
++    const broken = boundGw({
++      readNext: async () => {
++        throw new Error("셸 실패");
++      },
++    });
++    await onAction(button(GENERATE_RETRY_ACTION_ID), broken.gw);
++    expect(broken.jobs).toHaveLength(0);
++    expect((broken.renders[0]!.p as { message: string }).message).toMatch(/확인하지 못했/);
++  });
++
++  it("자동 이어가기(onOutcome)의 생성 카드에는 재요청 버튼이 붙지 않는다 — 그때는 정말 만드는 중이다", async () => {
++    const { gw, jobs, renders } = boundGw({ readNext: async () => na({ action: "generate", stage: "concept" }) });
++    const out = { kind: "select", run_id: "r-1", ok: true, message: "", next: na({ action: "generate", stage: "concept" }) } as WorkerOutcome;
++    await onOutcome(out, gw);
++    expect(renders.map((r) => r.p.type)).toEqual(["Progress"]); // GenerateRetry 아님
++    expect(jobs.map((j) => j.kind)).toEqual(["generate"]); // 카드 직후 실제로 생성 잡을 넣는다
++  });
+ });
+ 
+ describe("deriveVerdict / presentationForOutcome", () => {
+@@ -909,6 +1095,142 @@ describe("onMention — P3-2 파일 인입 NL", () => {
+   });
+ });
+ 
++describe("intake_draft — 제품명만 미정 → 답글로 완성(P3-2 보완)", () => {
++  it("제품명 미정(파일·도메인·포맷만) → NlProposal(질문·확정없음) + pending=intake_draft 보존", async () => {
++    const root = mkdtempSync(join(tmpdir(), "flow-nl-draft-"));
++    const wb = join(root, "wb.md");
++    writeFileSync(wb, "hi");
++    try {
++      const { gw, store, renders } = fakeGateway({ nlFileRoots: () => [root] });
++      // 제품명 선언 없음(따옴표·"제품명은" 없음) → stub 이 product 미추출 → 제품명만 미정.
++      await onMention({ type: "mention", threadId: "th-d", actor: "chat:slack:U1", text: `워킹백워드는 ${wb}, 화장품이고 여러장` }, gw);
++      const p = renders.find((r) => r.p.type === "NlProposal")!.p as NlProposal;
++      expect(p.kind).toBe("intake");
++      expect(p.confirm).toBeUndefined(); // 미완성 → 확정 버튼 없음
++      expect((p.questions ?? []).length).toBeGreaterThan(0); // 제품명 되물음
++      const draft = store.get("th-d") as { kind: string; domain: string; format: string; files: unknown[] };
++      expect(draft).toMatchObject({ kind: "intake_draft", domain: "화장품", format: "여러장" });
++      expect(draft.files.length).toBe(1); // 파싱된 파일 보존
++    } finally {
++      rmSync(root, { recursive: true, force: true });
++    }
++  });
++
++  it("그 뒤 제품명 답글 → 완성 제안(intake · [이 자료로 시작]) + pending=intake(제품명 반영) · 자동 실행 없음", async () => {
++    const root = mkdtempSync(join(tmpdir(), "flow-nl-draft2-"));
++    const wb = join(root, "wb.md");
++    writeFileSync(wb, "hi");
++    try {
++      const { gw, store, renders, jobs } = fakeGateway({ nlFileRoots: () => [root] });
++      await onMention({ type: "mention", threadId: "th-d2", actor: "chat:slack:U1", text: `워킹백워드는 ${wb}, 화장품이고 여러장` }, gw);
++      await onReply(reply("th-d2", "이지덤"), gw);
++      const proposals = renders.filter((r) => r.p.type === "NlProposal").map((r) => r.p as NlProposal);
++      const last = proposals[proposals.length - 1]!;
++      expect(last.kind).toBe("intake");
++      expect(last.confirm?.actionId).toBe(NL_INTAKE_CONFIRM_ACTION_ID); // 완성 → 확정 버튼 등장
++      expect(store.get("th-d2")).toMatchObject({ kind: "intake", domain: "화장품", format: "여러장", product: "이지덤" });
++      expect(jobs).toHaveLength(0); // NL 은 실행 안 함 — 버튼이 방아쇠(잠긴 결정 6)
++    } finally {
++      rmSync(root, { recursive: true, force: true });
++    }
++  });
++
++  it("재멘션 형태 답글(선두 @멘션 토큰)도 제품명만 채택(멘션 제거)", async () => {
++    const root = mkdtempSync(join(tmpdir(), "flow-nl-draft3-"));
++    const wb = join(root, "wb.md");
++    writeFileSync(wb, "hi");
++    try {
++      const { gw, store } = fakeGateway({ nlFileRoots: () => [root] });
++      await onMention({ type: "mention", threadId: "th-d3", actor: "chat:slack:U1", text: `워킹백워드는 ${wb}, 화장품이고 여러장` }, gw);
++      await onReply(reply("th-d3", "@U0BH97M7D6V 이지덤"), gw);
++      expect(store.get("th-d3")).toMatchObject({ kind: "intake", product: "이지덤" });
++    } finally {
++      rmSync(root, { recursive: true, force: true });
++    }
++  });
++
++  it("거부된 재선언은 옛 intake_draft 도 무효화 → 뒤이은 제품명 답글이 옛 자료를 완성 못 함(fail-closed)", async () => {
++    const root = mkdtempSync(join(tmpdir(), "flow-nl-draftR-"));
++    const outside = mkdtempSync(join(tmpdir(), "flow-nl-draftO-"));
++    const wb = join(root, "wb.md");
++    const bad = join(outside, "x.pdf"); // 허용 폴더 밖.
++    writeFileSync(wb, "hi");
++    writeFileSync(bad, "p");
++    try {
++      const { gw, store, jobs } = fakeGateway({ nlFileRoots: () => [root] });
++      // A: 유효하지만 제품명만 미정 → intake_draft.
++      await onMention({ type: "mention", threadId: "th-dR", actor: "chat:slack:U1", text: `워킹백워드는 ${wb}, 화장품이고 여러장` }, gw);
++      expect(store.get("th-dR")).toMatchObject({ kind: "intake_draft" });
++      // B: 재선언(허용 폴더 밖 파일 포함 → 거부)이 **구독 스레드라 onReply 로 온다**(production 경로).
++      //   답글이 무조건 제품명이 되면 안 되고, 재파싱해 새 선언(B)으로 다뤄 거부 → 옛 A 자료 확정 불가여야 한다.
++      await onReply(reply("th-dR", `워킹백워드는 ${wb}, 시험성적서는 ${bad}, 화장품이고 여러장`), gw);
++      expect(store.get("th-dR")?.kind === "intake").toBe(false); // A 도 B 도 확정 대기 없음(B 거부 · A draft 폐기)
++      // 뒤이은 제품명 답글 → 완성할 대기 없음 → 옛 A 자료 확정 불가(no-op).
++      await onReply(reply("th-dR", "이지덤"), gw);
++      expect(store.get("th-dR")?.kind === "intake").toBe(false);
++      expect(jobs).toHaveLength(0);
++    } finally {
++      rmSync(root, { recursive: true, force: true });
++      rmSync(outside, { recursive: true, force: true });
++    }
++  });
++
++  it("★ 설정만 고치는 답글(제품명 없음) → 미확신 재산정 → 제품명 되물음 + draft 보존(대화가 막히지 않는다)", async () => {
++    const root = mkdtempSync(join(tmpdir(), "flow-nl-draftU-"));
++    const wb = join(root, "wb.md");
++    writeFileSync(wb, "hi");
++    try {
++      // 답글이 포맷만 고치면 제품명은 여전히 미정 — uncertain 을 [] 로 굳히면 질문도 확정 버튼도 없는 카드가 된다.
++      for (const refine of ["한장", "한장으로 바꿔줘"]) {
++        const { gw, store, renders, jobs } = fakeGateway({ nlFileRoots: () => [root] });
++        const th = `th-refine-${refine.length}`;
++        await onMention({ type: "mention", threadId: th, actor: "chat:slack:U1", text: `워킹백워드는 ${wb}, 화장품이고 여러장` }, gw);
++        await onReply(reply(th, refine), gw);
++        const proposals = renders.filter((r) => r.p.type === "NlProposal").map((r) => r.p as NlProposal);
++        const last = proposals[proposals.length - 1]!;
++        expect(last.questions.some((q) => q.includes("제품 이름"))).toBe(true); // 되물음 있음
++        expect(last.confirm).toBeUndefined(); // 미완성 → 확정 버튼 없음
++        // 고친 설정이 반영된 draft 가 살아 있어야 다음 답글(제품명)이 완성한다.
++        expect(store.get(th)).toMatchObject({ kind: "intake_draft", domain: "화장품", format: "한장" });
++        expect(jobs).toHaveLength(0);
++      }
++    } finally {
++      rmSync(root, { recursive: true, force: true });
++    }
++  });
++
++  it("파일/자료 변경 의도 답글은 fail-closed(옛 draft 파일로 완성 금지) — 경로·확장자밖·확장자없음·제거의도", async () => {
++    const root = mkdtempSync(join(tmpdir(), "flow-nl-draftF-"));
++    const wb = join(root, "wb.md");
++    writeFileSync(wb, "hi");
++    const badReplies = [
++      "워킹백워드는 /Users/x/공백 있는 이름.pdf 로 바꿔줘", // 공백 포함 경로(파서 미인식) + '바꿔'
++      "/allowed/new.rtf 로 교체", // 확장자 목록 밖 경로 + '교체'
++      "/allowed/newfile 로 해줘", // 확장자 없는 경로 토큰
++      "파일 없이 진행해줘", // 경로 없는 제거 의도('파일'·'없이')
++      "기존 파일은 빼줘", // 경로 없는 제거 의도('파일'·'빼')
++      "제품명은 이지덤. delete the old report", // 명시 제품명 + 영어 제거 지시(단어경계 delete/report) → 안전 우선 fail-closed
++      "그거 빼줘", // 파일 맥락 없는 변경 지시인데 설정·제품명으로도 이해 못 함 → 무엇을 빼라는지 불명(fail-closed)
++      "두 번째 거 교체", // 위와 같음(대명사 지시)
++    ];
++    try {
++      for (const [i, bad] of badReplies.entries()) {
++        const { gw, store, jobs } = fakeGateway({ nlFileRoots: () => [root] });
++        const th = `th-badf-${i}`;
++        await onMention({ type: "mention", threadId: th, actor: "chat:slack:U1", text: `워킹백워드는 ${wb}, 화장품이고 여러장` }, gw);
++        expect(store.get(th)).toMatchObject({ kind: "intake_draft" });
++        await onReply(reply(th, bad), gw);
++        // 옛 A 파일로 조용히 완성 금지: intake 확정 대기 안 생김 · draft 도 안 되살아남 · 잡 없음.
++        expect(store.get(th)?.kind === "intake").toBe(false);
++        expect(store.get(th)?.kind === "intake_draft").toBe(false);
++        expect(jobs).toHaveLength(0);
++      }
++    } finally {
++      rmSync(root, { recursive: true, force: true });
++    }
++  });
++});
++
+ describe("onAction — P3-2 인입 확정(스테이징 + intake 잡)", () => {
+   let dataDir: string;
+   let root: string;
+diff --git a/chat/test/kernel/gen-executor.test.ts b/chat/test/kernel/gen-executor.test.ts
+index 05ea12d..80baa1d 100644
+--- a/chat/test/kernel/gen-executor.test.ts
++++ b/chat/test/kernel/gen-executor.test.ts
+@@ -1,5 +1,5 @@
+ import { afterEach, beforeEach, describe, expect, it } from "vitest";
+-import { access, mkdtemp, rm } from "node:fs/promises";
++import { access, mkdtemp, readdir, rm } from "node:fs/promises";
+ import { tmpdir } from "node:os";
+ import { join } from "node:path";
+ import {
+@@ -8,6 +8,7 @@ import {
+   StubDirectGenExecutor,
+   selectGenExecutor,
+ } from "../../src/kernel/gen-executor.js";
++import { JOB_PROTOCOL_VERSION, readJobFile, writePendingJob } from "../../src/kernel/job-protocol.js";
+ import type { HarnessResult } from "../../src/kernel/harness-cli.js";
+ import type { NextAction } from "../../src/types/contract.js";
+ 
+@@ -130,7 +131,36 @@ describe("BridgeGenExecutor", () => {
+     await expect(gen.execute("run-1", "../x")).rejects.toThrow(/안전하지 않/);
+   });
+ 
+-  it("전이가 없으면 타임아웃 Error(무한 대기 금지)", async () => {
++  it("적재하는 잡은 프로토콜 v2 형식(expires_at = 적재시각 + timeoutMs · 봇 폴링 마감과 같은 값)", async () => {
++    const T0 = 1_700_000_000_000;
++    let seen: Awaited<ReturnType<typeof readJobFile>> = null;
++    let calls = 0;
++    const gen = new BridgeGenExecutor({
++      jobsPendingDir: dir,
++      pollIntervalMs: 10,
++      timeoutMs: 900_000,
++      now: () => T0, // 시계 고정 — 마감 계산이 결정적이어야 한다
++      sleep: async () => {},
++      readNext: async () => {
++        calls++;
++        if (calls === 1) return na("generate", "brief"); // check-first
++        seen = await readJobFile(join(dir, "run-9-brief.json")); // 대기 중 잡 파일 포착
++        return na("human"); // 전이 → 정리
++      },
++    });
++    await gen.execute("run-9", "brief");
++    expect(seen).toMatchObject({
++      version: JOB_PROTOCOL_VERSION,
++      kind: "generate",
++      run_id: "run-9",
++      stage: "brief",
++      enqueued_at: new Date(T0).toISOString(),
++      expires_at: new Date(T0 + 900_000).toISOString(), // = 봇의 폴링 마감(이중 시계 금지)
++    });
++    expect(typeof seen!.job_id).toBe("string");
++  });
++
++  it("전이가 없으면 타임아웃 Error(무한 대기 금지) + 아직 pending 인 자기 잡을 회수(프로토콜 v2)", async () => {
+     let clock = 1000;
+     const gen = new BridgeGenExecutor({
+       jobsPendingDir: dir,
+@@ -140,11 +170,62 @@ describe("BridgeGenExecutor", () => {
+       sleep: async (ms) => {
+         clock += ms;
+       },
+-      readNext: async () => na("generate", "brief"), // 계속 brief generate(운영자 미처리) → 타임아웃
++      readNext: async () => na("generate", "brief"), // 계속 brief generate(아무도 처리 안 함) → 타임아웃
++    });
++    await expect(gen.execute("run-x", "brief")).rejects.toThrow(/시간 초과|거둬들였/);
++    // ⚠ v1 과 바뀐 지점: 타임아웃 = 회수. 잡을 남기면 봇이 포기한 뒤 소비자가 뒤늦게 집어 '봇 몰래' 되살린다.
++    expect(await readdir(dir)).toEqual([]);
++  });
++
++  it("타임아웃 시 소비자가 이미 집어 갔으면(파일 없음) 회수 실패 — 그래도 실패로 끝난다(늦은 성공은 화해 버튼 몫)", async () => {
++    let clock = 1000;
++    let polls = 0;
++    const gen = new BridgeGenExecutor({
++      jobsPendingDir: dir,
++      pollIntervalMs: 50,
++      timeoutMs: 100,
++      now: () => clock,
++      sleep: async (ms) => {
++        clock += ms;
++      },
++      readNext: async () => {
++        // 첫 폴링 뒤 소비자가 클레임(=pending 에서 사라짐)을 흉내 — 이후 봇 타임아웃.
++        if (++polls === 2) await rm(join(dir, "run-c-brief.json"), { force: true });
++        return na("generate", "brief");
++      },
++    });
++    await expect(gen.execute("run-c", "brief")).rejects.toThrow(/회수하지 못했/);
++  });
++
++  it("타임아웃 시 같은 단계의 '새 잡'(job_id 다름)은 회수하지 않는다 — 남의 요청 증발 금지", async () => {
++    let clock = 1000;
++    let polls = 0;
++    const gen = new BridgeGenExecutor({
++      jobsPendingDir: dir,
++      pollIntervalMs: 50,
++      timeoutMs: 100,
++      now: () => clock,
++      sleep: async (ms) => {
++        clock += ms;
++      },
++      readNext: async () => {
++        // 대기 중 같은 rid·stage 로 새 잡이 다시 적재된 상황(우리 잡을 덮어씀).
++        if (++polls === 2) {
++          await writePendingJob(dir, {
++            version: JOB_PROTOCOL_VERSION,
++            kind: "generate",
++            run_id: "run-n",
++            stage: "brief",
++            job_id: "다른-잡",
++            expires_at: new Date(9_999_999_999_999).toISOString(),
++          });
++        }
++        return na("generate", "brief");
++      },
+     });
+-    await expect(gen.execute("run-x", "brief")).rejects.toThrow(/시간 초과|초과/);
+-    // 타임아웃이어도 pending 파일은 남아 운영자가 이어서 처리 가능
+-    await expect(access(join(dir, "run-x-brief.json"))).resolves.toBeUndefined();
++    await expect(gen.execute("run-n", "brief")).rejects.toThrow(/시간 초과|회수하지 못했/);
++    const left = await readJobFile(join(dir, "run-n-brief.json"));
++    expect(left?.job_id).toBe("다른-잡"); // 새 잡은 그대로 — 소비자가 이어서 집을 수 있다
+   });
+ });
+ 
+diff --git a/chat/test/kernel/job-protocol.test.ts b/chat/test/kernel/job-protocol.test.ts
+new file mode 100644
+index 0000000..327f3e5
+--- /dev/null
++++ b/chat/test/kernel/job-protocol.test.ts
+@@ -0,0 +1,567 @@
++/**
++ * job-protocol.test.ts — 잡 큐 프로토콜 v2 수명주기 검증(실 fs tmpdir · 시계 주입 · sleep 0 · 셸 0).
++ *
++ * 결정성 규약:
++ *   · 시각은 전부 주입 상수(T0 기준)다 — 실시간·파일 mtime 에 기대는 단정은 두지 않는다(초 단위 mtime 비교는
++ *     같은 초에 끝나면 간헐 오실패한다는 이 레포의 교훈).
++ *   · 경합 검증은 '누가 이겼나'(OS 가 정함 = 비결정적)가 아니라 '**정확히 하나만** 이겼나'(결정적)를 본다.
++ */
++import { afterEach, beforeEach, describe, expect, it } from "vitest";
++import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
++import { tmpdir } from "node:os";
++import { join } from "node:path";
++import {
++  JOB_PROTOCOL_VERSION,
++  buildGenerateJob,
++  checkBudget,
++  claimJob,
++  completeJob,
++  computeExpiresAt,
++  doubleCheckJob,
++  failJob,
++  isGenerateTurn,
++  isSafeConsumerId,
++  jobDirsOf,
++  jobFileName,
++  listPendingJobs,
++  parseDeadline,
++  reapClaimedJobs,
++  readJobFile,
++  recallPendingJob,
++  releaseJob,
++  takePendingJob,
++  writePendingJob,
++  type JobDirs,
++  type TakeDeps,
++} from "../../src/kernel/job-protocol.js";
++import type { NextAction } from "../../src/types/contract.js";
++import type { GenerateJobFile } from "../../src/types/jobs.js";
++
++/** 고정 기준 시각(주입) — 실시간 미사용. */
++const T0 = 1_700_000_000_000;
++const BRIDGE_TIMEOUT = 900_000; // 봇 대기 상한(=expires_at 원천)
++const BUDGET = 480_000; // 소비자 잡 예산
++const MARGIN = 30_000; // 기동 여유
++
++/** 최소 NextAction(관심 필드 = step·stage — 전이 판정은 둘을 함께 본다). */
++function na(step: string, stage: string | null = null): NextAction {
++  return {
++    rid: "run-1",
++    phase: "01-brief",
++    phase_label: "",
++    step,
++    gate: "user",
++    status: "pending",
++    awaiting: null,
++    iteration: null,
++    max_iterations: null,
++    action: step === "generate" ? "generate" : "approve",
++    stage,
++    needs: null,
++    options: [],
++    recommended: null,
++    ra_ok_required: false,
++    revise_available: false,
++    gate_type: null,
++    stop_reason: null,
++    advisory: null,
++    cmd: "",
++    gate_label: "",
++    hint: "",
++    files: [],
++  } as NextAction;
++}
++
++let root: string;
++let dirs: JobDirs;
++
++beforeEach(async () => {
++  root = await mkdtemp(join(tmpdir(), "chat-jobproto-"));
++  dirs = jobDirsOf({
++    jobsPending: join(root, "pending"),
++    jobsClaimed: join(root, "claimed"),
++    jobsFailed: join(root, "failed"),
++  });
++  await mkdir(dirs.pending, { recursive: true });
++});
++afterEach(async () => {
++  await rm(root, { recursive: true, force: true });
++});
++
++const exists = (p: string): Promise<boolean> => access(p).then(() => true, () => false);
++const ls = (d: string): Promise<string[]> => readdir(d).then((n) => n.sort(), () => []);
++
++/** v2 잡 1건(적재시각 T0 · 마감 T0+900초). */
++function newJob(over: Partial<GenerateJobFile> = {}): GenerateJobFile {
++  return {
++    ...buildGenerateJob({ run_id: "run-1", stage: "brief", enqueuedAtMs: T0, timeoutMs: BRIDGE_TIMEOUT }),
++    ...over,
++  };
++}
++
++/** 소비자 의존성(전부 주입 — 기본 = 지금이 T0 이고 brief 생성 차례). */
++function deps(over: Partial<TakeDeps> = {}): TakeDeps {
++  return {
++    dirs,
++    consumerId: "c1",
++    now: () => T0,
++    budgetMs: BUDGET,
++    startupMarginMs: MARGIN,
++    readNext: async () => na("generate", "brief"),
++    ...over,
++  };
++}
++
++// ── 잡 조립·마감 ──────────────────────────────────────────────────────────────
++describe("expires_at — 절대 마감(적재시각 + 대기 상한)", () => {
++  it("computeExpiresAt: ISO-8601 UTC 절대시각(duration 아님)", () => {
++    expect(computeExpiresAt(T0, BRIDGE_TIMEOUT)).toBe(new Date(T0 + BRIDGE_TIMEOUT).toISOString());
++  });
++
++  it("buildGenerateJob: v2 필드(version·job_id·enqueued_at·expires_at) + 마감 = 적재+상한", () => {
++    const job = newJob();
++    expect(job.version).toBe(JOB_PROTOCOL_VERSION);
++    expect(job.kind).toBe("generate");
++    expect(job.enqueued_at).toBe(new Date(T0).toISOString());
++    expect(parseDeadline(job)).toBe(T0 + BRIDGE_TIMEOUT);
++    expect(typeof job.job_id).toBe("string");
++  });
++
++  it("buildGenerateJob: 적재마다 job_id 가 다르다(회수 대조용 도장)", () => {
++    expect(newJob().job_id).not.toBe(newJob().job_id);
++  });
++
++  it("parseDeadline: 미기재·형식오류 = null(v1 레거시 · 마감 없음)", () => {
++    expect(parseDeadline({ kind: "generate", run_id: "run-1", stage: "brief" })).toBeNull();
++    expect(parseDeadline(newJob({ expires_at: "언젠가" }))).toBeNull();
++    expect(parseDeadline(newJob({ expires_at: "" }))).toBeNull();
++  });
++
++  it("경로 탈출 run_id/stage 는 잡 조립 단계에서 거부(파일 접촉 전)", () => {
++    expect(() => buildGenerateJob({ run_id: "../evil", stage: "brief", enqueuedAtMs: T0, timeoutMs: 1000 })).toThrow(/안전하지 않/);
++    expect(() => buildGenerateJob({ run_id: "run-1", stage: "../x", enqueuedAtMs: T0, timeoutMs: 1000 })).toThrow(/안전하지 않/);
++  });
++});
++
++// ── 파일 읽기/쓰기 ────────────────────────────────────────────────────────────
++describe("잡 파일 기록·읽기", () => {
++  it("writePendingJob: <rid>-<stage>.json 원자 기록 + 왕복 파싱(미지 필드 보존)", async () => {
++    const job = newJob({ note: "미지 필드" });
++    const p = await writePendingJob(dirs.pending, job);
++    expect(p).toBe(join(dirs.pending, "run-1-brief.json"));
++    const back = await readJobFile(p);
++    expect(back).toMatchObject({ run_id: "run-1", stage: "brief", kind: "generate", note: "미지 필드" });
++    expect(back!.expires_at).toBe(job.expires_at);
++  });
++
++  it("readJobFile: 읽기 자체가 실패(권한 등)하면 '깨진 잡'으로 뭉뚱그리지 않고 던진다(reaper 오강등 방지)", async () => {
++    // 디렉터리를 파일처럼 읽으면 EISDIR — '없음'도 '깨짐'도 아닌 fs 오류의 대역.
++    await mkdir(join(dirs.pending, "run-1-brief.json"), { recursive: true });
++    await expect(readJobFile(join(dirs.pending, "run-1-brief.json"))).rejects.toThrow();
++  });
++
++  it("readJobFile: 없음·깨진 JSON·kind 다름·경로탈출 rid = null(모르는 파일은 일감이 아니다)", async () => {
++    expect(await readJobFile(join(dirs.pending, "없음.json"))).toBeNull();
++    await writeFile(join(dirs.pending, "broken.json"), "{ 반쯤", "utf8");
++    expect(await readJobFile(join(dirs.pending, "broken.json"))).toBeNull();
++    await writeFile(join(dirs.pending, "other.json"), JSON.stringify({ kind: "approve", run_id: "r", stage: "brief" }), "utf8");
++    expect(await readJobFile(join(dirs.pending, "other.json"))).toBeNull();
++    await writeFile(join(dirs.pending, "evil.json"), JSON.stringify({ kind: "generate", run_id: "../evil", stage: "brief" }), "utf8");
++    expect(await readJobFile(join(dirs.pending, "evil.json"))).toBeNull();
++  });
++
++  it("listPendingJobs: 이름순 · 숨김(tmp)·비-json·깨진 파일 제외", async () => {
++    await writePendingJob(dirs.pending, newJob({ run_id: "run-2", stage: "concept" }));
++    await writePendingJob(dirs.pending, newJob());
++    await writeFile(join(dirs.pending, ".run-9-brief.json.tmp-x"), "{}", "utf8");
++    await writeFile(join(dirs.pending, "메모.txt"), "무시", "utf8");
++    await writeFile(join(dirs.pending, "broken.json"), "{", "utf8");
++    expect((await listPendingJobs(dirs.pending)).map((j) => j.job.run_id)).toEqual(["run-1", "run-2"]);
++  });
++
++  it("listPendingJobs: 폴더 자체가 없으면 빈 배열(잡 없음)", async () => {
++    expect(await listPendingJobs(join(root, "없는폴더"))).toEqual([]);
++  });
++
++  it("listPendingJobs: 파일명이 규약(<rid>-<stage>.json)과 어긋나면 잡으로 보지 않는다(하류가 canonical 이름을 쓰므로)", async () => {
++    await writeFile(join(dirs.pending, "손으로-바꾼-이름.json"), JSON.stringify(newJob()), "utf8");
++    expect(await listPendingJobs(dirs.pending)).toEqual([]);
++  });
++});
++
++// ── 2중 검사 ──────────────────────────────────────────────────────────────────
++describe("2중 검사 ㉠ 시간(checkBudget) — '마감 안 지났나'가 아니라 '끝낼 수 있나'", () => {
++  it("남은 시간 ≥ 예산+여유 → ok", () => {
++    expect(checkBudget(newJob(), T0, BUDGET, MARGIN)).toMatchObject({ ok: true, reason: "ok" });
++  });
++
++  it("마감 전이어도 남은 시간이 예산+여유에 못 미치면 expired(늦은 성공 창을 시작 전에 없앤다)", () => {
++    const almost = T0 + BRIDGE_TIMEOUT - (BUDGET + MARGIN) + 1; // 1ms 부족
++    expect(checkBudget(newJob(), almost, BUDGET, MARGIN)).toMatchObject({ ok: false, reason: "expired" });
++  });
++
++  it("경계: 정확히 예산+여유만 남았으면 ok", () => {
++    const exact = T0 + BRIDGE_TIMEOUT - (BUDGET + MARGIN);
++    expect(checkBudget(newJob(), exact, BUDGET, MARGIN).ok).toBe(true);
++  });
++
++  it("마감 넘김 → expired", () => {
++    expect(checkBudget(newJob(), T0 + BRIDGE_TIMEOUT + 1, BUDGET, MARGIN)).toMatchObject({ ok: false, reason: "expired" });
++  });
++
++  it("expires_at 부재(v1 레거시) → no_deadline(만료와 구분 — 사람 소비자 몫)", () => {
++    const v1: GenerateJobFile = { kind: "generate", run_id: "run-1", stage: "brief" };
++    expect(checkBudget(v1, T0, BUDGET, MARGIN)).toMatchObject({ ok: false, reason: "no_deadline" });
++  });
++});
++
++describe("2중 검사 ㉡ 차례(isGenerateTurn) — 봇 전이 감지와 같은 판정", () => {
++  it("step=generate + stage 일치일 때만 그 잡의 차례", () => {
++    expect(isGenerateTurn(na("generate", "brief"), "brief")).toBe(true);
++    expect(isGenerateTurn(na("human"), "brief")).toBe(false);
++    expect(isGenerateTurn(na("generate", "concept"), "brief")).toBe(false); // 다음 단계 생성 = brief 잡은 stale
++  });
++});
++
++describe("doubleCheckJob — 둘 다 통과해야 ok", () => {
++  it("시간·차례 모두 통과 → ok", async () => {
++    expect(await doubleCheckJob(newJob(), deps())).toMatchObject({ ok: true, reason: "ok" });
++  });
++
++  it("차례가 지났으면 transitioned", async () => {
++    const r = await doubleCheckJob(newJob(), deps({ readNext: async () => na("human") }));
++    expect(r).toMatchObject({ ok: false, reason: "transitioned" });
++  });
++
++  it("시간 검사가 먼저 — 만료면 next-action spawn 을 아예 안 한다(비용 절약 · 마감 후 조회 무의미)", async () => {
++    let calls = 0;
++    const r = await doubleCheckJob(
++      newJob(),
++      deps({
++        now: () => T0 + BRIDGE_TIMEOUT,
++        readNext: async () => {
++          calls++;
++          return na("generate", "brief");
++        },
++      }),
++    );
++    expect(r.reason).toBe("expired");
++    expect(calls).toBe(0);
++  });
++
++  it("next-action 조회 실패 → unreadable(판단 불가 — 잡을 버리지 않는다)", async () => {
++    const r = await doubleCheckJob(newJob(), deps({ readNext: async () => { throw new Error("셸 실패"); } }));
++    expect(r).toMatchObject({ ok: false, reason: "unreadable" });
++  });
++});
++
++// ── 수명주기(소비자 1급 경로) ──────────────────────────────────────────────────
++describe("takePendingJob — 수명주기 처분", () => {
++  it("통과 → claimed/<consumer>/ 로 이동(pending 에서 사라진다)", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    const r = await takePendingJob(job, deps());
++    expect(r.action).toBe("claimed");
++    expect(r.path).toBe(join(dirs.claimed, "c1", "run-1-brief.json"));
++    expect(await ls(dirs.pending)).toEqual([]);
++    expect(await exists(r.path!)).toBe(true);
++  });
++
++  it("★ 만료된 잡은 일감이 되지 않는다 → claimed 로 넘기지 않고 failed/ + .reason 격리", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    const r = await takePendingJob(job, deps({ now: () => T0 + BRIDGE_TIMEOUT + 1 }));
++    // 소비자에게 'claimed'(=일해라)로 돌아가는 일이 없다 — 처분을 위해 잠깐 소유할 뿐이다(안전한 이동의 전제).
++    expect(r).toMatchObject({ action: "failed", reason: "expired" });
++    expect(await ls(dirs.pending)).toEqual([]);
++    expect(await exists(join(dirs.claimed, "c1", "run-1-brief.json"))).toBe(false); // 살아 있는 클레임 없음
++    expect(await ls(dirs.failed)).toEqual(["run-1-brief.json", "run-1-brief.json.reason"]);
++    expect(await readFile(join(dirs.failed, "run-1-brief.json.reason"), "utf8")).toMatch(/남은 시간/);
++  });
++
++  it("★ 전이 완료된 잡은 삭제된다(재실행 금지 · failed 로도 안 간다)", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    const r = await takePendingJob(job, deps({ readNext: async () => na("human") }));
++    expect(r).toMatchObject({ action: "dropped", reason: "transitioned" });
++    expect(await ls(dirs.pending)).toEqual([]);
++    expect(await exists(join(dirs.claimed, "c1", "run-1-brief.json"))).toBe(false);
++    expect(await ls(dirs.failed)).toEqual([]);
++  });
++
++  it("v1 레거시 잡(마감 없음)은 손대지 않는다 — pending 보존(사람 소비자 몫 · failed 로 강등 금지)", async () => {
++    const v1: GenerateJobFile = { kind: "generate", run_id: "run-1", stage: "brief" };
++    await writePendingJob(dirs.pending, v1);
++    const r = await takePendingJob(v1, deps());
++    expect(r).toMatchObject({ action: "skipped", reason: "no_deadline" });
++    expect(await ls(dirs.pending)).toEqual(["run-1-brief.json"]);
++    expect(await ls(dirs.failed)).toEqual([]);
++  });
++
++  it("next-action 조회 실패 → 손대지 않는다(다음 회차 재시도)", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    const r = await takePendingJob(job, deps({ readNext: async () => { throw new Error("셸 실패"); } }));
++    expect(r).toMatchObject({ action: "skipped", reason: "unreadable" });
++    expect(await ls(dirs.pending)).toEqual(["run-1-brief.json"]);
++  });
++
++  it("이미 없어진 잡(다른 소비자가 집음) → lost(예외 아님)", async () => {
++    const job = newJob(); // pending 에 쓰지 않음 = 이미 사라진 상태
++    expect(await takePendingJob(job, deps())).toMatchObject({ action: "lost" });
++  });
++
++  it("처분 경합에 져도(그새 누가 집어감) 잡 없는 .reason 을 남기지 않는다(실패했다는 거짓 기록 금지)", async () => {
++    const job = newJob(); // pending 에 없음 = 그 사이 누가 집어감
++    const r = await takePendingJob(job, deps({ now: () => T0 + BRIDGE_TIMEOUT + 1 }));
++    expect(r.action).toBe("lost"); // 소유하지 못했으므로 아무것도 처분하지 않는다
++    expect(await ls(dirs.failed)).toEqual([]); // 사유 파일도 남지 않았다
++  });
++
++  it("★ 판정은 '집은 실물'에 대해서만 — 목록의 잡이 만료여도 그새 들어온 새 잡이 멀쩡하면 그 새 잡으로 일한다", async () => {
++    // 남의 새 요청을 옛 판정('만료')으로 failed/ 에 처박지 않는다 = 검사 대상과 처분 대상이 항상 같다.
++    const listed = newJob(); // 목록에 잡힐 당시의(만료된) 잡
++    const fresh = newJob({
++      job_id: "그-사이-들어온-새-잡",
++      expires_at: new Date(T0 + BRIDGE_TIMEOUT * 3).toISOString(), // 마감이 넉넉한 새 요청
++    });
++    await writePendingJob(dirs.pending, fresh);
++    const r = await takePendingJob(listed, deps({ now: () => T0 + BRIDGE_TIMEOUT + 1 })); // listed 기준이면 만료
++    expect(r.action).toBe("claimed"); // 집은 실물(fresh)로 판정 → 일감이다
++    expect(await ls(dirs.failed)).toEqual([]); // 새 요청이 옛 판정에 처박히지 않았다
++    expect((await readJobFile(r.path!))!.job_id).toBe(fresh.job_id);
++  });
++
++  it("★ 집은 뒤 처분에 실패하면(fs 오류) 대기줄로 되돌린다 — claimed/ 에 갇히면 reaper 도 못 건드린다", async () => {
++    const job = newJob({ run_id: "run-2" });
++    await writePendingJob(dirs.pending, job);
++    // 처분(failJob) 자리를 디렉터리로 막아 rename 을 실패시킨다(IO 오류 대역).
++    await mkdir(join(dirs.failed, "run-2-brief.json", "막힘"), { recursive: true });
++    await expect(
++      takePendingJob(job, deps({ consumerId: "c9", now: () => T0 + BRIDGE_TIMEOUT + 1 })), // 만료 → failJob → 실패
++    ).rejects.toThrow();
++    expect(await exists(join(dirs.claimed, "c9", "run-2-brief.json"))).toBe(false); // 갇히지 않았다
++    expect(await ls(dirs.pending)).toContain("run-2-brief.json"); // 대기줄 복귀 → 다음 회차가 다시 본다
++  });
++
++  it("★ 차례 조회(next-action)가 기동 여유를 다 먹으면 일감이 아니다 — 조회 뒤 예산을 다시 본다", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    let t = T0 + BRIDGE_TIMEOUT - (BUDGET + MARGIN); // 딱 예산+여유만 남은 시점(조회 전엔 통과)
++    const r = await takePendingJob(job, {
++      ...deps(),
++      now: () => t,
++      readNext: async () => {
++        t += 1; // 조회가 1ms 걸림 → 이제 예산이 모자란다
++        return na("generate", "brief");
++      },
++    });
++    expect(r).toMatchObject({ action: "failed", reason: "expired" }); // 검증한 예산이 사실이 아니면 시작하지 않는다
++    expect(await exists(join(dirs.claimed, "c1", "run-1-brief.json"))).toBe(false);
++  });
++});
++
++// ── 클레임 경합(rename = 원자성 원천) ──────────────────────────────────────────
++describe("클레임-by-rename — 경합의 승자는 OS 가 정한다", () => {
++  it("★ 두 소비자가 같은 잡을 동시에 집으면 정확히 한 승자 · 패자는 깨끗이 진다(null)", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    const [a, b] = await Promise.all([claimJob(dirs, job, "c1"), claimJob(dirs, job, "c2")]);
++    const winners = [a, b].filter((p) => p !== null);
++    expect(winners).toHaveLength(1); // 승자 정확히 1(누가 이겼는지는 OS 몫 — 단정하지 않는다)
++    expect(await exists(winners[0]!)).toBe(true);
++    expect(await ls(dirs.pending)).toEqual([]); // 원본은 승자에게 갔다
++  });
++
++  it("★ takePendingJob 경합도 승자 1명(나머지는 lost — 이중 소비 없음)", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    const rs = await Promise.all([
++      takePendingJob(job, deps({ consumerId: "c1" })),
++      takePendingJob(job, deps({ consumerId: "c2" })),
++      takePendingJob(job, deps({ consumerId: "c3" })),
++    ]);
++    expect(rs.filter((r) => r.action === "claimed")).toHaveLength(1);
++    expect(rs.filter((r) => r.action === "lost")).toHaveLength(2);
++  });
++
++  it("연속 클레임: 두 번째는 원본이 없어 null(같은 잡을 두 번 집을 수 없다)", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    expect(await claimJob(dirs, job, "c1")).not.toBeNull();
++    expect(await claimJob(dirs, job, "c2")).toBeNull();
++  });
++
++  it("경로 탈출 소비자 id 는 거부(claimed/<consumer> 디렉터리 탈출 차단)", async () => {
++    await expect(claimJob(dirs, newJob(), "../evil")).rejects.toThrow(/안전하지 않/);
++  });
++
++  it("★ 점 세그먼트 소비자 id(`.`·`..`)도 거부 — 문자 클래스는 통과하지만 경로 이동이다", async () => {
++    // `.` = claimed/ 바로 밑(reaper 의 소비자 폴더 스캔 밖 → 고아 회수 불능) · `..` = jobs 루트(수명주기 밖).
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    await expect(claimJob(dirs, job, ".")).rejects.toThrow(/안전하지 않/);
++    await expect(claimJob(dirs, job, "..")).rejects.toThrow(/안전하지 않/);
++    expect(await ls(dirs.pending)).toEqual([jobFileName(job.run_id, job.stage)]); // 잡은 대기줄에 그대로
++    expect(await ls(dirs.claimed)).toEqual([]); // claimed/ 밑에 흘린 파일 없음
++  });
++
++  it("isSafeConsumerId: 안전 토큰만 통과(점 세그먼트·경로분리·길이초과·빈 문자열 거부)", () => {
++    expect(isSafeConsumerId("op-chabh")).toBe(true);
++    expect(isSafeConsumerId("daemon.1_a-B")).toBe(true);
++    expect(isSafeConsumerId(".")).toBe(false);
++    expect(isSafeConsumerId("..")).toBe(false);
++    expect(isSafeConsumerId("../evil")).toBe(false);
++    expect(isSafeConsumerId("a/b")).toBe(false);
++    expect(isSafeConsumerId("")).toBe(false);
++    expect(isSafeConsumerId("x".repeat(65))).toBe(false);
++    expect(isSafeConsumerId("...")).toBe(true); // 점 3개는 실제 디렉터리명이라 안전(이동 아님)
++  });
++});
++
++// ── 회수·완료·실패·해제 ───────────────────────────────────────────────────────
++describe("봇 타임아웃 회수(recallPendingJob)", () => {
++  it("자기 잡이면 회수(true) — pending 에서 사라진다", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    expect(await recallPendingJob(dirs.pending, job)).toBe(true);
++    expect(await ls(dirs.pending)).toEqual([]);
++  });
++
++  it("같은 이름의 새 잡(job_id 다름)은 회수하지 않는다 — 남의 요청 증발 금지", async () => {
++    const mine = newJob();
++    const other = newJob();
++    await writePendingJob(dirs.pending, other);
++    expect(await recallPendingJob(dirs.pending, mine)).toBe(false);
++    expect(await ls(dirs.pending)).toEqual(["run-1-brief.json"]);
++  });
++
++  it("이미 클레임돼 파일이 없으면 no-op(false) — 늦은 성공 가능성은 화해 버튼 몫", async () => {
++    expect(await recallPendingJob(dirs.pending, newJob())).toBe(false);
++  });
++
++  it("job_id 없는 v1 잡은 '자기 잡' 증명이 불가라 회수하지 않는다", async () => {
++    const v1: GenerateJobFile = { kind: "generate", run_id: "run-1", stage: "brief" };
++    await writePendingJob(dirs.pending, v1);
++    expect(await recallPendingJob(dirs.pending, v1)).toBe(false);
++    expect(await ls(dirs.pending)).toEqual(["run-1-brief.json"]);
++  });
++});
++
++describe("완료·실패·해제", () => {
++  it("completeJob: 삭제 · 두 번 불러도 예외 없음(멱등)", async () => {
++    const job = newJob();
++    const p = await writePendingJob(dirs.pending, job);
++    await completeJob(p);
++    expect(await exists(p)).toBe(false);
++    await expect(completeJob(p)).resolves.toBeUndefined();
++  });
++
++  it("failJob: failed/ 이동 + .reason 기록(사유 없는 실패 금지)", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    const claimed = (await claimJob(dirs, job, "c1"))!;
++    const dest = await failJob(dirs, claimed, "세션이 전이시키지 못함");
++    expect(await exists(claimed)).toBe(false);
++    expect(await readFile(`${dest}.reason`, "utf8")).toBe("세션이 전이시키지 못함\n");
++  });
++
++  it("releaseJob: pending 복귀(true)", async () => {
++    const job = newJob();
++    await writePendingJob(dirs.pending, job);
++    const claimed = (await claimJob(dirs, job, "c1"))!;
++    expect(await releaseJob(dirs, claimed)).toBe(true);
++    expect(await ls(dirs.pending)).toEqual(["run-1-brief.json"]);
++    expect(await exists(claimed)).toBe(false);
++  });
++
++  it("releaseJob: 같은 이름의 새 잡이 이미 대기 중이면 덮지 않고 고아를 버린다(no-clobber)", async () => {
++    const orphan = newJob();
++    await writePendingJob(dirs.pending, orphan);
++    const claimed = (await claimJob(dirs, orphan, "c1"))!;
++    const fresh = newJob(); // 그 사이 새로 적재된 잡(마감이 더 넉넉하다)
++    await writePendingJob(dirs.pending, fresh);
++    expect(await releaseJob(dirs, claimed)).toBe(false);
++    expect((await readJobFile(join(dirs.pending, "run-1-brief.json")))!.job_id).toBe(fresh.job_id);
++    expect(await exists(claimed)).toBe(false); // 고아는 버려졌다
++  });
++});
++
++// ── reaper(고아 클레임) ───────────────────────────────────────────────────────
++describe("reapClaimedJobs — 고아 클레임에 2중 검사를 다시 건다", () => {
++  /** 고아 클레임 1건을 만든다(소비자 c1 이 집어놓고 죽은 상태). */
++  async function orphan(job: GenerateJobFile = newJob()): Promise<string> {
++    await writePendingJob(dirs.pending, job);
++    return (await claimJob(dirs, job, "c1"))!;
++  }
++  const reapDeps = (over: Partial<Parameters<typeof reapClaimedJobs>[0]> = {}): Parameters<typeof reapClaimedJobs>[0] => ({
++    dirs,
++    now: () => T0,
++    budgetMs: BUDGET,
++    startupMarginMs: MARGIN,
++    readNext: async () => na("generate", "brief"),
++    isConsumerAlive: () => false, // 기본 = 고아(소비자 죽음)
++    ...over,
++  });
++
++  it("★ 살아 있는 소비자의 클레임은 건드리지 않는다(일하는 잡을 빼앗지 않는다)", async () => {
++    const p = await orphan();
++    const r = await reapClaimedJobs(reapDeps({ isConsumerAlive: () => true }));
++    expect(r).toEqual([{ path: p, consumer: "c1", action: "alive", reason: "alive" }]);
++    expect(await exists(p)).toBe(true);
++  });
++
++  it("★ 고아 + 아직 시간 있음 + 여전히 그 차례 → pending 복귀", async () => {
++    const p = await orphan();
++    const r = await reapClaimedJobs(reapDeps());
++    expect(r[0]).toMatchObject({ action: "released", reason: "ok" });
++    expect(await ls(dirs.pending)).toEqual(["run-1-brief.json"]);
++    expect(await exists(p)).toBe(false);
++  });
++
++  it("★ 고아 + 만료 → 재큐 금지 · failed/ 격리(stale 재실행 차단)", async () => {
++    await orphan();
++    const r = await reapClaimedJobs(reapDeps({ now: () => T0 + BRIDGE_TIMEOUT + 1 }));
++    expect(r[0]).toMatchObject({ action: "failed", reason: "expired" });
++    expect(await ls(dirs.pending)).toEqual([]);
++    expect(await ls(dirs.failed)).toEqual(["run-1-brief.json", "run-1-brief.json.reason"]);
++  });
++
++  it("★ 고아 + 이미 전이됨 → 재큐 금지 · 삭제(늦은 중복 생성 차단)", async () => {
++    await orphan();
++    const r = await reapClaimedJobs(reapDeps({ readNext: async () => na("human") }));
++    expect(r[0]).toMatchObject({ action: "completed", reason: "transitioned" });
++    expect(await ls(dirs.pending)).toEqual([]);
++    expect(await ls(dirs.failed)).toEqual([]);
++  });
++
++  it("★ 고아 + next-action 조회 실패 → 손대지 않는다(조회 실패로 잡을 버리거나 되살리지 않는다)", async () => {
++    const p = await orphan();
++    const r = await reapClaimedJobs(reapDeps({ readNext: async () => { throw new Error("셸 실패"); } }));
++    expect(r[0]).toMatchObject({ action: "skipped", reason: "unreadable" });
++    expect(await exists(p)).toBe(true);
++  });
++
++  it("고아 + v1 레거시(마감 없음) → 사람이 찾을 대기줄로 복귀", async () => {
++    await orphan({ kind: "generate", run_id: "run-1", stage: "brief" });
++    const r = await reapClaimedJobs(reapDeps());
++    expect(r[0]).toMatchObject({ action: "released", reason: "no_deadline" });
++    expect(await ls(dirs.pending)).toEqual(["run-1-brief.json"]);
++  });
++
++  it("깨진 잡 파일은 사람이 보게 failed/ 로(큐에 남겨 되풀이 읽지 않는다)", async () => {
++    await mkdir(join(dirs.claimed, "c1"), { recursive: true });
++    await writeFile(join(dirs.claimed, "c1", "run-1-brief.json"), "{ 반쯤", "utf8");
++    const r = await reapClaimedJobs(reapDeps());
++    expect(r[0]).toMatchObject({ action: "failed", reason: "unreadable" });
++    expect(await ls(dirs.failed)).toEqual(["run-1-brief.json", "run-1-brief.json.reason"]);
++  });
++
++  it("claimed/ 가 없으면 빈 결과(고아 없음)", async () => {
++    expect(await reapClaimedJobs(reapDeps())).toEqual([]);
++  });
++
++  it("잡 파일명 규약: <rid>-<stage>.json", () => {
++    expect(jobFileName("run-1", "storyboard-outline")).toBe("run-1-storyboard-outline.json");
++  });
++});

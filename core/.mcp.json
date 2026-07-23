@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "openalex-paper-search": {
+      "type": "http",
+      "url": "https://openalex-paper-search-mcp-519304407283.asia-northeast3.run.app/mcp"
+    }
+  }
+}

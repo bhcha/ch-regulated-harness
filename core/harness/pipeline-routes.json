@@ -1,0 +1,16 @@
+{
+  "$schema": "pipeline-routes.schema.json",
+  "_comment": "WS-ROUTES — 선형 페이즈 successor 맵 + 페이즈별 max_iterations 의 단일 선언 출처(비동결). 셸에 흩어진 순수 상수성 분기(advance-phase next_phase·max_iterations, render ORDER)가 여기서만 읽는다. ⚠ 조건부 술어(examples_exist@ingest · active_phases@advance · uses_guideline@render)는 각자 자리에 둔다(여기로 합치지 않음). 런타임 0: 표현식 eval 금지, 미정의 페이즈 조회는 hard-fail.",
+  "entry": "00-ingest",
+  "end": "done",
+  "phases": {
+    "00a-intake":    { "next": "00-ingest",    "max_iterations": 3 },
+    "00-ingest":     { "next": "01-brief",     "max_iterations": 3 },
+    "00e-evidence":  { "next": "01-brief",     "max_iterations": 3 },
+    "00g-guideline": { "next": "01-brief",     "max_iterations": 3 },
+    "01-brief":      { "next": "02-concept",   "max_iterations": 3 },
+    "02-concept":    { "next": "03-storyboard", "max_iterations": 3 },
+    "03-storyboard": { "next": "04-keyvisual", "max_iterations": 4 },
+    "04-keyvisual":  { "next": "done",         "max_iterations": 2 }
+  }
+}

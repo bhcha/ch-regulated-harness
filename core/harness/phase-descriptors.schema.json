@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "phase-descriptors",
+  "description": "WS-DESC 페이즈 동작 디스크립터. 비동결 데이터지만 게이트 흐름(다안 select·2중 승인·verdict/decision 경로)을 좌우하므로 '닫힌' 스키마로 무결성을 강제한다(route_assert_valid 가 new-run·advance-phase 전이 시점에 검증 → 손상/오타/누락 fail-closed; 디스크립터는 레포 소스 파일이라 런타임 비작성·손상은 다음 전이서 포착되어 충분). 단계4(Codex 리뷰 Medium): phases 키 집합을 core-base 동결 5게이트 페이즈로 닫고(누락/오타 거부), 04-keyvisual 의 안전필드(is_multi·needs_approve_after_select)를 const 로 고정해 데이터 오염으로 2중 승인 게이트가 review 로 새는 fail-open 을 봉인한다. ⚠ route-union(팩 기여 페이즈)은 단계5/6 연기 — 그때 이 phases 닫힘을 'core-base ∪ pack-검증' 으로 확장한다.",
+  "type": "object",
+  "required": ["phases"],
+  "additionalProperties": false,
+  "$defs": {
+    "leaf": {
+      "type": "object",
+      "required": ["verdict_file", "is_multi", "decision_rel", "needs_approve_after_select"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict_file": { "type": ["string", "null"], "description": "현재 페이즈/서브스테이지의 verdict.json 상대경로(run_dir 기준). null=verdict 없음." },
+        "is_multi": { "type": "boolean", "description": "다안(select 게이트) 페이즈인가." },
+        "decision_rel": { "type": ["string", "null"], "description": "선택 decision.json 상대경로(run_dir 기준). null=기본값 'decision.json'." },
+        "needs_approve_after_select": { "type": "boolean", "description": "선택 후 별도 approve(2중 승인)가 필요한가." }
+      }
+    },
+    "guideline_leaf": {
+      "type": "object",
+      "required": ["verdict_file", "is_multi", "decision_rel", "needs_approve_after_select"],
+      "additionalProperties": false,
+      "description": "심의 면제(review) 허용 leaf — 심의 면제(review) 옵션을 '이 def 로 가리킨 페이즈에만' 허용한다(Codex R2 CRITICAL). 현재 00a-intake(첨부 분류 = 라우팅 결정 입력, 광고 카피 아님)·00g-guideline·00e-evidence(모두 참조 입력·하류 심의). 일반 leaf 에는 review 가 없어 닫힌 스키마(additionalProperties:false)가 비-면제 페이즈의 review:false 를 거부 → 작업영역-쓰기 생성이 phase-descriptors 를 변조해 01-brief/02-concept/03/04 의 실심의를 끄려 해도 route_assert_valid 가 fail-closed. 새 면제 페이즈를 도입하려면 그 페이즈를 의도적으로 이 def(review 허용 def)로 가리켜야 한다(통제된 확장).",
+      "properties": {
+        "verdict_file": { "type": ["string", "null"], "description": "현재 페이즈의 verdict.json 상대경로(run_dir 기준). null=verdict 없음." },
+        "review": { "type": "boolean", "description": "선택(기본 true=실심의). false=심의 면제 — kcia-check 가 실제 룰엔진/critic 대신 verdict=pass(engine=review-exempt-autopass)로 자동 통과시킨다(단 autopass 전에 validate-stage 로 현재 산출물을 재검증해 금지표현은 차단). verdict_file 은 유지하므로 gate/advance/verdict_path 경로 불변. 예: 00g-guideline(크롤 참조 노트=광고 카피 아닌 다운스트림 참조 입력)." },
+        "is_multi": { "type": "boolean", "description": "다안(select 게이트) 페이즈인가." },
+        "decision_rel": { "type": ["string", "null"], "description": "선택 decision.json 상대경로(run_dir 기준). null=기본값 'decision.json'." },
+        "needs_approve_after_select": { "type": "boolean", "description": "선택 후 별도 approve(2중 승인)가 필요한가." }
+      }
+    },
+    "substaged": {
+      "type": "object",
+      "required": ["substages"],
+      "additionalProperties": false,
+      "properties": {
+        "substages": {
+          "type": "object",
+          "required": ["outline", "plan"],
+          "additionalProperties": false,
+          "properties": {
+            "outline": { "$ref": "#/$defs/leaf" },
+            "plan": { "$ref": "#/$defs/leaf" }
+          }
+        }
+      }
+    },
+    "keyvisual": {
+      "type": "object",
+      "required": ["verdict_file", "is_multi", "decision_rel", "needs_approve_after_select"],
+      "additionalProperties": false,
+      "description": "04-keyvisual: 다안(select)+2중 승인(approve) 게이트. 안전필드 const 고정 — 데이터 오염으로 select→approve 가 review 로 새는 것을 차단(부록A 2중 승인 보존).",
+      "properties": {
+        "verdict_file": { "type": "string", "minLength": 1 },
+        "is_multi": { "const": true },
+        "decision_rel": { "type": "string", "minLength": 1 },
+        "needs_approve_after_select": { "const": true }
+      }
+    }
+  },
+  "properties": {
+    "$schema": { "type": "string" },
+    "_comment": { "type": "string" },
+    "phases": {
+      "type": "object",
+      "required": ["00a-intake", "00e-evidence", "00g-guideline", "01-brief", "02-concept", "03-storyboard", "04-keyvisual"],
+      "additionalProperties": false,
+      "properties": {
+        "00a-intake": { "$ref": "#/$defs/guideline_leaf" },
+        "00e-evidence": { "$ref": "#/$defs/guideline_leaf" },
+        "00g-guideline": { "$ref": "#/$defs/guideline_leaf" },
+        "01-brief": { "$ref": "#/$defs/leaf" },
+        "02-concept": { "$ref": "#/$defs/leaf" },
+        "03-storyboard": { "$ref": "#/$defs/substaged" },
+        "04-keyvisual": { "$ref": "#/$defs/keyvisual" }
+      }
+    }
+  }
+}

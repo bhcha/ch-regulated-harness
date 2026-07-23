@@ -1,0 +1,13 @@
+{
+  "concept_axis": "A-efficacy",
+  "rtb": [
+    {
+      "id": "rtb-1",
+      "claim": "uv_protection 기능성 표시(법정)",
+      "claim_strength": "factual",
+      "evidence_ref": "func-uv_protection-1",
+      "functional_basis": "uv_protection:approved",
+      "review_status": "pending"
+    }
+  ]
+}

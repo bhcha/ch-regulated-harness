@@ -1,0 +1,92 @@
+{
+  "_comment": "의약품 ingest 프로파일(도메인 소유, TBD). 현행 유효값 축자 복사: VOC/기능성/마커는 빈 값(화장품 키워드 미적용), bp_block_order/bp_hints 는 현재 화장품 기본을 상속 중이라 명시 착지(3단계 역방향 함정 — drug best-practices.json 골든 결박).",
+  "voc_keywords": [],
+  "persona_keywords": [],
+  "option_regex": "",
+  "top_n": 30,
+  "min_freq": 3,
+  "efficacy_filter": true,
+  "functional_labels": {},
+  "cert_keywords": [],
+  "efficacy_words": [],
+  "product_type_default": "drug",
+  "form_factors": [
+    {"match": ["연질캡슐", "캡슐"], "nouns": "캡슐(연질/경질 캡슐, PTP 블리스터 포장 또는 약병)"},
+    {"match": ["정제", "알약", "타블렛"], "nouns": "정제(알약, PTP 블리스터 포장 또는 약병)"},
+    {"match": ["점안", "안약"], "nouns": "점안액(점적 용기)"},
+    {"match": ["패치", "첩부"], "nouns": "패치(피부에 붙이는 첩부제, 개별 포장)"},
+    {"match": ["연고", "크림", "겔", "젤"], "nouns": "연고/겔(짜는 튜브 용기)"},
+    {"match": ["시럽", "현탁액", "내복액", "액제"], "nouns": "내복액/시럽(약병)"},
+    {"match": ["주사", "앰플", "바이알"], "nouns": "주사제(앰플/바이알)"},
+    {"match": ["과립", "산제", "가루", "분말"], "nouns": "과립/산제(개별 스틱 또는 봉지 포장)"}
+  ],
+  "bp_block_order": [
+    "hero",
+    "problem",
+    "socialProof",
+    "solution",
+    "rtbSummary",
+    "ingredientTech",
+    "colorSwatch",
+    "reviewCapture",
+    "howToUse",
+    "targetAudience",
+    "brandTrust",
+    "brandBanner",
+    "buyingGuide"
+  ],
+  "bp_hints": {
+    "hero": [
+      "제품 단독 누끼",
+      "정면 클로즈업, 브랜드 컬러 배경, 충분한 여백"
+    ],
+    "problem": [
+      "상황 연출컷",
+      "일상 장면 중심, 공감 카피 오버레이 공간"
+    ],
+    "socialProof": [
+      "수치·뱃지 그래픽",
+      "큰 숫자와 보조 텍스트, 정렬된 카드 배치"
+    ],
+    "solution": [
+      "제품 중심 연출컷",
+      "제품을 화면 중앙에, 깔끔한 배경"
+    ],
+    "rtbSummary": [
+      "아이콘+키워드 그리드",
+      "3-4개 균일 그리드, 일관된 간격"
+    ],
+    "ingredientTech": [
+      "성분·구성 그래픽",
+      "성분 비주얼과 라벨, 클린한 배경"
+    ],
+    "colorSwatch": [
+      "색상 스와치",
+      "색상 팔레트 나열, 톤 비교 배치"
+    ],
+    "reviewCapture": [
+      "리뷰 카드",
+      "별점과 인용, 말풍선형 카드"
+    ],
+    "howToUse": [
+      "사용 단계 컷",
+      "스텝 번호와 손동작, 순서대로 배열"
+    ],
+    "targetAudience": [
+      "라이프스타일 분위기컷",
+      "인물 분위기 중심, 밝은 일상 톤"
+    ],
+    "brandTrust": [
+      "수상·기술 뱃지",
+      "로고와 뱃지 정렬, 신뢰감 있는 톤"
+    ],
+    "brandBanner": [
+      "브랜드 헤리티지 배너",
+      "브랜드명 중심, 절제된 배경"
+    ],
+    "buyingGuide": [
+      "구성·배송 안내",
+      "구성품 나열, 표·아이콘 정리"
+    ]
+  }
+}

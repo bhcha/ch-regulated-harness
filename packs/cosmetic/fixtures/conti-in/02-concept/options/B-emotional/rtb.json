@@ -1,0 +1,29 @@
+{
+  "concept_axis": "B-emotional",
+  "rtb": [
+    {
+      "id": "rtb-1",
+      "claim": "매일 쓰기 좋은 커버감",
+      "claim_strength": "emotional",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    },
+    {
+      "id": "rtb-2",
+      "claim": "매일 쓰기 좋은 촉촉감",
+      "claim_strength": "emotional",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    },
+    {
+      "id": "rtb-3",
+      "claim": "매일 쓰기 좋은 밀착감",
+      "claim_strength": "emotional",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    }
+  ]
+}

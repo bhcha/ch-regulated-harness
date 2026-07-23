@@ -1,0 +1,227 @@
+{
+  "_comment": "포맷 캐논 정본(SSoT 1개, 4단계). 3분산(stub_stage CANON 튜플·storyline/plan-block 스키마 type enum·canon-components 커버리지)을 통합. blocks=생성 시퀀스(order·intent·risk_tier·evidence_required, 스텁이 storyline.json 으로 바이트-정확 방출)·evidence_gated/brand_gated=조건부 제외 집합·required_root=필수 루트 블록·types=전역 유효 블록 카탈로그(검증 _canon)·components=구성요소 커버리지(check_canon_coverage). 값은 현행 축자 복사(바이트 불변).",
+  "format": "multipage_bm",
+  "blocks": [
+    {
+      "type": "hero",
+      "intent": "핵심 후크 + 기능성 라벨(키비주얼)",
+      "risk_tier": "high",
+      "evidence_required": true
+    },
+    {
+      "type": "socialProof",
+      "intent": "판매/순위/리뷰수/재구매율(기준일·출처 각주 필수)",
+      "risk_tier": "medium",
+      "evidence_required": false
+    },
+    {
+      "type": "problem",
+      "intent": "소비자 고민 환기(voc 근거)",
+      "risk_tier": "high",
+      "evidence_required": false
+    },
+    {
+      "type": "solution",
+      "intent": "브랜드의 답",
+      "risk_tier": "high",
+      "evidence_required": false
+    },
+    {
+      "type": "rtbSummary",
+      "intent": "핵심 RTB 요약 3-4개",
+      "risk_tier": "medium",
+      "evidence_required": false
+    },
+    {
+      "type": "ingredientTech",
+      "intent": "핵심 RTB 세부(성분/기술/특허/편의)",
+      "risk_tier": "high",
+      "evidence_required": false
+    },
+    {
+      "type": "clinicalEvidence",
+      "intent": "과학성/임상 근거(실증 그래프)",
+      "risk_tier": "high",
+      "evidence_required": true
+    },
+    {
+      "type": "beforeAfter",
+      "intent": "스와치/대비",
+      "risk_tier": "critical",
+      "evidence_required": false
+    },
+    {
+      "type": "colorSwatch",
+      "intent": "색상 발색",
+      "risk_tier": "low",
+      "evidence_required": false
+    },
+    {
+      "type": "reviewCapture",
+      "intent": "소비자 VOC(별점·후기)",
+      "risk_tier": "medium",
+      "evidence_required": false
+    },
+    {
+      "type": "howToUse",
+      "intent": "권장 사용 방법",
+      "risk_tier": "low",
+      "evidence_required": false
+    },
+    {
+      "type": "targetAudience",
+      "intent": "추천 타겟(가설)",
+      "risk_tier": "high",
+      "evidence_required": false
+    },
+    {
+      "type": "brandTrust",
+      "intent": "수상·기술력",
+      "risk_tier": "medium",
+      "evidence_required": false
+    },
+    {
+      "type": "brandBanner",
+      "intent": "브랜드 헤리티지 배너",
+      "risk_tier": "high",
+      "evidence_required": false
+    },
+    {
+      "type": "buyingGuide",
+      "intent": "색상/구성/배송",
+      "risk_tier": "low",
+      "evidence_required": false
+    }
+  ],
+  "evidence_gated": [
+    "beforeAfter",
+    "clinicalEvidence"
+  ],
+  "brand_gated": [
+    "brandBanner"
+  ],
+  "required_root": [
+    "hero"
+  ],
+  "types": [
+    "hero",
+    "socialProof",
+    "problem",
+    "solution",
+    "rtbSummary",
+    "ingredientTech",
+    "clinicalEvidence",
+    "beforeAfter",
+    "colorSwatch",
+    "howToUse",
+    "reviewCapture",
+    "targetAudience",
+    "brandTrust",
+    "brandBanner",
+    "buyingGuide",
+    "motionDemo",
+    "header",
+    "nav",
+    "mainPositioning",
+    "point",
+    "ingredientDetail",
+    "cta",
+    "footer"
+  ],
+  "components": [
+    {
+      "id": "keyVisual",
+      "label": "키비주얼",
+      "satisfied_by": [
+        "hero"
+      ],
+      "required": true,
+      "evidence_gated": false
+    },
+    {
+      "id": "salesAward",
+      "label": "판매/수상 데이터",
+      "satisfied_by": [
+        "socialProof",
+        "brandTrust"
+      ],
+      "required": true,
+      "evidence_gated": false,
+      "claim_gated": "sales_award"
+    },
+    {
+      "id": "problemAwareness",
+      "label": "문제(고민) 인식",
+      "satisfied_by": [
+        "problem"
+      ],
+      "required": true,
+      "evidence_gated": false
+    },
+    {
+      "id": "consumerVOC",
+      "label": "소비자 VOC",
+      "satisfied_by": [
+        "reviewCapture"
+      ],
+      "required": true,
+      "evidence_gated": false
+    },
+    {
+      "id": "rtbSummary",
+      "label": "핵심 RTB 요약",
+      "satisfied_by": [
+        "rtbSummary"
+      ],
+      "required": true,
+      "evidence_gated": false
+    },
+    {
+      "id": "rtbDetail",
+      "label": "핵심 RTB 세부",
+      "satisfied_by": [
+        "ingredientTech",
+        "solution"
+      ],
+      "required": true,
+      "evidence_gated": false
+    },
+    {
+      "id": "scienceEvidence",
+      "label": "과학성/임상 근거",
+      "satisfied_by": [
+        "clinicalEvidence"
+      ],
+      "required": true,
+      "evidence_gated": true
+    },
+    {
+      "id": "howToUse",
+      "label": "권장 사용 방법",
+      "satisfied_by": [
+        "howToUse"
+      ],
+      "required": true,
+      "evidence_gated": false
+    },
+    {
+      "id": "targetAudience",
+      "label": "추천 타겟",
+      "satisfied_by": [
+        "targetAudience"
+      ],
+      "required": true,
+      "evidence_gated": false
+    },
+    {
+      "id": "brandBanner",
+      "label": "브랜드 배너",
+      "satisfied_by": [
+        "brandBanner"
+      ],
+      "required": true,
+      "evidence_gated": false,
+      "brand_gated": true
+    }
+  ]
+}

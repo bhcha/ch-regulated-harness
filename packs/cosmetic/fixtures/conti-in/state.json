@@ -1,0 +1,151 @@
+{
+  "$schema": "harness/state.schema.json",
+  "workflow_id": "_fixture_build",
+  "product": {
+    "name": "[합성브랜드] 신테틱 톤업 쿠션 21호",
+    "type": "general",
+    "regulatory_domain": "cosmetic",
+    "deliverable_format": "multipage_bm",
+    "functional_status": {
+      "whitening": "unknown",
+      "wrinkle": "unknown",
+      "uv_protection": "approved"
+    },
+    "evidence_on_file": []
+  },
+  "phase": "03-storyboard",
+  "step": "generate",
+  "gate": null,
+  "status": "pending",
+  "iteration": 1,
+  "max_iterations": 4,
+  "awaiting": "none",
+  "selected_option": null,
+  "artifacts": [
+    "00-ingest/voc.json",
+    "00-ingest/claim-basis.json",
+    "00-ingest/assets-manifest.json",
+    "00-ingest/best-practices.json",
+    "00-ingest/bundle-report.md"
+  ],
+  "history": [
+    {
+      "ts": "2026-07-08T02:20:02Z",
+      "phase": "00-ingest",
+      "event": "run:created",
+      "by": "new-run.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:03Z",
+      "phase": "00-ingest",
+      "event": "ingest:ok",
+      "by": "ingest-bundle.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:03Z",
+      "phase": "00-ingest",
+      "event": "report:ok",
+      "by": "ingest-bundle.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:03Z",
+      "phase": "01-brief",
+      "event": "phase:enter",
+      "by": "advance-phase.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:04Z",
+      "phase": "01-brief",
+      "event": "generate:ok:brief:stub",
+      "by": "run-stage.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:04Z",
+      "phase": "01-brief",
+      "event": "sensitive:confirmed:ra=1",
+      "by": "approve.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:05Z",
+      "phase": "01-brief",
+      "event": "human:approved→review",
+      "by": "approve.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:06Z",
+      "phase": "01-brief",
+      "event": "review:produced:brief:brief-verdict-97d170e1",
+      "by": "kcia-check.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:06Z",
+      "phase": "01-brief",
+      "event": "review:passed→advance",
+      "by": "gate.sh",
+      "verdict_id": "brief-verdict-97d170e1"
+    },
+    {
+      "ts": "2026-07-08T02:20:07Z",
+      "phase": "02-concept",
+      "event": "phase:enter",
+      "by": "advance-phase.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:08Z",
+      "phase": "02-concept",
+      "event": "generate:concept-axes:stub",
+      "by": "run-stage.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:08Z",
+      "phase": "02-concept",
+      "event": "generate:concept-axis:A-efficacy:stub",
+      "by": "run-stage.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:08Z",
+      "phase": "02-concept",
+      "event": "generate:concept-axis:B-emotional:stub",
+      "by": "run-stage.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:08Z",
+      "phase": "02-concept",
+      "event": "generate:concept-axis:C-science:stub",
+      "by": "run-stage.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:09Z",
+      "phase": "02-concept",
+      "event": "generate:ok:concept:stub",
+      "by": "run-stage.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:09Z",
+      "phase": "02-concept",
+      "event": "select:B-emotional",
+      "by": "gate.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:11Z",
+      "phase": "02-concept",
+      "event": "review:produced:concept:concept-verdict-97d170e1",
+      "by": "kcia-check.sh"
+    },
+    {
+      "ts": "2026-07-08T02:20:11Z",
+      "phase": "02-concept",
+      "event": "review:passed→advance",
+      "by": "gate.sh",
+      "verdict_id": "concept-verdict-97d170e1"
+    },
+    {
+      "ts": "2026-07-08T02:20:12Z",
+      "phase": "03-storyboard",
+      "event": "phase:enter",
+      "by": "advance-phase.sh"
+    }
+  ],
+  "updated_at": "2026-07-08T02:20:12Z",
+  "storyboard_substage": "outline"
+}

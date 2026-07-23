@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/design-manifest.schema.json",
+  "title": "design-manifest.json — 렌더/심의/export 연결 (설계 §7.4)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["channel", "width_px", "dpi", "selected_option", "sections", "full_screenshot"],
+  "properties": {
+    "channel": { "type": "string" },
+    "width_px": { "type": "integer" },
+    "dpi": { "type": "integer" },
+    "selected_option": { "type": ["string", "null"] },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["block", "order", "selector", "screenshot", "self_review"],
+        "properties": {
+          "block": { "type": "string" },
+          "order": { "type": "integer" },
+          "selector": { "type": "string" },
+          "screenshot": { "type": "string" },
+          "height": { "type": "integer", "description": "렌더된 섹션 높이(px). 재현성 검증용." },
+          "self_review": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["layout_ok", "overflow", "contrast_ok"],
+            "properties": {
+              "layout_ok": { "type": "boolean" },
+              "overflow": { "type": "boolean" },
+              "contrast_ok": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "full_screenshot": { "type": "string" }
+  }
+}

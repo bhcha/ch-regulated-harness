@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/evidence-documents.schema.json",
+  "title": "evidence-documents.json — 근거 문서 첨부 매니페스트 (링크 B, 첨부 전송)",
+  "description": "규제 근거 문서(시험성적서·결과보고서 등) 첨부 목록. 유효 문서 1건 이상일 때만 존재. 첨부 전송이지 주장 실증이 아니다(실증 evidence 집합 미편입). id·filename·정규화명 유일성과 양방향 참조 무결성은 ingest.py 코드가 fail-closed 강제(로컬 검증기는 uniqueItems 미지원).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["documents", "source"],
+  "properties": {
+    "documents": {
+      "type": "array",
+      "description": "NFC 파일명 정렬순 근거 문서. 파일이 존재하면 최소 1건(유효 0건이면 파일 자체를 생성하지 않음).",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "filename", "ext", "bytes", "sha256", "grade", "linked_claim_ids"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^doc-[0-9]{2,}$",
+            "description": "doc-NN (NFC 파일명 정렬순). 유일성은 ingest.py 강제."
+          },
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "description": "복사된 원본 파일명(NFC 정규화). 유일성은 ingest.py 강제."
+          },
+          "ext": {
+            "type": "string",
+            "enum": ["pdf", "hwp", "hwpx", "doc", "docx", "xls", "xlsx", "png", "jpg", "jpeg", "webp"],
+            "description": "허용 확장자 화이트리스트(추후 화이트리스트만 확장)."
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "원본 바이트 수. 0바이트는 fail-closed 이므로 유효 매니페스트엔 bytes:0 없음."
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "원본 sha256 (소문자 hex 64자)."
+          },
+          "grade": {
+            "type": ["string", "null"],
+            "description": "사람 선언 등급(예: 인체적용시험). 사이드카 index.json 없으면 null."
+          },
+          "linked_claim_ids": {
+            "type": "array",
+            "description": "claim-basis.json evidence_on_file[].id 와 대조된 연결(대조만; 실증셋 미편입). 사이드카 없으면 [].",
+            "items": { "type": "string" },
+            "default": []
+          },
+          "reflect": {
+            "type": "boolean",
+            "description": "신설. 내용 반영 의무 여부(사이드카 index.json 선언에서 유래; ingest 가 항상 명시 기록). false=첨부-전용. 사이드카는 런에 스냅샷되지 않으므로 반영 선언의 유일한 런내 출처가 이 매니페스트다."
+          },
+          "claim": {
+            "type": "string",
+            "minLength": 1,
+            "description": "신설. 이 문서가 입증하는 내용(reflect:true 일 때 기록)."
+          },
+          "verdict_text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "신설. 문서의 공식 판정문 원문(reflect:true 일 때 기록). validate_storyboard 의 부분문자열 결박 기준."
+          },
+          "test_report": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "신설. 시험성적서 요소(reflect:true 일 때 기록).",
+            "properties": {
+              "institution": { "type": "string", "minLength": 1 },
+              "sample_size": { "type": "integer", "minimum": 1 },
+              "duration": { "type": "string", "minLength": 1 },
+              "method": { "type": ["string", "null"] },
+              "measured_values": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "properties": {
+                  "metric": { "type": "string" },
+                  "unit": { "type": "string" },
+                  "before": { "type": "number" },
+                  "after": { "type": "number" },
+                  "timepoint": { "type": "string" },
+                  "change_pct": { "type": "number" }
+                }
+              },
+              "test_items": {
+                "type": ["array", "null"],
+                "description": "신설(G-B, 디자이너 핸드오프). 시험 항목별 측정 결과 + 매칭 시험 이미지 참조. 각 항목이 임상 블록의 차트 1개(+선택 추출 이미지)로 렌더된다. 정량 승격은 test_report 직접선언 전용(자동제안 우회 금지 불변식).",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["metric"],
+                  "properties": {
+                    "metric": { "type": "string", "minLength": 1 },
+                    "unit": { "type": ["string", "null"] },
+                    "series": {
+                      "type": "array",
+                      "description": "시점별 측정값(예: 사용전→2주후→4주후). label+value.",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["label", "value"],
+                        "properties": {
+                          "label": { "type": "string", "minLength": 1 },
+                          "value": { "type": "number" }
+                        }
+                      }
+                    },
+                    "before": { "type": ["number", "null"] },
+                    "after": { "type": ["number", "null"] },
+                    "change_pct": { "type": ["number", "null"] },
+                    "stat_note": { "type": ["string", "null"], "description": "통계 각주 원문(예: p<0.025 by Friedman test, post hoc Wilcoxon...)." },
+                    "image_ref": {
+                      "type": ["object", "null"],
+                      "additionalProperties": false,
+                      "description": "매칭 시험 이미지(전후 사진 등)의 참조 문서 페이지. ingest 가 그 페이지를 렌더해 inputs/assets/evidence/ 로 추출(자사 자산).",
+                      "required": ["pages"],
+                      "properties": {
+                        "pages": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 1 } },
+                        "caption": { "type": ["string", "null"] }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["test_report", "certification", "paper", "patent", "ingredient_dossier", "brand_story", "guide", "general"],
+            "description": "신설(일반화). 참조 문서 종류(사이드카 유래). test_report 만 claim-basis 승격, 그 외 kind 는 각주 인용 채널."
+          },
+          "reflection_points": {
+            "type": "array",
+            "description": "신설(일반화). 사람 지정/승인 반영 원문 포인트(일반 kind reflect:true 필수). 결박=인용 블록 카피에 원문 포함.",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "spec_origin": {
+            "type": "string",
+            "enum": ["human", "agent_proposed_human_approved"],
+            "description": "신설(일반화). 반영 스펙 출처(human|agent_proposed_human_approved) — 감사용."
+          },
+          "spec_status": {
+            "type": "string",
+            "enum": ["pending"],
+            "description": "신설(G5). 문서만 첨부(스펙 없음)된 reflect:true 문서의 미확정 표시 — ingest 가 fail-closed 대신 pending 으로 기록(승격·라벨·반영의무 보류). 두 유형: (1) 일반 kind(비-test_report) — 반영 포인트 미정. (2) 시험성적서 intent(W-3, 00e 스펙 2차 관문) — 사람이 kind:test_report 만 선언하고 상세(기관·n·기간·판정문·test_items)를 생략한 경우(이때 verdict_text·test_report 는 미기록 = 상세는 00e 에서 확정). 00e-evidence 에서 에이전트 제안→사람 승인(apply-proposal)으로 해소(필드 제거·상세 병합). 존재 시 advance 초크 게이트가 00e 외 전이(01-brief·00g·done)를 차단."
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count"],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": ["HARNESS_EVIDENCE_DIR", "bundle"],
+          "description": "근거 소스 채널(우선순위: HARNESS_EVIDENCE_DIR → <bundle>/evidence/)."
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "유효 문서 수(documents 길이와 일치)."
+        }
+      }
+    }
+  }
+}

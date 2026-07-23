@@ -1,0 +1,21 @@
+{
+  "_comment": "화장품 팩 — 규제도메인 레지스트리 엔트리(SSoT). core 로더가 packs/*/domain.json 을 스캔해 레지스트리를 조립한다. ruleset 은 동일 폴더 ruleset.json(co-located), 가이드 원문은 sources/. 새 도메인=새 팩 폴더(core 무수정).",
+  "domain": "cosmetic",
+  "aliases": ["화장품", "cosmetic"],
+  "label": "화장품",
+  "law": "화장품법 제13·14조",
+  "functional_categories": ["whitening", "wrinkle", "uv_protection"],
+  "pre_review": "advisory",
+  "ad_eligibility": "allowed",
+  "no_graphic_generation": false,
+  "mandatory_inclusion": false,
+  "export_package": "kcia-advisory",
+  "adk_critic": {
+    "url_env": "ADK_COSMETICS_CRITIC_URL",
+    "host_env": "ADK_COSMETICS_CRITIC_ALLOWED_HOST",
+    "app": "cosmetics_agent",
+    "author": "cosmetics_review_agent",
+    "author_aliases": ["guideline_review_agent"]
+  },
+  "status": "active"
+}

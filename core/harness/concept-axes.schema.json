@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/concept-axes.schema.json",
+  "title": "concept-axes.json — 컨셉 축 정의 (설계 §6.2)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["axes"],
+  "properties": {
+    "axes": {
+      "type": "array",
+      "minItems": 3,
+      "description": "서로 다른 컨셉 축(최소 3안 — 이슈3a). 축별 독립 생성(한 번에 N안 호출 금지).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "angle"],
+        "properties": {
+          "id": { "type": "string", "description": "예: A-efficacy / B-emotional / C-science" },
+          "label": { "type": "string" },
+          "angle": { "type": "string" }
+        }
+      }
+    }
+  }
+}

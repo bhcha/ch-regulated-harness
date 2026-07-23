@@ -1,0 +1,15 @@
+{
+  "concept_axis": "A-efficacy",
+  "key_messages": [
+    {
+      "id": "km-1",
+      "slot": "legal",
+      "headline": "제품 중심",
+      "voc_phrase": null,
+      "claim_strength": "factual",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    }
+  ]
+}

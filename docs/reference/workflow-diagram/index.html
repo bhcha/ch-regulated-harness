@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>상세페이지 생성 하네스 — 파이프라인 워크플로우</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <h1>상세페이지 생성 하네스 — 파이프라인 워크플로우</h1>
+    <p class="lead">규제 대상 제품(화장품·의약외품·건기식·의약품)의 상세페이지/홍보물을 <b>파일 기반 단계 게이트</b>로 생성하는 파이프라인. 각 생성 페이즈는 <b>생성 → 심의 → (선택) → 승인</b> 게이트를 거친다. <b>모든 포맷</b>(여러장·한장)이 포맷별 스토리보드·키비주얼을 거치는 것이 의도다(현재 일부 미구현은 글 설명 참조). <b>00g-guideline</b>(유사사례 "왜 좋은가" 분석)은 동일 도메인 사례가 있을 때만 수행한다.</p>
+
+    <figure class="diagram-wrap" style="margin:0;">
+      <div class="diagram-toolbar">
+        <span class="diagram-hint">↕ 위에서 아래로 · 점선은 보조 흐름(되돌림·기록) · 좁은 화면은 좌우 스크롤</span>
+      </div>
+      <div class="diagram-canvas">
+        <div id="flow-diagram" role="img"
+             aria-label="상세페이지 생성 하네스 파이프라인 흐름도: 유형 선언부터 00-ingest, 유사사례 분기, 브리프, 컨셉, 포맷 분기, 스토리보드, 키비주얼, done 까지. 자세한 내용은 아래 '흐름도를 글로 보기'를 참조하세요."></div>
+        <p class="diagram-fallback">흐름도를 불러오지 못했습니다. 아래 <strong>'흐름도를 글로 보기'</strong>에서 전체 흐름을 확인하세요.</p>
+      </div>
+      <figcaption class="note" style="padding:12px 18px;">
+        <a href="#" class="js-only" data-toggle-textalt>흐름도를 글로 보기</a>
+      </figcaption>
+    </figure>
+
+    <!-- 접근성: 흐름도의 텍스트 대체본 (화면낭독기·라이브러리 로드 실패 폴백 공용) -->
+    <details class="evidence" id="flow-textalt">
+      <summary>흐름도를 글로 보기 (화면낭독기·텍스트용)</summary>
+      <div class="evidence__body">
+        <ol>
+          <li><b>⓪ 유형 선언</b> — 사람이 규제도메인(화장품·의약외품·건기식·의약품)과 산출물 포맷(여러장·한장)을 선언한다. 둘 다 없으면 진행 불가(하드스톱).</li>
+          <li><b>00-ingest</b> — 크롤 번들·워킹백워드·자사 자산을 결정적으로 정규화해 VOC·효능근거표(claim-basis)·자산 매니페스트를 만든다(LLM 없음, 정량의 단일 출처). ⚑ <b>크롤 사례의 구도·무드 "왜 좋은가" 감각 인사이트 제공이 의도</b>이나, 현재는 정적 사전(BP_HINTS)으로만 — 개선 예정(WS-C).</li>
+          <li><b>분기 — 동일 도메인 유사사례가 있나?</b> 있으면 → <b>00g-guideline</b>(크롤 유사사례를 분석해 "왜 좋은가" 3안 제안 → 사람 선택), 없으면 곧장 01-brief(기본 레포는 사례 디렉터리 부재 → 자기 번들 폴백). ⚑ 현재 "왜 좋은가"는 정량(할인·평점) 위주 → 시각·감각 인사이트로 확장 예정(WS-C).</li>
+          <li><b>01-brief</b> — PR/FAQ로 정리(효능 단정 대신 VOC 키워드, 미승인 기능성은 카피 배제, 규제·실증 리스크는 내부 FAQ·민감 라벨로).</li>
+          <li><b>02-concept</b> — 컨셉 축별 RTB·키메시지를 다안 생성 → 사람 선택.</li>
+          <li><b>03-storyboard (모든 포맷)</b> — <b>포맷별(한장·여러장) 스토리라인·아웃라인을 "좋은 키비주얼이 나오도록" 기획·리서치</b>한다. 포맷이 골격을 결정(한장=1매 압축, 여러장=12블록). ✅ M7/M8/G6: <b>모든 포맷이 03·04를 거친다</b>(format-aware 스토리보드 + 키비주얼 프롬프트 포맷 분기 → 실 LLM 포맷-native; stub 키비주얼은 generic 세로 템플릿).</li>
+          <li><b>04-keyvisual</b> — 확정 기획안을 디자인(여러장=HTML/CSS 2안, 한장=1매)으로 렌더·캡처 후 협회 제출 패키지(kcia-package) export. img src는 자사 자산만.</li>
+          <li><b>done</b> — 최종 패키지(포맷별 산출물).</li>
+          <li><b>각 생성 페이즈 공통 게이트</b> — 생성 → 심의(kcia-check: 결정적 룰엔진 + 다른 세션 critic 2-pass) → [다안이면 사람 선택] → 사람 승인. 심의 fail·보완요청이면 같은 페이즈를 재생성(iteration+1), 반복 상한(00g·brief·concept=3, storyboard=4, keyvisual=2) 초과면 escalated(사람·RA 개입). 비활성 도메인(의약외품·건기식)은 심의 자동 통과(placeholder-autopass).</li>
+          <li><b>심의 순서</b> — 현재 구현은 생성 → 심의 → 승인. 재설계(GBP 정본) 목표는 생성 → 사람 승인 → 심의로 한 칸 이동(WS-A, 미구현).</li>
+        </ol>
+      </div>
+    </details>
+  </main>
+
+  <!-- Cytoscape.js + dagre + cytoscape-dagre (MIT) — 자체 호스팅, 오프라인 동작 -->
+  <script src="vendor/cytoscape.min.js"></script>
+  <script src="vendor/dagre.min.js"></script>
+  <script src="vendor/cytoscape-dagre.min.js"></script>
+  <!-- 다이어그램 모델 -->
+  <script>
+  window.DIAGRAM_MODEL = {
+    title: "상세페이지 생성 하네스 — 파이프라인 워크플로우",
+    nodes: [
+      { id: "start",      label: "⓪ 유형 선언\n(규제도메인 × 산출물 포맷)", type: "terminal" },
+      { id: "ingest",     label: "00-ingest\n입력 정규화 · VOC·근거·자산", type: "process" },
+      { id: "guideline",  label: "00g-guideline\n유사점 3안 (사례 있을 때)", type: "process" },
+      { id: "brief",      label: "01-brief\nPR / FAQ 정리", type: "process" },
+      { id: "concept",    label: "02-concept\n빅아이디어·RTB·키메시지", type: "process" },
+      { id: "storyboard", label: "03-storyboard\n포맷별 스토리라인·아웃라인", type: "process" },
+      { id: "keyvisual",  label: "04-keyvisual\n디자인·렌더·export", type: "process" },
+      { id: "done",       label: "done\n최종 패키지", type: "outcome" }
+    ],
+    edges: [
+      { source: "start",      target: "ingest" },
+      { source: "ingest",     target: "guideline" },
+      { source: "guideline",  target: "brief" },
+      { source: "brief",      target: "concept" },
+      { source: "concept",    target: "storyboard" },
+      { source: "storyboard", target: "keyvisual" },
+      { source: "keyvisual",  target: "done" }
+    ],
+    // 결과(행선지) 노드의 의미색: go|nogo|handoff|hold
+    outcomeColors: { done: "go" }
+  };
+  </script>
+  <script src="diagram-engine.js"></script>
+</body>
+</html>

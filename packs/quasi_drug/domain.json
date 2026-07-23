@@ -1,0 +1,15 @@
+{
+  "_comment": "의약외품 팩 — 레지스트리 엔트리(SSoT). 심의기준 문서 추후 제공 → ruleset.json 은 TBD 플레이스홀더. status=tbd 이면 kcia-check 가 placeholder-autopass(데드엔드 방지). M2에서 4축+필수기재 카탈로그로 채우고 active 전환.",
+  "domain": "quasi_drug",
+  "aliases": ["의약외품", "quasi_drug"],
+  "label": "의약외품",
+  "law": "약사법(의약외품 표시·광고)",
+  "functional_categories": [],
+  "pre_review": "unknown",
+  "ad_eligibility": "allowed",
+  "no_graphic_generation": true,
+  "mandatory_inclusion": true,
+  "export_package": "kcia-advisory",
+  "status": "tbd",
+  "note": "심의기준 문서 추후 제공 → ruleset.json TBD 플레이스홀더. status!=active → 무조건 통과(placeholder-autopass)."
+}

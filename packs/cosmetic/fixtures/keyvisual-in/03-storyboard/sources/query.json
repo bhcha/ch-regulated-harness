@@ -1,0 +1,15 @@
+{
+  "claim": null,
+  "triggers": [],
+  "filters": {
+    "grade": [
+      "SCI/SCIE",
+      "전문학회지"
+    ],
+    "lang": [
+      "ko",
+      "en"
+    ]
+  },
+  "limit": 5
+}

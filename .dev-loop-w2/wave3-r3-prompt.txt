@@ -1,0 +1,37 @@
+적대적 재리뷰(W3-R3). 추정이 아니라 코드로 논증하라. 없는 결함을 만들지 마라.
+
+W3-R2 에서 당신은 critical 0 · **high 2** · medium 3 을 냈다. 현재 워킹 diff 는 그 5건 수정
+(`chat/src/worker/supervisor.ts` · `chat/src/worker/cli-session-runner.ts` + 테스트). 불변식 12 = `.dev-loop-w2/review-brief.md`.
+
+## 적용된 수정
+1. **[high#1 spawn 실패 sentinel -1 → PID 1 신호]**: `pgid<=1`(또는 비정수)면 즉시 `spawn_failed` 로 settle —
+   register·알람·신호 전부 안 함(short-circuit). 방어층: `realSignalGroup`/`realGroupAlive` 가 `pgid<=1` 이면
+   `process.kill` 호출 없이 no-op/false. `defaultSpawnSession` 의 틀린 주석("realGroupAlive(-1)=ESRCH") 정정.
+   runner 는 spawn_failed(주+복구) 를 전이확인 전에 실패 RunJobResult 로 환원.
+2. **[high#2 하트비트 비내구/비직렬]**: `void writeFile`(fire-and-forget) → **동기 tmp write + renameSync 스왑**
+   (`createHeartbeatWriter`). 동기라 exit 이 앞지를 pending write 가 없고, 종료 핸들러의 reap 이 각 pgid release →
+   동기 publish → `host.exit()` 시점엔 최종 `[]` 가 디스크에. renameSync=원자 대체(찢긴 JSON 불가). 경로 미설정 시 no-op.
+3. **[medium#3 runJobSession reject]**: 복구 조립(buildSessionPlan+restrictRecoveryTools+2차 writeSettings) try/catch →
+   `recovery_compose_error` 실패 outcome(계약: never throw).
+4. **[medium#4 출력캡 SIGKILL 오라벨]**: `SpawnedSession.exited` 에 `outputCapExceeded` 실어 `onSelfExit` 이 `output_cap`
+   실패로 settle. runner 는 전이확인 **전에** output_cap 을 실패로. (narrow race: 캡킬 그룹이 groupAlive 참이면 reap
+   경로로 killed/reap_failed 로 빠짐 — 여전히 실패지만 output_cap 라벨은 best-effort, onSelfExit 에 문서화.)
+5. **[medium#5 process.exit stdout 절단]**: `process.exitCode` 설정 + `stdout.write` 완료 콜백에서 exit. main() 은
+   W3 에서 단위 미검증이라 W5 카나리.
+
+## 판정 요청
+⑴ high#1 이 **완전히** 닫혔는가 — spawn_failed 경로가 알람/신호를 하나도 안 트리거하는가? `pgid<=1` 가드가 신호를
+   내는 **모든** 경로(realSignalGroup·realGroupAlive·종료 핸들러 전파·capKill)를 덮는가, 빠진 경로가 있는가?
+⑵ high#2 가 완전히 닫혔는가 — 동기 write+renameSync 가 **exit 전 내구성**과 **비찢김**을 실제로 보장하는가?
+   renameSync 자체 실패(EXDEV=tmp 와 대상이 다른 파일시스템 · EACCES)는 어떻게 되는가? 종료 핸들러 안에서 동기 IO 예외가
+   전파를 막는가? tmp 파일명 충돌(같은 supervisor 재진입)은?
+⑶ high#1 의 spawn_failed 가 **정상 종료(exit code 0 인데 산출물 없음)** 와 구별되는가, 아니면 삼키는가?
+⑷ medium 3건이 실제로 닫혔는가(특히 #4 의 narrow race 문서화가 은폐가 아닌가, #5 의 콜백 exit 이 **영영 exit 안 하는**
+   경로 — write 콜백이 안 불리는 — 를 만들지 않는가).
+⑸ 그 외 새 결함(특히 새 outcome 종류[spawn_failed·output_cap·recovery_compose_error]가 runner/데몬 계약에서
+   **처리 안 되고 새는** 경로 · 테스트가 fake 를 실동작인 척하는지).
+
+⚠ 테스트 실행 금지(읽기전용 EPERM). ⚠ 실 claude 세션 금지. 사람이 조용한 창 확인: build ✓ · 단위 636/636 ·
+stub E2E 4/4(단독) · core 무수정.
+
+산출: severity · 파일:라인 · 불변식 번호 · 재현 시나리오. 마지막 한 줄: "W3-R3 판정: critical/high N건".

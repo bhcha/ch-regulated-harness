@@ -1,0 +1,61 @@
+{
+  "$schema": "phase-descriptors.schema.json",
+  "_comment": "WS-DESC — 게이트 흐름에서 '페이즈별 동작'(어느 verdict 파일을 읽나·다안(select) 페이즈인가·선택 decision 상대경로·선택 후 별도 승인이 필요한가)의 단일 선언 출처. common.sh 의 4 함수(verdict_path·phase_is_multi·sel_decision_rel·phase_needs_approve_after_select)가 이 데이터를 읽는다(셸 case 하드코딩 제거 → 새 단계가 코드 0줄로 게이트 흐름에 참여, ADR 8-5의 1번 실현). 03-storyboard 는 substage(outline/plan)별 미니워크플로우라 substages 로 분기한다. 여기 없는 페이즈(00-ingest·done)는 게이트 동작 없음 → 호출부 기본값(verdict_file 없음=\"\" · is_multi=false · decision_rel=null→\"decision.json\" · needs_approve_after_select=false). 비동결 데이터지만 게이트 흐름을 좌우하므로 닫힌 스키마(phase-descriptors.schema.json)로 무결성을 강제한다. 검증 시점 = route_assert_valid 가 호출되는 new-run·advance-phase(전이 시점)뿐 — select.sh·gate.sh 의 직접 읽기 전엔 재검증하지 않는다. 이게 충분한 이유: 디스크립터는 레포 소스 파일이라 위협모델상 런타임 비작성(생성 LLM 은 산출물만)이고, 어떤 손상이든 그 페이즈로 들어오는 전이에서 이미 fail-closed 로 포착되기 때문(Codex 단계4 R2 Low — '전 전이 검증' 과장 정정). 선택 필드 review(기본 true)=false 면 그 페이즈는 심의 면제 — common.sh phase_has_review 가 읽어 kcia-check 가 실제 심의 대신 verdict=pass(engine=review-exempt-autopass)로 자동 통과시킨다(verdict_file 은 유지하므로 gate/advance/verdict_path 경로 불변). 현재 00g-guideline(크롤 참조 노트=광고 카피 아닌 다운스트림 참조 입력)·00e-evidence(참조 문서 반영 제안 초안=하류 심의 대상이 아닌 참조 입력)만 면제.",
+  "phases": {
+    "00a-intake": {
+      "verdict_file": "00a-intake/intake-verdict.json",
+      "review": false,
+      "is_multi": false,
+      "decision_rel": null,
+      "needs_approve_after_select": false
+    },
+    "00e-evidence": {
+      "verdict_file": "00e-evidence/evidence-verdict.json",
+      "review": false,
+      "is_multi": false,
+      "decision_rel": null,
+      "needs_approve_after_select": false
+    },
+    "00g-guideline": {
+      "verdict_file": "00g-guideline/guideline-verdict.json",
+      "review": false,
+      "is_multi": false,
+      "decision_rel": null,
+      "needs_approve_after_select": false
+    },
+    "01-brief": {
+      "verdict_file": "01-brief/brief-verdict.json",
+      "is_multi": false,
+      "decision_rel": null,
+      "needs_approve_after_select": false
+    },
+    "02-concept": {
+      "verdict_file": "02-concept/review/concept-verdict.json",
+      "is_multi": true,
+      "decision_rel": "02-concept/decision.json",
+      "needs_approve_after_select": false
+    },
+    "03-storyboard": {
+      "substages": {
+        "outline": {
+          "verdict_file": "03-storyboard/outline-verdict.json",
+          "is_multi": true,
+          "decision_rel": "03-storyboard/outline/decision.json",
+          "needs_approve_after_select": false
+        },
+        "plan": {
+          "verdict_file": "03-storyboard/plan-verdict.json",
+          "is_multi": false,
+          "decision_rel": "03-storyboard/outline/decision.json",
+          "needs_approve_after_select": false
+        }
+      }
+    },
+    "04-keyvisual": {
+      "verdict_file": "04-keyvisual/design-verdict.json",
+      "is_multi": true,
+      "decision_rel": "04-keyvisual/decision.json",
+      "needs_approve_after_select": true
+    }
+  }
+}

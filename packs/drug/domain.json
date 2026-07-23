@@ -1,0 +1,21 @@
+{
+  "_comment": "의약품 팩 — 규제도메인 레지스트리 엔트리(SSoT). ruleset.json(7축: drug_misperception·functional_misperception·consumer_deception·substantiation_required·prescription_otc_distinction + lexicon + mandatory_inclusion) 은 식약처 가이드라인+제약바이오협회 매뉴얼(sources/) 추출. status=active(골든·룰셋 채움 완료).",
+  "domain": "drug",
+  "aliases": ["의약품", "drug"],
+  "label": "의약품",
+  "law": "약사법 제68조",
+  "adk_critic": {
+    "url_env": "ADK_DRUG_CRITIC_URL",
+    "host_env": "ADK_DRUG_CRITIC_ALLOWED_HOST",
+    "app": "pharma_agent",
+    "author": "pharma_review_agent"
+  },
+  "functional_categories": [],
+  "pre_review": "advisory",
+  "ad_eligibility": "restricted",
+  "no_graphic_generation": true,
+  "mandatory_inclusion": true,
+  "export_package": "drug-ad-review",
+  "status": "active",
+  "note": "kcia_engine 이 banned/triggers/lexicon + prescription_otc 하드스톱(product.rx_classification×ad_audience; 전문의약품×대중매체→high+escalate; 미선언=미발동)과 mandatory_inclusion(04-keyvisual 페이지-레벨 필수기재) 을 실제 심의. ad_eligibility=restricted."
+}

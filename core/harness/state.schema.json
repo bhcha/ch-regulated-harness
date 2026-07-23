@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/state.schema.json",
+  "title": "state.json — 단일 진실 상태 (설계 §5.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workflow_id", "product", "phase", "step", "gate", "status",
+    "iteration", "max_iterations", "awaiting", "selected_option",
+    "artifacts", "history", "updated_at"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "workflow_id": { "type": "string", "minLength": 1 },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "functional_status", "evidence_on_file"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "regulatory_domain": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "심의 룰셋 선택 키(무엇을 말할 수 있나). 사람이 선언. 미기재 시 cosmetic(레거시). 단계4(C 메커니즘): 닫힌 4개 enum → 구조적 패턴으로 완화 — '실제 등록 여부'(core-base 동결 ∪ pack-기여)는 new-run.sh normalize_domain 이 레지스트리(packs/*/domain.json 조립)로 강제한다(state 의 유일한 쓰기 주체). 임의 추가 금지 — 미등록 도메인은 new-run 이 거부." },
+        "deliverable_format": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "산출물 포맷(어떤 구조로). 캐논·실행페이즈·채널 선택 키. 사람이 선언. 미기재 시 multipage_bm(레거시). 4단계(C 메커니즘): 닫힌 2개 enum → 구조적 패턴 완화 — '실제 등록 여부'는 new-run.sh normalize_format 이 레지스트리(packs/_format/format-profiles.json)로 강제한다(state 의 유일 쓰기 주체). 임의 추가 금지 — 미등록 포맷은 new-run 이 거부." },
+        "rx_classification": { "enum": ["prescription", "otc"], "description": "의약품 허가구분(전문/일반). 사람이 선언. prescription(전문의약품)+대중매체이면 약사법 제68조제6항 대중광고 금지 하드스톱. 미선언 시 판정 불가(하드스톱 미발동). 비의약품 도메인은 미사용." },
+        "ad_audience": { "enum": ["public", "professional"], "description": "광고 대상 매체(대중/전문가). 기본 public(불특정 다수). professional(의·약학 전문가 매체)이면 전문의약품 하드스톱 예외." },
+        "functional_status": {
+          "type": "object",
+          "description": "도메인별 기능범주 오픈맵. 화장품은 whitening/wrinkle/uv_protection.",
+          "additionalProperties": { "enum": ["unknown", "approved", "not_claimed"] },
+          "properties": {
+            "whitening": { "enum": ["unknown", "approved", "not_claimed"] },
+            "wrinkle": { "enum": ["unknown", "approved", "not_claimed"] },
+            "uv_protection": { "enum": ["unknown", "approved", "not_claimed"] }
+          }
+        },
+        "evidence_on_file": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "phase": { "enum": ["00a-intake", "00-ingest", "00e-evidence", "00g-guideline", "01-brief", "02-concept", "03-storyboard", "04-keyvisual", "done"] },
+    "step": { "enum": ["generate", "review", "select", "human", "done"] },
+    "gate": { "enum": [null, "review", "user", "select"] },
+    "status": { "enum": ["pending", "passed", "revise", "escalated", "approved", "changes_requested", "selected"] },
+    "iteration": { "type": "integer", "minimum": 1 },
+    "max_iterations": { "type": "integer", "minimum": 1 },
+    "awaiting": { "enum": ["review", "user", "select", "none"] },
+    "selected_option": { "type": ["string", "null"] },
+    "storyboard_substage": { "enum": ["outline", "plan"], "description": "M4(C2): 03-storyboard 활성 서브스테이지 명시 커서(additive-optional). gate.sh review-pass 만 outline→plan 전진(state 전이와 한 atomic write). 부재(레거시 run)=verdict 기반 재구성. scripts 만 쓴다." },
+    "artifacts": { "type": "array", "items": { "type": "string" } },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ts", "phase", "event", "by"],
+        "properties": {
+          "ts": { "type": "string" },
+          "phase": { "type": "string" },
+          "event": { "type": "string" },
+          "by": { "type": "string" },
+          "actor": { "type": "string", "description": "사람 행위자(Slack user 등). --by 로 주입; 자동 이벤트엔 없음(선택). by(=쓴 스크립트)와 별개." },
+          "verdict_id": { "type": "string", "description": "선택(WS-TRACE). 이 전이를 일으킨 verdict.json 의 id 역참조(review 게이트 전이에만). HARNESS_VERDICT_ID env 로 주입; 없으면 생략." }
+        }
+      }
+    },
+    "updated_at": { "type": "string" }
+  }
+}

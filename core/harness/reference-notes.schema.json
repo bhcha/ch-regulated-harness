@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/reference-notes.schema.json",
+  "title": "reference-notes.json — 크롤 참조 노트(자유텍스트). 00g-guideline.",
+  "description": "현업이 '크롤한 사례 중 무엇이 좋았는지'를 자유텍스트로 입력하는 참조 노트. 3안 추출/선택을 대체한다. build_context 가 REFERENCE_NOTES 라벨로 스토리라인·아웃라인·이미지 생성 프롬프트에 주입한다(soft 참조; 법=룰셋 우선). 효능·절대 표현 금지(심의 게이트가 검사).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["regulatory_domain"],
+  "properties": {
+    "regulatory_domain": { "type": "string", "description": "이 프로젝트의 규제도메인(state 와 일치 — 오라벨 차단)." },
+    "examples_analyzed": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "참조한 사례 id 목록(00g-guideline/examples/<id>)."
+    },
+    "flow_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "전체 상세페이지 플로우 참조(예: '비패치류 포함 전체 플로우는 참조 브랜드A 세럼·참조 브랜드B 세럼 참고')."
+    },
+    "composition_notes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "좋았던 이미지 구도/무드 메모(예: 'before/after 히스토그램 구도가 좋음', '상단 히어로 클로즈업이 시선을 끈다')."
+    },
+    "notes": {
+      "type": "string",
+      "description": "기타 자유 메모 — 무엇이 왜 좋았는지(스토리라인·아웃라인·이미지에 반영할 참조)."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "출처 메타(작성 주체 등)."
+    }
+  }
+}

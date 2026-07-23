@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/verdict.schema.json",
+  "title": "verdict.json — 심의 결과 (설계 §8.2). 심의 mock·MCP 공통 계약.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "engine", "confidence", "violations", "escalate"],
+  "properties": {
+    "verdict": { "enum": ["pass", "fail"] },
+    "engine": { "enum": ["ruleset", "ruleset+model", "mcp", "subagent", "ruleset+subagent", "placeholder-autopass", "review-exempt-autopass", "demo-autopass"] },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "note": { "type": "string", "description": "선택. placeholder-autopass(심의 가이드 미제공 도메인)·review-exempt-autopass(phase-descriptors review:false 인 심의 면제 페이즈)·demo-autopass(촬영용 데모 모드 KCIA_DEMO_AUTOPASS+offline, 컴플라이언스 판정 아님) 등 verdict 부가 설명" },
+    "id": { "type": "string", "description": "선택(WS-TRACE). 결정적 식별자 '<verdict파일명>-<violations해시8>'(또는 placeholder). state.json history.verdict_id 가 역참조. 옛 verdict 엔 없음(back-compat)." },
+    "critic_ran": { "type": "boolean", "description": "선택(개선계획 2부 개선3). 문서기반 크리틱(2차 심의)이 정상 완료됐는지. false=룰엔진만." },
+    "critic_outcome": { "enum": ["ok", "failed", "timeout", "skipped"], "description": "선택(개선3). 크리틱 결과: ok|failed|timeout|skipped(미실행)." },
+    "review_depth": { "enum": ["rule_engine_only", "rule_engine+critic", "placeholder", "exempt", "demo"], "description": "선택(개선3). 심의 깊이 — 사후 감사로 '룰엔진만 통과'를 잡는다. exempt=phase-descriptors review:false(의도된 심의 면제 페이즈, 예 00g-guideline). demo=촬영용 데모 모드 자동 통과(컴플라이언스 판정 아님)." },
+    "critic_engine": { "type": "string", "description": "선택(WS-ADK·M4 additive). 2차 크리틱 실제 엔진 식별(예: adk-http=원격 GCP guideline_agent). 크리틱이 실제 실행됐을 때만 기록 — 미실행/stub/offline 은 키 미기록(골든 바이트 불변)." },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target_text", "axis", "rule", "severity", "detected_by", "suggested_rewrite"],
+        "properties": {
+          "target_text": { "type": "string" },
+          "axis": { "type": "string", "minLength": 1, "description": "선택된 도메인 룰셋의 축 id(화장품 4축 또는 도메인별 축, mandatory_inclusion 등)" },
+          "rule": { "type": "string" },
+          "severity": { "enum": ["low", "medium", "high"] },
+          "detected_by": { "enum": ["ruleset", "model", "subagent"] },
+          "suggested_rewrite": { "type": "string" }
+        }
+      }
+    },
+    "escalate": { "type": "boolean" }
+  }
+}

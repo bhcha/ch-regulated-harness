@@ -1,0 +1,253 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/agui-projection.schema.json",
+  "title": "agui-projection — 하네스 state.json 을 AG-UI 이벤트 스트림으로 투영한 한 줄(one JSON object per line) 계약",
+  "description": "runs/<id>/.events/agui.jsonl 의 한 줄 = AG-UI 이벤트 객체 하나. 이 스키마는 그 한 객체를 검증한다(파일 전체가 아님). state.json history[] 는 scripts 만 쓰는 진실의 출처이고, 이 투영은 그것을 읽어 재구성한 파생 뷰다(state 를 쓰지 않는다 — 규칙 1-1). 모든 이벤트는 base 필드 type(string)·timestamp(string) 을 가진다. oneOf 로 우리가 실제 방출하는 이벤트 유형만 허용한다.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/RunStarted" },
+    { "$ref": "#/$defs/StepStarted" },
+    { "$ref": "#/$defs/StepFinished" },
+    { "$ref": "#/$defs/StateSnapshot" },
+    { "$ref": "#/$defs/StateDelta" },
+    { "$ref": "#/$defs/RunFinished" },
+    { "$ref": "#/$defs/RunError" },
+    { "$ref": "#/$defs/Custom" }
+  ],
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "description": "ISO-8601 UTC 문자열(state.json history[].ts 형식, 예 2026-07-11T04:26:06Z). pattern 은 harness.py now_iso() 출력 형식(%Y-%m-%dT%H:%M:%SZ, 무소수점)을 그대로 받으며 소수점 초(.\\d+)는 선택 허용. 임의 문자열(예 not-a-timestamp)은 거부."
+    },
+    "patchOp": {
+      "type": "object",
+      "description": "RFC6902 JSON Patch 연산 1건. StateDelta.delta[] 원소. op 로 분기(oneOf)하여 연산별 필수 필드를 강제한다: add/replace/test=value 필수 · move/copy=from 필수 · remove=경로만. 각 분기는 additionalProperties:false 로 엉뚱한 필드(예 remove 에 value)를 배제하고, op 의 const/enum 이 정확히 한 분기만 매치시킨다.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["op", "path", "value"],
+          "properties": {
+            "op": { "enum": ["add", "replace", "test"] },
+            "path": { "type": "string", "description": "RFC6901 JSON Pointer(예 /phase, /iteration)." },
+            "value": { "description": "add/replace/test 연산의 값(임의 JSON, 필수)." }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["op", "path", "from"],
+          "properties": {
+            "op": { "enum": ["move", "copy"] },
+            "path": { "type": "string", "description": "RFC6901 JSON Pointer(목적지)." },
+            "from": { "type": "string", "description": "move/copy 연산의 원본 JSON Pointer(필수)." }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["op", "path"],
+          "properties": {
+            "op": { "const": "remove" },
+            "path": { "type": "string", "description": "RFC6901 JSON Pointer(제거 대상)." }
+          }
+        }
+      ]
+    },
+    "interrupt": {
+      "type": "object",
+      "description": "사람 개입 대기(게이트). RunFinished.outcome.type=interrupt 일 때 무엇을 기다리는지 서술. kind 는 현업 4동작(select/approve/revise) + 한도 상향(raise-limit)에 1:1 대응. kind 로 분기(oneOf): select=다안 선택이라 options(비어있지 않음) 필수 + recommended 선택 · approve/revise/raise-limit=단일 확정이라 options/recommended 없음(additionalProperties:false 로 배제).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["interruptId", "kind", "phase", "options"],
+          "properties": {
+            "interruptId": { "type": "string", "minLength": 1, "description": "이 개입의 결정적 식별자(해소 시 역참조)." },
+            "kind": { "const": "select", "description": "다안 선택(select.sh). 선택지 목록(options)이 반드시 있어야 한다." },
+            "phase": { "type": "string", "description": "개입이 걸린 페이즈(state.json phase enum 값)." },
+            "options": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string" },
+              "description": "선택지 키 목록(next-action.sh options[]). 최소 1개."
+            },
+            "recommended": {
+              "type": ["string", "null"],
+              "description": "추천 top-1 키(next-action.sh recommended). 없으면 null."
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["interruptId", "kind", "phase"],
+          "properties": {
+            "interruptId": { "type": "string", "minLength": 1, "description": "이 개입의 결정적 식별자(해소 시 역참조)." },
+            "kind": {
+              "enum": ["approve", "revise", "raise-limit"],
+              "description": "approve=단안 승인(approve.sh) · revise=보완/재제안(revise.sh) · raise-limit=한도 상향 후 재생성(run-stage.sh raise-limit). 선택지 없음."
+            },
+            "phase": { "type": "string", "description": "개입이 걸린 페이즈(state.json phase enum 값)." }
+          }
+        }
+      ]
+    },
+    "RunStarted": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "런 스트림 시작. new-run.sh 가 state.json 을 만들 때 첫 history 항목 run:created 를 기록하며(별도 문자열 없음이 아님 — run:created 가 있음), 이 이벤트는 거기서 투영된다.",
+      "required": ["type", "threadId", "runId", "timestamp"],
+      "properties": {
+        "type": { "const": "RunStarted" },
+        "threadId": { "type": "string", "minLength": 1, "description": "= run_id(state.workflow_id). 한 제품 워크플로우 전체를 잇는 스레드." },
+        "runId": { "type": "string", "minLength": 1, "description": "run_id + phase-epoch 마커(예 <run_id>#<phase>@<epoch>). 같은 스레드 안에서 재개/재생성 세그먼트를 구분." },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "StepStarted": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "단계(페이즈/생성/심의 스텝) 시작. history 의 phase:enter · generate:insession:* · limit:raised:* 등에서 투영.",
+      "required": ["type", "stepName", "timestamp"],
+      "properties": {
+        "type": { "const": "StepStarted" },
+        "stepName": { "type": "string", "minLength": 1, "description": "스텝 이름(예 phase:01-brief · generate:brief · review:brief)." },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "StepFinished": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "단계 종료. history 의 generate 완료 · review:passed→* · review:revise→generate:* · ingest:ok · report:ok 등에서 투영.",
+      "required": ["type", "stepName", "timestamp"],
+      "properties": {
+        "type": { "const": "StepFinished" },
+        "stepName": { "type": "string", "minLength": 1 },
+        "timestamp": { "$ref": "#/$defs/timestamp" },
+        "outcome": {
+          "type": "string",
+          "description": "선택. 스텝 결과 요약(예 passed · revise · ok). 없으면 미기록."
+        }
+      }
+    },
+    "StateSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "state.json 전체(또는 관련 부분집합)의 스냅샷. 재개/재연결 시 클라이언트 동기화 기점.",
+      "required": ["type", "snapshot", "timestamp"],
+      "properties": {
+        "type": { "const": "StateSnapshot" },
+        "snapshot": { "type": "object", "description": "투영된 상태 객체(phase/step/gate/status/iteration 등)." },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "StateDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "직전 스냅샷 대비 상태 변화(RFC6902 patch 배열). 게이트 전이마다 방출.",
+      "required": ["type", "delta", "timestamp"],
+      "properties": {
+        "type": { "const": "StateDelta" },
+        "delta": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/patchOp" },
+          "description": "RFC6902 JSON Patch 연산 목록."
+        },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "RunFinished": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "런 세그먼트 종료. success=workflow:complete(파이프라인 완주) · interrupt=사람 개입 대기(select/approve/revise/raise-limit). interrupt 는 outcome.interrupts[] 로 무엇을 기다리는지 서술.",
+      "required": ["type", "outcome", "timestamp"],
+      "properties": {
+        "type": { "const": "RunFinished" },
+        "outcome": {
+          "type": "object",
+          "description": "종료 결과. type 로 분기(oneOf): success=파이프라인 완주(interrupts 를 가질 수 없음 — additionalProperties:false) · interrupt=사람 개입 대기(interrupts 배열 필수, 최소 1건).",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "required": ["type"],
+              "properties": {
+                "type": { "const": "success" }
+              }
+            },
+            {
+              "additionalProperties": false,
+              "required": ["type", "interrupts"],
+              "properties": {
+                "type": { "const": "interrupt" },
+                "interrupts": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "$ref": "#/$defs/interrupt" },
+                  "description": "대기 중인 사람 개입 목록(최소 1건)."
+                }
+              }
+            }
+          ]
+        },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "RunError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "런 오류(fail-closed 중단 등). message 필수, code 선택.",
+      "required": ["type", "message", "timestamp"],
+      "properties": {
+        "type": { "const": "RunError" },
+        "message": { "type": "string", "minLength": 1 },
+        "code": { "type": "string", "description": "선택. 기계 판독 오류 코드." },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "Custom": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "AG-UI 표준 이벤트로 표현되지 않는 하네스 고유 신호. name 으로 종류를 구분하고 value 에 페이로드를 싣는다.",
+      "required": ["type", "name", "value", "timestamp"],
+      "properties": {
+        "type": { "const": "Custom" },
+        "name": {
+          "enum": ["kcia.verdict", "harness.escalated", "harness.ingest-incomplete"],
+          "description": "kcia.verdict=심의 결과(review:produced:*, verdict.json 요약) · harness.escalated=심의 반복 한도 초과(review:revise→escalated:*) · harness.ingest-incomplete=인입/이미지 매니페스트 미완결(incomplete:true)."
+        },
+        "value": { "type": "object", "description": "이벤트별 페이로드(예 kcia.verdict → {verdict,engine,violations,...})." },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      }
+    }
+  },
+  "x-history-event-map": {
+    "_comment": "NON-validating 주석. state.json history[].event 문자열 PREFIX → 이 투영이 방출하는 AG-UI 이벤트 유형. 실제 관측된 문자열(runs/*/state.json)에 맞춘 것이며 검증에는 쓰이지 않는다(스키마 키워드가 아님).",
+    "prefixes": {
+      "run:created": { "agui": ["RunStarted"], "by": "new-run.sh", "note": "new-run.sh 가 state.json 을 만들며 기록하는 첫 history 항목. RunStarted 로 투영." },
+      "intake:staged": { "agui": ["StepStarted"], "by": "intake.sh", "note": "00a-intake 첨부 폴더 스테이징 시작." },
+      "phase:enter": { "agui": ["StepStarted"], "by": "advance-phase.sh", "note": "새 페이즈 진입(stepName=phase:<phase>)." },
+      "generate:insession:": { "agui": ["StepStarted", "StepFinished"], "by": "run-stage.sh", "note": "generate:insession:<stage>:<engine> — 세션 내 생성 스텝(stepName=generate:<stage>). 진입 StepStarted, 산출물 기록 시 StepFinished." },
+      "generate:ok:": { "agui": ["StepFinished"], "by": "run-stage.sh", "note": "generate:ok:<stage>:<engine> — subprocess(헤드리스 run_llm) 생성 완료 마커. StepFinished." },
+      "generate:concept-axes:": { "agui": ["StepStarted", "StepFinished"], "by": "run-stage.sh", "note": "generate:concept-axes:<engine> — 02-concept 축 후보 일괄 생성 하위 스텝." },
+      "generate:concept-axis:": { "agui": ["StepStarted", "StepFinished"], "by": "run-stage.sh", "note": "generate:concept-axis:<key>:<engine> — 02-concept 축별(A-efficacy 등) 생성 하위 스텝." },
+      "generate:art-direction:": { "agui": ["StepStarted", "StepFinished"], "by": "run-stage.sh", "note": "generate:art-direction:<engine> — 04-keyvisual 아트디렉션 생성 하위 스텝." },
+      "generate:plan-block:": { "agui": ["StepStarted", "StepFinished"], "by": "run-stage.sh", "note": "generate:plan-block:<ord>-<type>:<engine> — 03-storyboard plan 블록별(1-hero 등) 생성 하위 스텝." },
+      "sensitive:confirmed:": { "agui": ["StepFinished"], "by": "approve.sh", "note": "sensitive:confirmed:ra=<n> — 민감표현 확인(승인 해소에 접혀 들어감; 독립 이벤트 아님)." },
+      "human:approved→review": { "agui": ["RunFinished:interrupt-resolved", "StepStarted"], "by": "approve.sh", "note": "approve 개입 해소 → 심의 스텝 시작." },
+      "select:": { "agui": ["RunFinished:interrupt-resolved", "StepStarted"], "by": "gate.sh", "note": "select:<key>(예 select:A-efficacy, select:B) — select 개입 해소 → 심의 스텝 시작." },
+      "review:produced:": { "agui": ["Custom(kcia.verdict)"], "by": "kcia-check.sh", "note": "review:produced:<stage>:<verdict-id> — 심의 결과 방출." },
+      "review:passed→": { "agui": ["StepFinished"], "by": "gate.sh", "note": "review:passed→advance | →plan-generate | →export-finalize | →apply-intake+ingest — 심의 통과(outcome=passed)." },
+      "review:revise→generate:": { "agui": ["StepFinished", "StepStarted"], "by": "gate.sh", "note": "review:revise→generate:iter<N> — 보완(outcome=revise) 후 재생성 스텝 시작." },
+      "review:revise→escalated:": { "agui": ["Custom(harness.escalated)", "RunFinished:interrupt(raise-limit)"], "by": "gate.sh", "note": "review:revise→escalated:<N>/<N> — 반복 한도 초과 → 한도 상향 개입 대기." },
+      "limit:raised:": { "agui": ["RunFinished:interrupt-resolved", "StepStarted"], "by": "run-stage.sh", "note": "limit:raised:<N>→generate — raise-limit 개입 해소 → 재생성 스텝 시작." },
+      "ingest:ok": { "agui": ["StepFinished"], "by": "ingest-bundle.sh", "note": "번들 인입 완료." },
+      "report:ok": { "agui": ["StepFinished"], "by": "ingest-bundle.sh", "note": "인입 리포트 작성 완료." },
+      "workflow:complete": { "agui": ["RunFinished:success"], "by": "advance-phase.sh", "note": "파이프라인 완주(done)." }
+    },
+    "synthesized": {
+      "_note": "여기 항목은 대응하는 history 문자열이 없어 상태/매니페스트에서 합성한다. RunStarted 는 여기 없음 — run:created history 항목에서 투영된다(prefixes 참조).",
+      "Custom(harness.ingest-incomplete)": "history 문자열 없음 — image-manifest.json/인입 매니페스트의 incomplete:true 상태에서 투영(부분실패 내성 P-1).",
+      "StateSnapshot": "history 문자열 없음 — 재개/재연결 시 현재 state.json 전체를 스냅샷으로 합성.",
+      "StateDelta": "게이트 전이로 state.json 이 바뀔 때마다 직전 스냅샷 대비 RFC6902 patch 로 합성.",
+      "RunError": "history 문자열 없음 — fail-closed 중단/스크립트 오류를 투영."
+    }
+  }
+}

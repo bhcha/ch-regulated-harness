@@ -1,0 +1,105 @@
+{
+  "_comment": "포맷 캐논 정본(SSoT 1개, 4단계). 3분산(stub_stage CANON 튜플·storyline/plan-block 스키마 type enum·canon-components 커버리지)을 통합. blocks=생성 시퀀스(order·intent·risk_tier·evidence_required, 스텁이 storyline.json 으로 바이트-정확 방출)·evidence_gated/brand_gated=조건부 제외 집합·required_root=필수 루트 블록·types=전역 유효 블록 카탈로그(검증 _canon)·components=구성요소 커버리지(check_canon_coverage). 값은 현행 축자 복사(바이트 불변).",
+  "format": "one_pager",
+  "blocks": [
+    {
+      "type": "hero",
+      "intent": "핵심 후크 + 기능성 라벨(키비주얼)",
+      "risk_tier": "high",
+      "evidence_required": true
+    },
+    {
+      "type": "rtbSummary",
+      "intent": "핵심 RTB 요약 3-4개",
+      "risk_tier": "high",
+      "evidence_required": false
+    },
+    {
+      "type": "socialProof",
+      "intent": "수상/판매 신호(기준일·출처 각주)",
+      "risk_tier": "medium",
+      "evidence_required": false
+    },
+    {
+      "type": "cta",
+      "intent": "전환 유도(구매/문의)",
+      "risk_tier": "low",
+      "evidence_required": false
+    }
+  ],
+  "evidence_gated": [
+    "beforeAfter",
+    "clinicalEvidence"
+  ],
+  "brand_gated": [
+    "brandBanner"
+  ],
+  "required_root": [
+    "hero"
+  ],
+  "types": [
+    "hero",
+    "socialProof",
+    "problem",
+    "solution",
+    "rtbSummary",
+    "ingredientTech",
+    "clinicalEvidence",
+    "beforeAfter",
+    "colorSwatch",
+    "howToUse",
+    "reviewCapture",
+    "targetAudience",
+    "brandTrust",
+    "brandBanner",
+    "buyingGuide",
+    "motionDemo",
+    "header",
+    "nav",
+    "mainPositioning",
+    "point",
+    "ingredientDetail",
+    "cta",
+    "footer"
+  ],
+  "components": [
+    {
+      "id": "keyVisual",
+      "label": "키비주얼",
+      "satisfied_by": [
+        "hero"
+      ],
+      "required": true,
+      "evidence_gated": false
+    },
+    {
+      "id": "rtbSummary",
+      "label": "핵심 RTB 요약",
+      "satisfied_by": [
+        "rtbSummary"
+      ],
+      "required": true,
+      "evidence_gated": false
+    },
+    {
+      "id": "salesAward",
+      "label": "수상/판매 신호",
+      "satisfied_by": [
+        "socialProof",
+        "brandTrust"
+      ],
+      "required": false,
+      "evidence_gated": false,
+      "claim_gated": "sales_award"
+    },
+    {
+      "id": "cta",
+      "label": "CTA(전환)",
+      "satisfied_by": [
+        "cta"
+      ],
+      "required": false,
+      "evidence_gated": false
+    }
+  ]
+}

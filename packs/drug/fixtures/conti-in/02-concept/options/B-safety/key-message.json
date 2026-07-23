@@ -1,0 +1,15 @@
+{
+  "concept_axis": "B-safety",
+  "key_messages": [
+    {
+      "id": "km-1",
+      "slot": "legal",
+      "headline": "허가사항·복약 정보를 먼저 확인하세요",
+      "voc_phrase": null,
+      "claim_strength": "factual",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    }
+  ]
+}

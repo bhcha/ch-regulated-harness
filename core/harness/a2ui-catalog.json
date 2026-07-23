@@ -1,0 +1,93 @@
+{
+  "catalogId": "ch-harness-a2ui-catalog",
+  "a2ui_version": "0.9.1",
+  "_comment": "A2UI(선언형 UI) 카탈로그. 이 하네스가 렌더링을 신뢰하는 컴포넌트 유형과, 게이트 종류별 화면(surface) 매핑을 데이터로 선언한다. 버전은 여기 한 곳(a2ui_version)에만 고정 — A2UI v1.0 은 아직 RC 라 안정 릴리스 0.9.1 에 핀; 향후 버전 상향은 이 문자열 한 곳만 바꾸면 된다. 이 파일은 JSON Schema 가 아니라 데이터 카탈로그다(그래서 파일명이 *.schema.json 이 아니며 test-schema-lint 대상이 아님). action 이름은 현업 4동작 스크립트(select.sh/approve.sh/revise.sh + run-stage raise-limit)에 1:1 대응한다.",
+  "_a2ui_note": "v1.0 = RC(Release Candidate). 안정판 0.9.1 에 핀. 상향 시 이 값만 교체.",
+  "actions": {
+    "_comment": "surface 가 사용자 입력으로 되돌려 보낼 수 있는 named event → 대응 현업 4동작 스크립트. next-action.sh 의 action/gate 규칙과 정합.",
+    "select": { "script": "scripts/select.sh", "emitted_when": "gate=select · status=pending(다안 선택)" },
+    "approve": { "script": "scripts/approve.sh", "emitted_when": "gate=user · status=pending(단안 승인)" },
+    "revise": { "script": "scripts/revise.sh", "emitted_when": "gate=select|user · 전부거절/보완 재제안(next-action.sh revise_available)" },
+    "raise-limit": { "script": "scripts/run-stage.sh (raise-limit)", "emitted_when": "status=escalated(반복 한도 초과) → 한도 상향 후 재생성" }
+  },
+  "components": [
+    {
+      "component": "Card",
+      "props": ["title", "body", "optionKey", "selected", "badge"],
+      "note": "선택지/컨텐츠 카드. select·keyvisual surface 에서 옵션 1개당 1장(carousel)."
+    },
+    {
+      "component": "Text",
+      "props": ["content", "variant"],
+      "note": "안내/고지 텍스트. variant=advisory|body|heading. escalated·raise-limit surface 의 설명."
+    },
+    {
+      "component": "Badge",
+      "props": ["label", "variant"],
+      "note": "추천(recommended) 표식. variant=recommended. 추천 옵션 Card 에 부착."
+    },
+    {
+      "component": "ChoiceButton",
+      "props": ["label", "optionKey", "action"],
+      "note": "옵션 선택 버튼. action=select 고정(select.sh 로 optionKey 전달)."
+    },
+    {
+      "component": "ApproveButton",
+      "props": ["label", "action"],
+      "note": "1차(주요) 확정 버튼. action=approve(기본) 또는 raise-limit — 같은 primary-confirm 위젯을 raise-limit surface 에서 재사용(별도 컴포넌트 없이 4동작 전부 지원)."
+    },
+    {
+      "component": "ReviseButton",
+      "props": ["label", "action", "reason"],
+      "note": "보완/재제안 버튼. action=revise 고정(revise.sh; reason=선택적 사유)."
+    },
+    {
+      "component": "FileLink",
+      "props": ["label", "path", "href"],
+      "note": "산출물 미리보기 링크. path=절대경로(로컬 미리보기), href=공개 URL(선택)."
+    }
+  ],
+  "surfaces": {
+    "select": {
+      "gate": "select",
+      "description": "다안 선택 화면 — 옵션 N개를 Card carousel 로, 추천 옵션에 Badge, 전부 거절 시 ReviseButton.",
+      "needs_approve_after_select": false,
+      "components": ["Card", "Badge", "ChoiceButton", "ReviseButton", "FileLink"],
+      "actions": ["select", "revise"]
+    },
+    "approve": {
+      "gate": "user",
+      "description": "단안 승인 화면 — 산출물 하나를 승인(ApproveButton)하거나 보완 요청(ReviseButton).",
+      "needs_approve_after_select": false,
+      "components": ["Text", "ApproveButton", "ReviseButton", "FileLink"],
+      "actions": ["approve", "revise"]
+    },
+    "keyvisual": {
+      "gate": "select",
+      "description": "키비주얼 2단계 화면 — 먼저 옵션 선택(select), 그 다음 별도 승인(approve). phase-descriptors 04-keyvisual needs_approve_after_select=true 와 정합.",
+      "needs_approve_after_select": true,
+      "steps": [
+        { "step": "select", "components": ["Card", "Badge", "ChoiceButton", "ReviseButton", "FileLink"], "actions": ["select", "revise"] },
+        { "step": "approve", "components": ["Text", "ApproveButton", "ReviseButton", "FileLink"], "actions": ["approve", "revise"] }
+      ],
+      "components": ["Card", "Badge", "ChoiceButton", "ApproveButton", "ReviseButton", "FileLink"],
+      "actions": ["select", "approve", "revise"]
+    },
+    "raise-limit": {
+      "gate": "user",
+      "description": "한도 상향 화면 — 반복 한도 초과(escalated) 안내 Text + 한도 올리고 다시 생성하는 확정 버튼(ApproveButton, action=raise-limit).",
+      "needs_approve_after_select": false,
+      "components": ["Text", "ApproveButton"],
+      "actions": ["raise-limit"]
+    },
+    "escalated": {
+      "gate": "review",
+      "runtime_state": "status=escalated · gate=review · awaiting=user",
+      "runtime_mapping": "gate.sh 에스컬레이션 전이는 gate=review·status=escalated 로 둔다(gate=user 아님). next-action.sh 는 status==escalated 에서 action=raise-limit 을 낸다(자기해결 가능). revise 는 런타임 불가 — next-action.sh revise_available=false(gate 가 user/select 가 아님) + revise.sh 가 gate=review 를 거부. 그래서 이 화면의 유일한 동작은 raise-limit 이다(이 매핑은 gate.sh·next-action.sh·revise.sh 실동작과 일치해야 하며 drift 방지용으로 여기 명시).",
+      "description": "에스컬레이션 화면 — 심의가 반복 한도까지 통과하지 못했음을 알리는 advisory Text + 한도를 올려 다시 생성하는 확정 버튼(ApproveButton, action=raise-limit). revise 는 런타임에서 제공되지 않으므로 노출하지 않는다.",
+      "needs_approve_after_select": false,
+      "components": ["Text", "ApproveButton"],
+      "actions": ["raise-limit"]
+    }
+  }
+}

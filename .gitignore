@@ -1,0 +1,29 @@
+# 모노레포 루트 .gitignore — 트리 전역(루트·packs) 방어. core/ 내부는 core/.gitignore 가 추가 관할.
+#   (코덱스 단계1 리뷰 medium: 앵커 패턴 inputs/bundle·.lock 이 core/.gitignore 로 가버려 루트/packs 커버리지 공백 → 무앵커(**/)로 보강.)
+.DS_Store
+**/.DS_Store
+.obsidian/
+runs/
+**/.lock
+**/inputs/bundle/
+**/inputs/examples/
+**/inputs/assets/generated/
+# 2부 7단계: 시드가 packs/<도메인>/samples/ 로 이전. 크롤 사례(3rd-party)·폐기된 생성이미지 위치는 계속 추적 제외.
+**/samples/examples/
+**/samples/assets/generated/
+# 2부 8단계: 경계 픽스처가 packs/<도메인>/fixtures/ 로 이전. 재생성물(inputs 스냅샷·로그)은 추적 제외(추적=stage 산출물만).
+**/fixtures/*/inputs/
+**/fixtures/*/.logs/
+# 크롤 입력 번들(테스트 데이터 — 고객 리뷰·사진 URL·3rd-party 상품이미지). 추적·배포 제외.
+#   골든/풀파이프라인 테스트는 본인 번들을 TEST_BUNDLE 로 지정해 재생성(docs/deployment.md).
+naver_*/
+__pycache__/
+*.pyc
+*.zip
+.env
+.env.*
+!.env.example
+*.token
+secrets/
+# Playwright MCP 생성 트레이스(브라우저 스냅샷/로그) — 커밋 금지
+.playwright-mcp/

@@ -1,0 +1,15 @@
+{
+  "concept_axis": "A-efficacy",
+  "key_messages": [
+    {
+      "id": "km-legal-1",
+      "slot": "legal",
+      "headline": "uv_protection 기능성화장품",
+      "voc_phrase": null,
+      "claim_strength": "factual",
+      "evidence_ref": "func-uv_protection-1",
+      "functional_basis": "uv_protection:approved",
+      "review_status": "pending"
+    }
+  ]
+}

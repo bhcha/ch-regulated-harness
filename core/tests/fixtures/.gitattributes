@@ -1,0 +1,11 @@
+# 합성 번들 fixture — 바이트-결정성 골든의 '입력 계약'이므로 개행·바이트를 고정한다.
+#   (core.autocrlf 설정과 무관하게 어느 머신에서도 동일 바이트 = 재현 가능한 베이스라인.)
+*.csv  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+# 플레이스홀더 이미지는 바이너리(개행 변환 금지).
+*.jpg  -text
+*.jpeg -text
+*.png  -text
+*.webp -text
+*.gif  -text

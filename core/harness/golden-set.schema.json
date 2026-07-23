@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/golden-set.schema.json",
+  "title": "골든셋 라벨 데이터 (설계/계획 §2.5, 부록 C)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "items"],
+  "properties": {
+    "regulatory_domain": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "이 골든셋이 측정할 규제도메인(golden_runner 가 load_ruleset 에 사용). 미기재 시 cosmetic(레거시). additive-optional. 단계4: 닫힌 4-enum → 패턴(state.schema 와 일관, core-base ∪ pack 완화)." },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "disagreement_threshold", "disagreement_rate", "approved_by", "approved"],
+      "properties": {
+        "name": { "type": "string" },
+        "disagreement_threshold": { "type": "number", "description": "불일치율 임계 X% (0~1)" },
+        "disagreement_rate": { "type": "number" },
+        "approved_by": { "type": "string" },
+        "approved": { "type": "boolean" },
+        "note": { "type": "string" }
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "axis", "severity", "expected_verdict", "labeler_a", "labeler_b", "agreed", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "text": { "type": "string" },
+          "artifact_ref": { "type": ["string", "null"] },
+          "axis": { "enum": ["drug_misperception", "functional_misperception", "consumer_deception", "substantiation_required", "none"] },
+          "severity": { "enum": ["low", "medium", "high", "critical"] },
+          "expected_verdict": { "enum": ["pass", "revise"] },
+          "labeler_a": { "enum": ["pass", "revise"] },
+          "labeler_b": { "enum": ["pass", "revise"] },
+          "agreed": { "type": "boolean" },
+          "source": { "type": "string" },
+          "detectable_by": { "enum": ["ruleset", "subagent"], "description": "ruleset=결정적 룰엔진 검출 가능 / subagent=문맥·외국어 등 서브에이전트 필요(룰엔진 baseline 측정 제외)" }
+        }
+      }
+    }
+  }
+}

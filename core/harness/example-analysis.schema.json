@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/example-analysis.schema.json",
+  "title": "example-analysis.json — 수집 사례 1건의 '왜 좋은가' 분석 (multi-domain-build-plan §4.2)",
+  "description": "경쟁/레퍼런스 상세페이지 1건을 측정 가능한 신호에 그라운딩해 분석. why_good 은 반드시 signals/voc_themes 키를 인용(fail-closed). 텍스트·구조만(no-pixel, 저작권).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["example_id", "source", "regulatory_domain", "signals", "voc_themes", "structure", "why_good", "analyzed_by"],
+  "properties": {
+    "example_id": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._-]+$" },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["site"],
+      "properties": {
+        "site": { "type": "string" },
+        "product_id": { "type": "string" },
+        "url": { "type": "string" },
+        "collected_at": { "type": "string" }
+      }
+    },
+    "regulatory_domain": { "type": "string", "description": "이 사례의 도메인(타깃과 동일해야 함)" },
+    "signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_count", "detail_image_count"],
+      "properties": {
+        "price_current": { "type": ["integer", "null"] },
+        "price_original": { "type": ["integer", "null"] },
+        "discount_rate": { "type": ["number", "null"] },
+        "rating": { "type": ["number", "null"] },
+        "review_count": { "type": "integer", "minimum": 0 },
+        "photo_review_ratio": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "repurchase_ratio": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "detail_image_count": { "type": "integer", "minimum": 0 },
+        "gif_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "voc_themes": {
+      "type": "array",
+      "description": "리뷰 본문에서 빈출 소비자 언어(빈도). 카피 언어 근거.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["phrase", "count"],
+        "properties": {
+          "phrase": { "type": "string" },
+          "count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "structure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["block_sequence"],
+      "properties": {
+        "block_sequence": { "type": "array", "items": { "type": "string" }, "description": "상세페이지 블록 전개 순서(best-practices 텍스트 분석)" },
+        "pacing": { "type": "string", "description": "예: problem-first | social-proof-first (가설)" }
+      }
+    },
+    "why_good": {
+      "type": "array",
+      "description": "'왜 좋은가' 가설. 각 항목은 grounded_in 으로 signals/voc_themes 키를 인용해야 한다(fail-closed; 근거 없으면 작성 금지).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "grounded_in", "confidence"],
+        "properties": {
+          "claim": { "type": "string" },
+          "grounded_in": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "근거가 된 signals/voc_themes/structure 키(실재). 빈 배열 금지." },
+          "confidence": { "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "analyzed_by": { "type": "string" },
+    "reference_images": {
+      "type": "array",
+      "description": "M2(G3): 사례 이미지의 '감각적으로 왜 보기 좋은가'(구도·무드) 캡처. additive-optional. id=join 키(<example_id>#NN, 유일) — plan/tone 의 reference_image_id 가 이 id 로 조인한다. src=크롤 사례 경로(분석/추적용; 디자인 src·own_asset 금지=저작권 부록A-4). 어휘는 화이트리스트(효능·절대어 0). validate-stage 가 신규 00g 에서 fail-closed 강제.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "src", "block_type", "composition_tags", "mood_tags", "why", "rights"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._#-]+$" },
+          "src": { "type": "string", "minLength": 1, "description": "크롤 사례 이미지 경로(분석/추적 전용). 디자인 <img src>·own_asset_path 로 재사용 금지." },
+          "block_type": { "type": "string" },
+          "similarity": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "composition_tags": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "구도 어휘 화이트리스트(centered/grid/flat_lay 등). 효능·절대어 금지." },
+          "mood_tags": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "무드 어휘 화이트리스트(clean/warm/airy 등). 효능·절대어 금지." },
+          "why": { "type": "string", "minLength": 1, "description": "감각적 '왜 보기 좋은가' — 태그·실측 신호 인용(fail-closed)." },
+          "rights": { "type": "string" }
+        }
+      }
+    }
+  }
+}

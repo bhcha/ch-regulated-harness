@@ -1,0 +1,10 @@
+# packs/ — 도메인 팩 디렉터리 (단계3~6에서 채움)
+#
+# 모노레포 마이크로커널의 기여 영역. core/ (커널, 도메인 무관) 가 여기를 읽는다.
+#   packs/cosmetic/  — 화장품 팩 (status=active): domain.json·ruleset.json·sources/·golden/
+#   packs/drug/      — 의약품 팩 (status=active): + 7축(substantiation·prescription_otc·mandatory_inclusion)·golden/
+#   packs/_format/   — 단계4: format 다이얼 전용 '비-도메인' 팩(domain↔format 완전 분리 — 직교성 불변식#1 보존).
+#                      format-profiles.json + canon-components.<format>.json. domain.json 없음 → 도메인 레지스트리 스캔에서 자연 제외.
+#
+# core 는 PACKS_DIR(= core/../packs) 로 도메인 팩을, FORMATS_DIR(= PACKS_DIR/_format) 로 format 팩을 찾는다.
+#   도메인 팩 = domain.json 보유 폴더만(_format 등 '_' 접두 비-도메인 팩은 스캔 제외).

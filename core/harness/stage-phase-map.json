@@ -1,0 +1,11 @@
+{
+  "_comment": "페이즈↔스테이지 이름 맵 SSoT(H-3, K-2 #7). base 맵 — 03-storyboard 는 제외한다(소비자가 outline/plan 서브스테이지를 'storyboard-<substage>' 로 부착). 공유 소비자: common.sh stage_phase(역)·phase_stage(정) · kcia-check.sh(정) · next-action.sh(정). 스키마 없음(순수 데이터 SSoT).",
+  "phase_to_stage": {
+    "00a-intake": "intake",
+    "00e-evidence": "evidence",
+    "00g-guideline": "guideline",
+    "01-brief": "brief",
+    "02-concept": "concept",
+    "04-keyvisual": "keyvisual"
+  }
+}

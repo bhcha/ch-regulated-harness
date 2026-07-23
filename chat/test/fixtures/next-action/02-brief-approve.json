@@ -1,0 +1,32 @@
+{
+    "rid": "chatfx-brief",
+    "phase": "01-brief",
+    "phase_label": "\ud575\uc2ec \uc815\ub9ac (\ub204\uad6c\uc5d0\uac8c\u00b7\ubb34\uc5c7\uc744\u00b7\uc65c)",
+    "step": "human",
+    "gate": "user",
+    "status": "pending",
+    "awaiting": "user",
+    "iteration": 1,
+    "max_iterations": 3,
+    "action": "approve",
+    "stage": null,
+    "needs": null,
+    "options": [],
+    "recommended": null,
+    "ra_ok_required": false,
+    "revise_available": true,
+    "gate_type": "human-verify",
+    "stop_reason": null,
+    "advisory": {
+        "must_fill": [],
+        "nice_to_have": [],
+        "completeness": [
+            0,
+            0
+        ]
+    },
+    "cmd": "bash scripts/approve.sh chatfx-brief",
+    "gate_label": "\ub2e4 \ub9cc\ub4e4\uc5c8\uc5b4\uc694 \u00b7 \uc2b9\uc778\ud560 \ucc28\ub840\uc608\uc694 (\uc2b9\uc778 \ub4a4 \uaddc\uc815 \uc810\uac80)",
+    "hint": "\uace0\uce60 \uac8c \uc788\uc73c\uba74: bash scripts/revise.sh chatfx-brief \"\ube7c\uac70\ub098 \uace0\uce60 \ud45c\ud604\"",
+    "files": []
+}

@@ -1,0 +1,21 @@
+{
+  "concept_axis": "B-safety",
+  "rtb": [
+    {
+      "id": "rtb-1",
+      "claim": "허가사항(효능·효과·용법·용량)에 따라 사용하는 제품",
+      "claim_strength": "factual",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    },
+    {
+      "id": "rtb-2",
+      "claim": "사용 전 첨부문서·사용상 주의사항을 확인",
+      "claim_strength": "factual",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    }
+  ]
+}

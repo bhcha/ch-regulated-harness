@@ -1,0 +1,27 @@
+{
+  "_comment": "산출물 포맷 → 캐논/실행페이즈/채널 프로파일(단일 SSoT). 규제도메인(심의)와 직교: 도메인=무엇을 말할 수 있나, 포맷=어떤 구조로 만드나. 단계4: format 다이얼을 전용 비-도메인 팩 packs/_format/ 로 이전(domain↔format 완전 분리 — 직교성 불변식#1 보존; 도메인 팩에 넣지 않음). core 로더(FORMATS_DIR=PACKS_DIR/_format)가 이 SSoT 를 읽는다. coverage_path 는 이 팩 기준 상대(canon-components.<format>.json, co-located). 단계6(M8): 전 포맷 active(multipage_bm 12블록 세로·one_pager 1매) — 04-keyvisual 렌더러 포맷 폭 파라미터화(render.py), final_page_phase 로 의약품 필수기재 게이팅.",
+  "default": "multipage_bm",
+  "formats": {
+    "multipage_bm": {
+      "label": "여러장 BM자료(세로 상세페이지)",
+      "aliases": ["여러장", "여러장짜리", "BM", "BM자료", "상세페이지", "multipage", "multipage_bm"],
+      "canon": "multipage_bm/canon.json",
+      "disallowed_blocks": ["cta", "header", "nav", "point"],
+      "_disallowed_note": "세로 상세페이지에서 도메인 무관하게 out-of-scope 인 블록만 포맷-레벨로 결정적 금지(RCA 8장 게이트). cta=구매전환 UI(상세페이지는 판매채널 구매 UI '앞' 콘텐츠 = 사고 대상; GOOD 화장품·GOOD 의약품 BM 모두 미사용)·header/nav=제거된 website 포맷 크롬·point=미사용 확장. ⚠ footer·mainPositioning·ingredientDetail 는 금지하지 않는다 — drug(active) BM 이 정당/필수로 쓴다(footer=광고심의필·제조판매원 등 필수기재 컨테이너[test-drug-golden 준수형], mainPositioning·ingredientDetail=품목 심화 블록[GOOD ursa-lineup-2026 사용]). RCA 8-1.1 원 목록에서 이 3개 제외 = 구현 정정(Codex 교차도메인 리뷰). 가격 하드코딩은 별도 값-대조 가드가 심층 방어.",
+      "active_phases": ["00-ingest", "00e-evidence", "00g-guideline", "01-brief", "02-concept", "03-storyboard", "04-keyvisual"],
+      "final_page_phase": "04-keyvisual",
+      "channel": { "name": "naver_smartstore", "width_px": 860, "max_height_px": 5000, "gif_allowed": true },
+      "status": "active"
+    },
+    "one_pager": {
+      "label": "한장 홍보자료",
+      "aliases": ["한장", "한장짜리", "홍보물", "홍보자료", "포스터", "onepager", "one_pager"],
+      "canon": "one_pager/canon.json",
+      "active_phases": ["00-ingest", "00e-evidence", "00g-guideline", "01-brief", "02-concept", "03-storyboard", "04-keyvisual"],
+      "final_page_phase": "04-keyvisual",
+      "channel": { "name": "single", "width_px": 860, "max_height_px": 1200, "gif_allowed": false },
+      "status": "active",
+      "_note": "한장 홍보물 — M7: 스토리보드(03) format-aware 완주(1매 압축 캐논: 키비주얼+핵심RTB+수상/판매+CTA). M8: 키비주얼(04) 렌더러 활성(render.py 포맷 폭=single/860). final_page_phase=04-keyvisual → 의약품 mandatory_inclusion(필수기재) 자동 게이팅."
+    }
+  }
+}

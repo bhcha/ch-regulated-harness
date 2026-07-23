@@ -1,0 +1,13 @@
+{
+  "concept_axis": "A-efficacy",
+  "rtb": [
+    {
+      "id": "rtb-1",
+      "claim": "제품을 사실 그대로 절제하여 전달한다",
+      "claim_strength": "factual",
+      "evidence_ref": null,
+      "functional_basis": null,
+      "review_status": "pending"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/image-asset.schema.json",
+  "title": "image-manifest.json — 이미지 생성 매니페스트 (HARNESS_IMAGE_CLI)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["engine", "assets"],
+  "properties": {
+    "engine":       { "enum": ["stub", "nanobanana"] },
+    "model":        { "type": "string" },
+    "incomplete":   { "type": "boolean" },
+    "generated_at": { "type": "string" },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "type", "status"],
+        "properties": {
+          "path":               { "type": "string", "pattern": "^04-keyvisual/generated/" },
+          "type":               { "type": "string" },
+          "order":              { "type": ["integer", "null"] },
+          "seed":               { "type": ["integer", "string", "null"] },
+          "status":             { "enum": ["generated", "fallback_stub", "skipped"] },
+          "source_concept_ref": { "type": ["string", "null"] },
+          "aspect_ratio":       { "type": ["string", "null"] },
+          "input_hash":         { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

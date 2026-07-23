@@ -1,0 +1,15 @@
+{
+  "_comment": "포맷 디자인 토큰(도메인 무관 · 포맷 팩 소유 — 6단계-B). stub_stage 의 accent 시드·톤 방향 시드를 packs/_format 이 소유(직교성: 색·타이포는 format 축, 도메인 무관). 값=현행 stub_stage 리터럴의 축자 복사 → art-direction.json·plan/*.json·generated/*.svg·options/{A,B,C}/index.html 산출 바이트 불변. tone_directions[0] 만 stub 결정 경로가 사용([1]/[2]는 스키마 후방호환·실 LLM 경로용 dormant).",
+  "accent_default": "#c0392b",
+  "tone_directions": [
+    {"id": "A-warm-daily", "label": "웜·데일리",
+     "palette": ["#F4E9DF", "#C9A27A", "#7A5C42"], "typography": "Pretendard / 부드러운 라운드 굵기",
+     "mood": {"color_temp": "warm", "lighting": "자연광 소프트", "texture": "매트한 데일리 피부 표현"}},
+    {"id": "B-clean-clinical", "label": "클린·미니멀",
+     "palette": ["#FFFFFF", "#E6EEF2", "#2E5A6B"], "typography": "Pretendard / 가는 산세리프",
+     "mood": {"color_temp": "cool", "lighting": "균일한 스튜디오광", "texture": "맑고 깨끗한 표면"}},
+    {"id": "C-neutral-trust", "label": "뉴트럴·트러스트",
+     "palette": ["#F7F7F5", "#D8DDD7", "#3B4A3F"], "typography": "Pretendard / 또렷한 본문",
+     "mood": {"color_temp": "neutral", "lighting": "차분한 중립광", "texture": "정돈된 무드"}}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/rtb.schema.json",
+  "title": "rtb.json — Reason To Believe (설계 §7.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["concept_axis", "rtb"],
+  "properties": {
+    "concept_axis": { "type": "string" },
+    "rtb": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "claim", "claim_strength", "evidence_ref", "review_status"],
+        "properties": {
+          "id": { "type": "string" },
+          "claim": { "type": "string" },
+          "claim_strength": { "enum": ["factual", "emotional", "superlative", "efficacy", "speed"] },
+          "evidence_ref": { "type": ["string", "null"] },
+          "functional_basis": { "type": ["string", "null"] },
+          "review_status": { "enum": ["pending", "passed", "revise"] }
+        }
+      }
+    }
+  }
+}

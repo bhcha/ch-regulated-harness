@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "harness/voc.schema.json",
+  "title": "voc.json — 모든 정량의 단일 출처 (설계 §6.0)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source", "review_count", "rating", "rating_distribution", "option_distribution", "keyword_frequency", "persona_signals"],
+  "properties": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bundle", "parser", "rows"],
+      "properties": {
+        "bundle": { "type": "string" },
+        "parser": { "type": "string", "description": "rfc4180 (BOM 제거) 명시" },
+        "rows": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "review_count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collected", "site_total"],
+      "properties": {
+        "collected": { "type": "integer" },
+        "site_total": { "type": ["integer", "null"] }
+      }
+    },
+    "rating": { "type": ["number", "null"] },
+    "rating_distribution": {
+      "type": "object",
+      "additionalProperties": { "type": "integer" }
+    },
+    "option_distribution": {
+      "type": "object",
+      "additionalProperties": { "type": "integer" }
+    },
+    "keyword_frequency": {
+      "type": "object",
+      "description": "키워드→리뷰 등장 건수. 모든 카피 정량의 단일 출처.",
+      "additionalProperties": { "type": "integer" }
+    },
+    "persona_signals": {
+      "type": "object",
+      "description": "페르소나는 빈도에 비례한 '가설'로만 표기(확정 금지).",
+      "additionalProperties": { "type": "integer" }
+    },
+    "top_phrases": {
+      "type": "object",
+      "description": "리뷰 전체 한글 2자+ 형태소 빈도(상위 N개, 규제어 제외). WS2.",
+      "additionalProperties": { "type": "integer" }
+    },
+    "top_phrases_efficacy_filtered": {
+      "type": "object",
+      "description": "top_phrases 중 규제 isolation_set 에 걸린 어휘(심의 참조용). WS2.",
+      "additionalProperties": { "type": "integer" }
+    },
+    "product_facts": {
+      "type": "object",
+      "description": "WB 텍스트에서 추출한 제품 사실(pack_count·key_ingredients·components). WS3+WS4.",
+      "additionalProperties": false,
+      "properties": {
+        "pack_count": { "type": ["integer", "null"] },
+        "key_ingredients": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "amount"],
+            "properties": {
+              "name": { "type": "string" },
+              "amount": { "type": "string" }
+            }
+          }
+        },
+        "components": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "offer": {
+      "type": "object",
+      "description": "product.json price 객체에서 추출한 가격 정보(price.current 존재 시에만). WS3.",
+      "additionalProperties": false,
+      "required": ["price"],
+      "properties": {
+        "price": { "type": "integer" },
+        "discount": { "type": ["number", "null"] }
+      }
+    },
+    "top_signals": {
+      "type": "object",
+      "description": "리뷰 구조화 신호(재구매 컬럼 존재 시에만). WS2.",
+      "additionalProperties": false,
+      "properties": {
+        "repurchase_count": { "type": "integer" }
+      }
+    }
+  }
+}

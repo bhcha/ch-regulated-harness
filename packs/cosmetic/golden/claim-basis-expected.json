@@ -1,0 +1,16 @@
+{
+  "_source": "tests/golden/working-backwards.md",
+  "_note": "사람이 1회 작성한 claim-basis 추출 기대표(D11). 추출 정확도 게이트(B1 c+)의 정답. 워킹백워드 수정 시 함께 갱신.",
+  "functional_status": {
+    "whitening": "unknown",
+    "wrinkle": "unknown",
+    "uv_protection": "approved"
+  },
+  "evidence_on_file_count": 0,
+  "unsupported_must_include": ["미백"],
+  "must_not_be_approved": ["whitening", "wrinkle"],
+  "product_type_contains": "쿠션",
+  "approved_requires_evidence_ref": true,
+  "notified_ingredients_expected": [],
+  "certifications_expected": []
+}

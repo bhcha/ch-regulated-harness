@@ -1,0 +1,27 @@
+{
+  "functional_status": {
+    "whitening": {
+      "status": "unknown",
+      "evidence_ref": null
+    },
+    "wrinkle": {
+      "status": "unknown",
+      "evidence_ref": null
+    },
+    "uv_protection": {
+      "status": "approved",
+      "evidence_ref": "func-uv_protection-1"
+    }
+  },
+  "notified_ingredients": [],
+  "certifications": [],
+  "product_type": "색조화장품(쿠션 파운데이션)",
+  "evidence_on_file": [],
+  "unsupported_claims": [
+    "미백"
+  ],
+  "source": {
+    "from": "inputs/working-backwards.md",
+    "extracted_by": "ingest.py (deterministic, fail-closed)"
+  }
+}

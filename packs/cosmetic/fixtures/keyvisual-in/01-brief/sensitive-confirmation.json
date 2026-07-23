@@ -1,0 +1,27 @@
+{
+  "confirmed": true,
+  "ra_reviewed": true,
+  "labels": [
+    {
+      "label": "미백(기능성)",
+      "basis": null,
+      "status": "unknown"
+    },
+    {
+      "label": "주름개선(기능성)",
+      "basis": null,
+      "status": "unknown"
+    },
+    {
+      "label": "자외선차단(기능성)",
+      "basis": "func-uv_protection-1",
+      "status": "approved"
+    },
+    {
+      "label": "미백",
+      "basis": null,
+      "status": "unsupported"
+    }
+  ],
+  "confirmed_at": "2026-07-08T02:20:04Z"
+}

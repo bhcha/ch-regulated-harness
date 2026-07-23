@@ -1,0 +1,132 @@
+{
+  "scope": "plan",
+  "components": [
+    {
+      "id": "keyVisual",
+      "label": "키비주얼",
+      "required": true,
+      "evidence_gated": false,
+      "covered": true,
+      "status": "covered",
+      "present_by": [
+        "hero"
+      ]
+    },
+    {
+      "id": "salesAward",
+      "label": "판매/수상 데이터",
+      "required": true,
+      "evidence_gated": false,
+      "covered": true,
+      "status": "covered",
+      "present_by": [
+        "socialProof",
+        "brandTrust"
+      ]
+    },
+    {
+      "id": "problemAwareness",
+      "label": "문제(고민) 인식",
+      "required": true,
+      "evidence_gated": false,
+      "covered": true,
+      "status": "covered",
+      "present_by": [
+        "problem"
+      ]
+    },
+    {
+      "id": "consumerVOC",
+      "label": "소비자 VOC",
+      "required": true,
+      "evidence_gated": false,
+      "covered": true,
+      "status": "covered",
+      "present_by": [
+        "reviewCapture"
+      ]
+    },
+    {
+      "id": "rtbSummary",
+      "label": "핵심 RTB 요약",
+      "required": true,
+      "evidence_gated": false,
+      "covered": true,
+      "status": "covered",
+      "present_by": [
+        "rtbSummary"
+      ]
+    },
+    {
+      "id": "rtbDetail",
+      "label": "핵심 RTB 세부",
+      "required": true,
+      "evidence_gated": false,
+      "covered": true,
+      "status": "covered",
+      "present_by": [
+        "ingredientTech",
+        "solution"
+      ]
+    },
+    {
+      "id": "scienceEvidence",
+      "label": "과학성/임상 근거",
+      "required": true,
+      "evidence_gated": true,
+      "covered": false,
+      "status": "exempt(실증미등록)",
+      "present_by": []
+    },
+    {
+      "id": "howToUse",
+      "label": "권장 사용 방법",
+      "required": true,
+      "evidence_gated": false,
+      "covered": true,
+      "status": "covered",
+      "present_by": [
+        "howToUse"
+      ]
+    },
+    {
+      "id": "targetAudience",
+      "label": "추천 타겟",
+      "required": true,
+      "evidence_gated": false,
+      "covered": true,
+      "status": "covered",
+      "present_by": [
+        "targetAudience"
+      ]
+    },
+    {
+      "id": "brandBanner",
+      "label": "브랜드 배너",
+      "required": true,
+      "evidence_gated": false,
+      "covered": true,
+      "status": "covered",
+      "present_by": [
+        "brandBanner"
+      ]
+    }
+  ],
+  "missing_required": [],
+  "all_required_covered": true,
+  "present_blocks": [
+    "brandBanner",
+    "brandTrust",
+    "buyingGuide",
+    "colorSwatch",
+    "hero",
+    "howToUse",
+    "ingredientTech",
+    "problem",
+    "reviewCapture",
+    "rtbSummary",
+    "socialProof",
+    "solution",
+    "targetAudience"
+  ]
+}

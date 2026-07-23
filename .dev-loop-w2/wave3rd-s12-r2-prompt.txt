@@ -1,0 +1,35 @@
+적대적 재리뷰(재설계 S1+S2 R2). 추정이 아니라 코드로 논증하라. 없는 결함을 만들지 마라.
+
+S12 에서 critical 1 · high 3 · medium 1 을 냈다. 현재 워킹 diff 는 그 5건 수정. 불변식 12 = `.dev-loop-w2/review-brief.md`.
+
+## 적용된 수정
+1. **[critical: nonce 미탑재로 verify→signal PID재사용 창]**: `ReapDecision` 의 kill·scan-then-kill 이 **nonce 를 실어**
+   데몬이 신호 직전 재검증하게. 헤더 계약에 '신호 직전 nonce 재검증(decision≠signal)' 명시. scan=발견일 뿐 nonce-free
+   kill 불허. **과대주장 정정**: "PID재사용 닫음"→"register-lag 닫힘 · PID재사용은 좁힘(Darwin ms급 TOCTOU 원리적
+   잔여 · cgroup 만 완전폐쇄)".
+2. **[high: S1 enum/교차규칙 미검증]**: contract-client 가 step/action 을 **enum 멤버십**으로 검증(STEP_VALUES·
+   ACTION_VALUES 미러, contract.ts SSoT 주석) + 교차규칙(action=generate ⟹ stage 비어있지 않은 string). stage=string|null
+   은 비-generate 에 유지.
+3. **[high: S1 이 worker.ts ingest 가드를 fail-open 으로 뒤집은 회귀]**: fail-closed 로 — action==="ingest" 를 **적극
+   확인**할 때만 진행. read 실패(throw→null)·다른 action → 차단. 주석에 'core 에 ingest 현재-phase 게이트 없음 +
+   파괴적이라 fail-closed' 근거.
+4. **[high: alive+startedAtMs=null 을 PID재사용으로 오분류]**: owner-state 3분기 — alive+match→wait · alive+다른숫자→
+   reap진행 · **alive+null(unknown)→wait**(살아있는 supervisor 세션 kill 방지) · !alive→reap.
+5. **[medium: parse 가 pgid 불변식 미강제]**: live/leaked 의 pgid=int>1 을 parse 도 강제(asPgid).
+
+## 판정 요청
+⑴ **critical 이 정직하게 닫혔는가**: nonce 가 kill·scan-then-kill **양쪽**에 실렸는가? 헤더 계약이 '데몬은 신호 직전
+   재검증 필수 · scan=발견만'을 명확히 하는가? 과대주장이 코드/주석 어디에도 안 남았는가('닫음'이라 쓴 잔재)? 
+   ⚠ Darwin ms급 TOCTOU 를 '원리적 잔여'로 정직 고지한 게 맞는가, 아니면 여전히 성립하는 척하는가?
+⑵ **S1 이 이제 핵심 실패형태를 닫는가**: `{step:"generate",action:"generate",stage:null}`·미지 enum·교차규칙 위반이 전부
+   throw 인가? enum 미러가 contract.ts 와 **정확히** 일치하는가(드리프트 시 컴파일 깨지는가)? nullable 을 과도하게 조였는가?
+⑶ **worker.ts 회귀가 실제로 닫혔는가**: 이제 read 실패·비-ingest·null 전부 차단인가? fail-closed 가 **정당한 legit
+   ingest 를 영구 차단**하는 새 문제를 만들지 않는가(재시도로 회복되는가)? 다른 kind 는 이 변경에 영향 없는가?
+⑷ **owner-state 3분기**: alive+null→wait 가 **교착**(supervisor 가 영영 start-time 을 못 읽으면 세션이 영영 회수 안 됨)을
+   만드는가? 그게 안전한 방향인가(회수 안 함=마감 약화 vs 오살)? alive+다른숫자→reap 이 여전히 정당한가?
+⑸ medium·그 외 새 결함(테스트가 fake 를 실동작인 척하는지 · 5건 수정이 서로 간섭하는지).
+
+⚠ 테스트 실행 금지(읽기전용 EPERM). ⚠ 실 claude/ps 금지. 사람이 조용한 창 확인: build ✓ · 단위 698/698 ·
+stub E2E 4/4(단독) · kernel-neutral ✓ · core 무수정.
+
+산출: severity · 파일:라인 · 불변식 번호 · 재현 시나리오. 마지막 한 줄: "S12-R2 판정: critical/high N건".
