@@ -21,14 +21,14 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# domain 은 영숫자·-·_ 만('.'·'..'·'/' 거부 — Codex High: '.' 가 packs/./learned 로 새는 것 차단).
+# domain 은 영숫자·-·_ 만('.'·'..'·'/' 거부 — 외부리뷰 High: '.' 가 packs/./learned 로 새는 것 차단).
 case "$DOMAIN" in ""|*[!A-Za-z0-9_-]*) echo "잘못된 domain: $DOMAIN (영숫자·-·_ 만)" >&2; exit 1 ;; esac
 [ -f "$PROPOSAL" ] || { echo "proposal 없음: $PROPOSAL" >&2; exit 1; }
 
 HARNESS_ROOT="${HARNESS_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 export HARNESS_ROOT
 PACKS_DIR="${PACKS_DIR:-$(cd "$HARNESS_ROOT/.." && pwd)/packs}"
-# 등록된 팩에만 쓴다(Codex High) — domain.json 이 없으면 미등록 도메인/오경로이므로 fail-closed.
+# 등록된 팩에만 쓴다(외부리뷰 High) — domain.json 이 없으면 미등록 도메인/오경로이므로 fail-closed.
 [ -f "$PACKS_DIR/$DOMAIN/domain.json" ] || { echo "미등록 도메인(팩 domain.json 없음): $PACKS_DIR/$DOMAIN" >&2; exit 1; }
 APPROVED_AT="${LEARN_APPROVED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 

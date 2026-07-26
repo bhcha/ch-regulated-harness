@@ -162,12 +162,12 @@ def _list_main(example_dir):
     return sorted(f for f in os.listdir(d) if not f.startswith("."))
 
 
-# reference_images.why 효능·절대·속효 deny (코덱스 M2 R2/R3 HIGH 반영) — 하드코딩 대신 active 도메인
+# reference_images.why 효능·절대·속효 deny (외부리뷰 M2 R2/R3 HIGH 반영) — 하드코딩 대신 active 도메인
 #   룰셋(banned + axes.lexicon)을 로드 + 영문 큐레이션 보강. 도메인-aware(drug 의 치료/예방/피임 등 포함).
 #   매칭: NFKC 정규화 → 소문자 → 공백/유니코드 대시류/슬래시/언더스코어/middot/점 제거 부분문자열
 #         → 영문 우회(anti/aging·anti_aging·anti–aging·per_fect) 차단. '%'(의미기호)·한글 보존.
 #   랭킹어(N위)는 '위치' 오탐을 피하려 부분문자열이 아니라 별도 정규식으로 판정.
-# 정규화(normalize) 문자열에서 일관 검사(코덱스 M2 R4/R5 HIGH): 속효·랭킹도 raw 가 아니라 norm 에서.
+# 정규화(normalize) 문자열에서 일관 검사(외부리뷰 M2 R4/R5 HIGH): 속효·랭킹도 raw 가 아니라 norm 에서.
 _DENY_SPEED = re.compile(r"단\d+(일|시간|분|주|개월|초)?만에")   # norm(공백·구두점제거)에서
 _DENY_RANK_KO = re.compile(r"(?<!\d)\d+위(?!치)")               # norm 에서 'N위' 랭킹(위치 오탐 제외)
 _RANK_TERM = re.compile(r"^\d+\s*위$")
@@ -184,7 +184,7 @@ _CURATED_DENY = [
     # 절대(EN)
     "no.1", "no1", "best", "perfect", "ultimate", "unrivaled", "onlyone",
 ]
-# '%' 포함 deny(정량) — keepcase 뷰(nk)에서만 매칭(코덱스 R6: plain 뷰는 '%' 까지 제거해 '치%료' 우회 차단).
+# '%' 포함 deny(정량) — keepcase 뷰(nk)에서만 매칭(외부리뷰 R6: plain 뷰는 '%' 까지 제거해 '치%료' 우회 차단).
 _CURATED_PCT = ["100%"]
 
 
@@ -274,7 +274,7 @@ def _trigger_specs(domain):
             t = b.split("(")[0].strip()
             if "N" in t or "%" in t:
                 raws.append(t)
-    # axes.lexicon 의 N/%-포함 항목도 수집(코덱스 R8: drug safety_overclaim 의 0%/100% 는 banned 가 아니라 lexicon).
+    # axes.lexicon 의 N/%-포함 항목도 수집(외부리뷰 R8: drug safety_overclaim 의 0%/100% 는 banned 가 아니라 lexicon).
     #   _plain_deny 는 N/% 포함을 제외하므로, 여기서 안 모으면 크랙으로 누수한다.
     lex = ax.get("lexicon", {}) or {}
     for k in ("functional_efficacy", "condition_target", "superlative_authority", "safety_overclaim", "pharma_authority"):

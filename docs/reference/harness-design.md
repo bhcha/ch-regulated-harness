@@ -6,6 +6,8 @@
 > **범용 범위**: 본 하네스는 규제 대상 제품(**화장품·의약외품·건기식·의약품**)의 홍보/상세 자료를 생성하는 다중도메인 도구다(AGENTS.md §0·§8). 본 문서의 예시·실측은 **PoC 샘플 1례**(이지듀 멜라 비 토닝 앰플 쿠션 — 화장품, 제품명 표기 SPF 50+/PA+++)이며, 교체 가능한 예시일 뿐이다.
 > 테스트 기본 번들: `tests/fixtures/bundle-cosmetic`(커밋 가능한 합성 번들 — 실제 크롤 `naver_*/` 심링크는 2026-07-06 decouple). 운영 입력은 현업이 넘긴 크롤 번들 폴더.
 > 환경 실측: Codex 0.140.0 · Claude Code 2.1.179 · Playwright 1.61.0 · Node 22 · Python 3.14 (본 문서 §3.3·부록 A에 실측 근거)
+>
+> ⚠️ **작성 시점 스냅샷 — 일부 초과됨(2026-07-25).** 본 문서가 전제한 **두 CLI(Claude Code·Codex) 공통 substrate 는 폐기**됐다. 생성 엔진은 **Claude 단일**(`HARNESS_CLI=claude|stub`)이고, 세션 밖 헤드리스 실엔진 생성(`claude -p`/`codex exec`)도 폐기됐다(세션 내 생성만). Codex 관련 실측·비교표(§3.3·부록 A·§16의 `codex exec` 심의 서술)는 **당시 조사 기록으로만** 읽는다. 현재 진실은 `core/AGENTS.md`(SSoT)와 `docs/canonical/` 정본이며, 어긋나면 **코드가 우선**이다.
 
 ---
 

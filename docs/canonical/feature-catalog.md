@@ -128,7 +128,8 @@
 | 오프라인 stub 생성 | (STUB_MODE) | `scripts/lib/stub_stage.py` | 결정적 단계 생성기(오프라인/CI 경로). 도메인별 stub 템플릿. | 🟡 |
 | 마이그레이션 안전망 | (CI) | `scripts/lib/baseline.py` | 바이트 골든 + structdiff 골든 회귀. | ⚙️ |
 | 골든 픽스처 생성 | `bash scripts/build-fixtures.sh` | `scripts/build-fixtures.sh` | 단계 경계 골든 핸드오프 픽스처(결정적 stub). | 🟢 |
-| 스킬 배포 | `bash scripts/sync-skills.sh` | `scripts/sync-skills.sh` | skills/ 원본 → Claude 슬래시·Codex 전역 배포. | 🟢 |
+| 스킬 배포 | `bash scripts/sync-skills.sh` | `scripts/sync-skills.sh` | skills/ 원본 → Claude 슬래시(`.claude/commands`) 단일 배포. | 🟢 |
+| **PreToolUse 경화 훅(비-load-bearing)** | (Claude Code 세션이 Write/Edit 직전 자동 호출 · 배선 = 레포 루트 `.claude/settings.json`) | `scripts/hooks/deny-state-writes.sh` | 런 `state.json`·`.logs/` 직접 Write/Edit 을 도구 레벨에서 거부(종료 2 + 평이 한국어 교정 사유). 스크립트는 Bash 로 상태를 쓰므로 정당 작업 무영향. Bash 명령 문자열 파싱은 하지 않고, 깨진 이벤트/`file_path` 부재는 허용(fail-open). **게이트를 대체하지 않는 경화 계층** — 파일을 지워도 판정·fail-closed 불변(판정 SSoT = 셸 게이트, AGENTS 규칙 3). | 🟢 |
 
 ## 10. 팩 (데이터 SSoT — 로직 아님)
 
@@ -156,6 +157,7 @@
 | 현업 4동작(approve/revise/select) | `approve.sh`·`revise.sh`·`select.sh` | `operator-voice.md` | `approve`·`revise`·`select` | `decision`·`feedback` | `test-gates` |
 | AG-UI·A2UI 투영(관측·선택지 표면) | `agui-events.sh`·`a2ui-surface.sh`·`a2ui-action.sh`·`lib/agui_events.py`·`lib/a2ui_surface.py`·`lib/a2ui_action.py`(+`common.sh agui_emit` 전이 방출) | `operator-voice.md`(surface→AskUserQuestion→action 브리지 화법) | `select`·`approve`·`revise`(surface/action 브리지 안내) | `agui-projection`(이벤트 한 줄 검증 스키마) + `a2ui-catalog`(A2UI v0.9.1 카탈로그 — 스키마 아닌 데이터) | `test-agui-contracts`·`test-agui-projection`·`test-a2ui-surface`·`test-a2ui-action` |
 | 렌더링(render-design) | `render-design.sh`·`lib/render.py` | — | — | — | `test-render-mode-gate`·`test-render-existence-depth` |
+| PreToolUse 경화 훅(상태 직접쓰기 거부) | `scripts/hooks/deny-state-writes.sh` | — | — (스킬 아님. 배선 = 레포 루트 `.claude/settings.json` `hooks.PreToolUse` matcher `Write\|Edit`) | — | `test-hook-deny`(좁은 deny 판정·fail-open·교정 문구 + **게이트가 훅을 참조하지 않음** = 비-load-bearing 증명) |
 | 문서 무결성 / D-1 정본 거버넌스 | — | — | — | — | `test-docs-integrity`(살아있는 문서 링크 해소[README·AGENTS·canonical·plans·reference 포함, _archive/history/snapshots 제외]·plans 등재·정본 5종 존재·파이프라인 소비경로[regulation/·design-tokens·canon-blocks] 고정) · `test-b0` 의 (d) 블록이 skills↔`.claude/commands` 드리프트를 내용 비교(비변조)로 실패로 잡음(조용한 덮어쓰기 금지) |
 
 > **노트:** 동반물이 없는 기능(순수 검증/렌더 유틸, 공용 인프라 lib 등 — 6·7·9절의 대부분)은 **로직만 이동**한다(프롬프트·스킬·전용 스키마·전용 테스트 없음). 위 표는 파이프라인 단계/핵심 기능 단위라 전체 스키마(예 `phase-descriptors`·`pipeline-routes`·`state`·`golden-set`·`recommendation`)나 단계-비종속 스킬(예 `status`)까지 망라하지 않는다 — 이들은 여러 기능이 공유하는 토대다. **env 동반물은 표에 넣지 않고 [`config-reference.md`](config-reference.md) 를 참조**한다.

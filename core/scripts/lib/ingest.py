@@ -116,7 +116,7 @@ _INGREDIENT_STOP_TOKENS = {"성분", "유효성분", "주성분", "함량", "함
                            "브랜드", "분류", "종류", "사용법", "사용방법", "보관", "제형", "본품", "리필"}
 # 인접 임상 결과 표지(generic) — 측정대상 단순 언급이 아닌 '측정/확인된 결과'임을 뒷받침.
 _CLINICAL_RESULT_MARKERS = ["개선", "도움", "확인", "적합", "판단", "완화", "감소", "평가", "결과"]
-# 함량 단위 정규식. 소수(0.5%) 포함 — \d+ 만이면 소수점 뒤만 잡아 '5%' 로 부풀려 기록됨(Codex P2).
+# 함량 단위 정규식. 소수(0.5%) 포함 — \d+ 만이면 소수점 뒤만 잡아 '5%' 로 부풀려 기록됨(외부리뷰 P2).
 #   '%' 뒤 \b 미매칭 회피 위해 후행 영숫자 부정 lookahead.
 _AMOUNT_RE = re.compile(r"\d+(?:\.\d+)?\s*(?:ppm|%|mg|ml|g)(?![A-Za-z0-9])", re.IGNORECASE)
 # 한국어 조사 꼬리(명사구 경계 정리용).
@@ -134,7 +134,7 @@ def read_reviews(csv_path):
 def _load_isolation_set():
     """top_phrases 에서 격리할 '위험어'만 룰셋에서 추출(효능·질환·권위·임상 + banned/triggers).
     ⚠ 안전 allowlist(general_allowed)·안전 일반어(lexicon.zero_voc_exclude=커버/촉촉 등)·메타(ref/grade/
-    conditional)는 격리하지 않는다(Codex P2: 안전 VOC 어휘까지 격리하면 voc_phrase 게이트가 정당한 상위
+    conditional)는 격리하지 않는다(외부리뷰 P2: 안전 VOC 어휘까지 격리하면 voc_phrase 게이트가 정당한 상위
     리뷰 어휘를 못 받음). 파일 없으면 빈 셋(graceful)."""
     domain = _active_domain()
     rp = os.path.normpath(os.path.join(_PACKS_DIR, domain, "ruleset.json"))
@@ -216,8 +216,8 @@ def _ingredient_name_from_line(line, amount_start):
 #   단제품/모호/미발견이면 전체-WB 추출로 폴백(fail-open) — 오늘보다 나빠지지 않고 단제품 골든 바이트 불변.
 _WB_HEADING_LEVEL_RE = re.compile(r"^(#{1,6})\s", re.MULTILINE)      # 마크다운 헤딩 + 레벨('#' 개수) 캡처
 # 제품 마커 = '라인 시작(불릿 허용) 앵커' 필수 — '이전 제품명:'·'구 제품명:' 같은 비-제품 라벨이 매칭돼
-#   단제품을 다제품으로 오판하는 것 차단(Codex R10 P2). MULTILINE 로 blob 내 각 라인 시작에 매칭.
-_MK = r"(?m)^[ \t]*[-*·・•‣◦]?[ \t]*"   # 불릿 = -, *, 가운뎃점(·/・), Word/Docs 불릿(•/‣/◦) 허용(Codex R14 P2)
+#   단제품을 다제품으로 오판하는 것 차단(외부리뷰 R10 P2). MULTILINE 로 blob 내 각 라인 시작에 매칭.
+_MK = r"(?m)^[ \t]*[-*·・•‣◦]?[ \t]*"   # 불릿 = -, *, 가운뎃점(·/・), Word/Docs 불릿(•/‣/◦) 허용(외부리뷰 R14 P2)
 _WB_PRODUCT_MARKER_RE = re.compile(_MK + r"(?:제품명|제품유형)\s*[:：]")   # 제품 마커(제품명:/제품유형:)
 _WB_PRODUCT_NAME_RE = re.compile(_MK + r"제품명\s*[:：]")                    # 제품 '정체성' 마커(새 제품 경계)
 _WB_PRODUCT_TYPE_RE = re.compile(_MK + r"제품유형\s*[:：]")                  # 제품유형 마커(정체성 마커 부재 시 폴백 경계)
@@ -227,7 +227,7 @@ _WB_PRODUCT_TYPE_VALUE_RE = re.compile(_MK + r"제품유형\s*[:：]\s*(.+)")   
 
 def _token_subseq(short, long_):
     """토큰열 short 가 long_ 의 '연속 부분열'로 등장하면 True(공백-경계 토큰 매칭). 임의 char 부분문자열
-    (복합제품A⊃제품A·제품A정⊃제품A)은 토큰이 다르므로 매칭 안 함(Codex R9)."""
+    (복합제품A⊃제품A·제품A정⊃제품A)은 토큰이 다르므로 매칭 안 함(외부리뷰 R9)."""
     n, m = len(short), len(long_)
     if n == 0 or n > m:
         return False
@@ -236,10 +236,10 @@ def _token_subseq(short, long_):
 
 def _match_declared(dn, ident):
     """선언명 dn 을 제품별 정체성 후보 dict(idx→[후보,...])에 매칭. 각 제품의 후보 = {제품명 값, 헤딩} 둘 다 —
-    선언이 제품명 또는 헤딩 어느 쪽과 맞아도 식별(Codex R16: 제품명 누락/불일치라도 헤딩으로 식별). 정확일치 우선,
+    선언이 제품명 또는 헤딩 어느 쪽과 맞아도 식별(외부리뷰 R16: 제품명 누락/불일치라도 헤딩으로 식별). 정확일치 우선,
     없으면 '토큰 연속 부분열'(선언 접미사 '제품A 100정'⊃'제품A' · 선언 단어 '변형C'⊂'브랜드B 뷰티 변형C').
-    여러 제품이면 **매칭 토큰 수 최다**만(Codex R12/R13 최장/최구체 SKU). 임의 char 부분문자열은 토큰 경계상
-    매칭 안 함(Codex R9). 반환 = 매칭 인덱스 리스트(정확히 1건일 때만 국소화; 0/2+ 는 호출부가 폴백)."""
+    여러 제품이면 **매칭 토큰 수 최다**만(외부리뷰 R12/R13 최장/최구체 SKU). 임의 char 부분문자열은 토큰 경계상
+    매칭 안 함(외부리뷰 R9). 반환 = 매칭 인덱스 리스트(정확히 1건일 때만 국소화; 0/2+ 는 호출부가 폴백)."""
     dt = dn.split()
     exact = [i for i, cands in ident.items() if any(c == dn for c in cands)]
     if exact:
@@ -266,8 +266,8 @@ def _match_declared(dn, ident):
 def _norm_name(s):
     """제품명 정규화: **괄호 '문자'만** 공백으로 치환(내용은 보존) + 공백 접기 + 앞뒤 제거.
     괄호 문자만 제거하므로 변이 태그 내용은 살아 서로 구분되고('(소형) 패치'→'소형 패치' ≠ '(대형) 패치'→'대형 패치',
-    Codex R14), 브랜드 괄호도 토큰 경계가 맞아 부분열 매칭이 된다('[브랜드사 브랜드B] 멜라…'→'브랜드사 브랜드B 멜라…'
-    에서 WB '브랜드B 멜라…'가 토큰 부분열, Codex R15). 괄호 '토큰 통째 제거'가 아님(R14 변이 태그 보존)."""
+    외부리뷰 R14), 브랜드 괄호도 토큰 경계가 맞아 부분열 매칭이 된다('[브랜드사 브랜드B] 멜라…'→'브랜드사 브랜드B 멜라…'
+    에서 WB '브랜드B 멜라…'가 토큰 부분열, 외부리뷰 R15). 괄호 '토큰 통째 제거'가 아님(R14 변이 태그 보존)."""
     s = re.sub(r"[\[\]（）()［］{}]", " ", s or "")
     return re.sub(r"\s+", " ", s).strip()
 
@@ -299,8 +299,8 @@ def _segment_wb(text):
 def _tier_products(sections, level, marker_re):
     """레벨-`level` 헤딩 중 자기 span(다음 ≤level 헤딩 전까지)에 marker_re 를 **정확히 1개** 품은 '리프 제품'
     목록. 각 원소 = (heading_idx, end_idx). 마커가 ### 하위섹션에 중첩돼도 제품은 상위 헤딩 단위로 잡혀 그
-    제품의 리드-인 메타·근거를 안 버린다(Codex R7 P1). 마커 2개↑ 헤딩은 **카테고리 그룹핑**(예 '## 패치 라인'
-    안에 '### 제품A/B')이라 제외 → 더 깊은 실제 제품 레벨을 tier 로 찾게 한다(Codex R10 P2)."""
+    제품의 리드-인 메타·근거를 안 버린다(외부리뷰 R7 P1). 마커 2개↑ 헤딩은 **카테고리 그룹핑**(예 '## 패치 라인'
+    안에 '### 제품A/B')이라 제외 → 더 깊은 실제 제품 레벨을 tier 로 찾게 한다(외부리뷰 R10 P2)."""
     n = len(sections)
     out = []
     for i in range(n):
@@ -314,7 +314,7 @@ def _tier_products(sections, level, marker_re):
 
 def _block_start(text, pos):
     """평문 마커블록에서 제품명 마커(pos)의 '제품 블록 시작' = 그 라인 시작에서 직전 제품유형 리드-인 라인을 위로
-    흡수(Codex R7 P1: 제품유형이 제품명 앞에 오면 그 제품 유형이 이전 청크/서두로 새는 것 차단). 빈줄·데이터·이전
+    흡수(외부리뷰 R7 P1: 제품유형이 제품명 앞에 오면 그 제품 유형이 이전 청크/서두로 새는 것 차단). 빈줄·데이터·이전
     제품 마커에서 멈춘다. 결정적."""
     ls = text.rfind("\n", 0, pos) + 1
     while ls > 0:
@@ -334,7 +334,7 @@ def _scope_wb_to_product(text, declared_name):
     명백한 다제품이고 선언명이 정확히 '한' 제품에 국소화되면 → 공용 서두 + 그 제품의 '스팬 전체'를 반환한다.
       제품 경계 판정(tier): 제품(마커를 품은 헤딩)이 ≥2 인 '가장 얕은 헤딩 레벨' = 제품 tier. 그 tier 헤딩 단위로
       제품을 잡아 스팬을 앵커링한다 → 마커가 ### 하위섹션에 중첩되거나 제품유형이 제품명보다 앞서도 그 제품의
-      메타·근거를 안 버리고 타제품과 안 섞인다(Codex R6/R7). 헤딩이 제품을 안 나누면(제목만+마커블록) 마커 위치로
+      메타·근거를 안 버리고 타제품과 안 섞인다(외부리뷰 R6/R7). 헤딩이 제품을 안 나누면(제목만+마커블록) 마커 위치로
       재분할하되 리드-인 제품유형을 흡수한다. 마커 전무면 헤딩-only tier.
     단제품·선언명 미지정/미발견/2건↑ 매칭(모호)이면 → 전체-WB 그대로(폴백). 폴백이 '모호/미발견'이면 감사 메시지."""
     if not declared_name:
@@ -351,15 +351,15 @@ def _scope_wb_to_product(text, declared_name):
 
     def _scope_tier(products, ident):
         # products = [(heading_idx, end_idx)] · ident = {k: [정체성후보,...]}. 매칭 1건이면 (스팬, matched),
-        #   아니면 (None, matched) → 호출부가 다음 tier/마커종류를 계속 시도(Codex R16: 제품명 tier 미매칭이어도
+        #   아니면 (None, matched) → 호출부가 다음 tier/마커종류를 계속 시도(외부리뷰 R16: 제품명 tier 미매칭이어도
         #   제품유형/헤딩 tier 로 이어가게).
         matched = _match_declared(dn, ident)
         if len(matched) != 1:
             return None, matched
         hi, end = products[matched[0]]
         # 공용 서두 = '구조 레벨'(형제 ≥2 인 가장 얕은 레벨 = 제품/카테고리 tier)의 헤딩 중 '첫 제품-보유'(스팬에
-        #   마커 있음) 이전까지. 그 tier 의 마커 '없는' 공유 섹션(## 공통 안내 등)이 앞에 있으면 포함되고(Codex
-        #   R18b: 공유 인증/성분/근거 보존), 다른 제품 카테고리(패치 라인 등, 마커 보유)는 제외된다(Codex R11).
+        #   마커 있음) 이전까지. 그 tier 의 마커 '없는' 공유 섹션(## 공통 안내 등)이 앞에 있으면 포함되고(외부리뷰
+        #   R18b: 공유 인증/성분/근거 보존), 다른 제품 카테고리(패치 라인 등, 마커 보유)는 제외된다(외부리뷰 R11).
         #   제목(# level1)은 스팬이 문서 전체라 마커를 품지만 구조 레벨이 아니므로 대상이 아니다(항상 서두에 포함).
         lv_counts = {}
         for s in sections:
@@ -377,7 +377,7 @@ def _scope_wb_to_product(text, declared_name):
                 break
         preamble = "".join(sections[j][0] for j in range(min(first_prod, hi)))
         # 중첩 제품(제품 레벨 > 구조 레벨)이면 조상 카테고리의 '리드-인'(카테고리 헤딩 ~ 첫 자식 전 = 그 카테고리의
-        #   공유 제품유형/인증)을 포함한다(Codex R19: 선택 제품에 적용되는 카테고리 메타 유실 방지). 형제 카테고리·
+        #   공유 제품유형/인증)을 포함한다(외부리뷰 R19: 선택 제품에 적용되는 카테고리 메타 유실 방지). 형제 카테고리·
         #   형제 제품은 여전히 제외(리드-인은 조상~첫자식까지만).
         cat_leadin = ""
         if sections[hi][2] > struct_lv:
@@ -390,7 +390,7 @@ def _scope_wb_to_product(text, declared_name):
 
     if has_marker:
         # 마커 종류 우선순위: 제품명(정체성) → 제품유형(폴백). 각 종류로 tier·마커경계 검출을 시도한다 —
-        #   제품유형은 전 섹션에 있는데 제품명은 한 섹션만 있어도 제품유형으로 tier 를 잡게(Codex R15 P2a).
+        #   제품유형은 전 섹션에 있는데 제품명은 한 섹션만 있어도 제품유형으로 tier 를 잡게(외부리뷰 R15 P2a).
         marker_specs = []
         if by_name:
             marker_specs.append((_WB_PRODUCT_NAME_RE, _WB_PRODUCT_NAME_VALUE_RE))
@@ -411,7 +411,7 @@ def _scope_wb_to_product(text, declared_name):
         last_matched = []
         # (1) 헤딩 tier = 리프 제품(마커 정확히 1개 헤딩)이 ≥2 인 레벨(카테고리 그룹핑 레벨은 건너뜀). 얕은→깊은
         #   모든 레벨·마커종류를 스캔하고 **유니크 매칭에서만** 반환한다. 이 레벨 매칭 0건(제품이 더 깊은 tier 에
-        #   있음)이면 다음 레벨을 계속 본다(Codex R17: 단제품 카테고리 2개 + 다제품 카테고리 혼합). 모호(≥2)는
+        #   있음)이면 다음 레벨을 계속 본다(외부리뷰 R17: 단제품 카테고리 2개 + 다제품 카테고리 혼합). 모호(≥2)는
         #   기록만 하고 계속(끝내 유니크 없으면 모호로 폴백; break 로 얕은 레벨을 authoritative 삼지 않음).
         for mre, _vre in marker_specs:
             for L in levels:
@@ -434,7 +434,7 @@ def _scope_wb_to_product(text, declared_name):
             chunks = [text[blk[i]:starts[i + 1]] for i in range(len(blk))]
             ident = {}
             for i, ch in enumerate(chunks):
-                cands = []   # 후보 = 제품명 값 + 제품유형 값(제품유형으로 분할해도 청크의 제품명으로 매칭·Codex R20a)
+                cands = []   # 후보 = 제품명 값 + 제품유형 값(제품유형으로 분할해도 청크의 제품명으로 매칭·외부리뷰 R20a)
                 mn = _WB_PRODUCT_NAME_VALUE_RE.search(ch)
                 if mn:
                     cands.append(_norm_name(mn.group(1)))
@@ -445,14 +445,14 @@ def _scope_wb_to_product(text, declared_name):
             matched = _match_declared(dn, ident)
             if len(matched) == 1:
                 # 헤딩 없는 플랫 마커 WB 는 신뢰할 공유 섹션이 없다 — 첫 블록 이전(첫 제품의 인증/근거 등 메타일 수
-                #   있음)을 preamble 로 붙이면 뒤 제품에 유출된다(Codex R20b). 그 제품 청크만 반환(fail-safe).
+                #   있음)을 preamble 로 붙이면 뒤 제품에 유출된다(외부리뷰 R20b). 그 제품 청크만 반환(fail-safe).
                 return chunks[matched[0]], None, "declared"
             last_matched = matched   # 이 마커 종류로 국소화 실패 → 다음 종류 시도
         # 모든 종류로 tier·경계 국소화 실패. 마커가 ≥2(다제품)면 fail-open+감사, <2(단제품)면 조용한 no-op(골든 불변).
         multi = any(len(mre.findall(text)) >= 2 for mre, _vre in marker_specs)
         return (text, _audit(last_matched), "unscoped") if multi else (text, None, None)
 
-    # 마커 전무 → 스코핑하지 않고 전체-WB 폴백(Codex R8 P2). 마커(제품명/제품유형) 없이 헤딩만으로는
+    # 마커 전무 → 스코핑하지 않고 전체-WB 폴백(외부리뷰 R8 P2). 마커(제품명/제품유형) 없이 헤딩만으로는
     #   '제품 헤딩'과 '섹션 헤딩(보유 실증 자료·사용법 등)'을 구분할 수 없어, 단제품 WB 를 다제품으로 오판하면
     #   같은 제품의 실증/성분 섹션을 버린다(오늘보다 나빠짐). 사용자 확정 fail-open 원칙상 모호하면 전체-WB.
     #   신뢰 가능한 다제품 스코핑은 제품명/제품유형 마커가 있을 때만 한다(사람이 마커로 선언 → 위 has_marker 경로).
@@ -480,7 +480,7 @@ def _extract_product_facts(wb_path, declared_name=None):
     # 숫자 천단위 콤마 제거("10,000"→"10000") — 콤마가 함량 토큰을 쪼개는 것 방지.
     text_norm = re.sub(r"(\d),(\d)", r"\1\2", text_clean)
 
-    # pack_count: (\d+)\s*매 — 단 부정/계획 절은 제외(Codex P2: "30매가 아니라 60매"·"30매 구성 예정" 누출 차단).
+    # pack_count: (\d+)\s*매 — 단 부정/계획 절은 제외(외부리뷰 P2: "30매가 아니라 60매"·"30매 구성 예정" 누출 차단).
     for cl in _split_clauses(text_norm):
         if _negated(cl) or any(p in cl for p in PLANNED_MARKERS):
             continue
@@ -491,7 +491,7 @@ def _extract_product_facts(wb_path, declared_name=None):
 
     # key_ingredients: '함량 단위(ppm/%/mg/ml/g)' 가 있는 '줄' 단위 generic 구조 추출(제품 성분 어휘 비의존).
     #   줄 자체가 부정/계획이면 적재 안 함(fail-closed). 또 '함유/배합' 문맥어가 있는 줄만 —
-    #   "유분량 20% 개선" 같은 임상 결과 수치를 성분 함량으로 오인하지 않게(Codex P2).
+    #   "유분량 20% 개선" 같은 임상 결과 수치를 성분 함량으로 오인하지 않게(외부리뷰 P2).
     seen_ingredients = {}  # name → amount (중복 제거, 첫 출현 우선)
     for line in text_norm.split("\n"):
         line = line.strip()
@@ -512,7 +512,7 @@ def _extract_product_facts(wb_path, declared_name=None):
     key_ingredients = [{"name": n, "amount": a} for n, a in sorted(seen_ingredients.items())]
 
     # components: '명사구 을/를 동봉/증정/제공' 직접 인접 패턴만(_COMPONENT_RE) — 제품 구성품 어휘 비의존.
-    #   포함 동사 바로 앞 명사구라 문장 경계 넘는 오염 불가(Codex P2). 동사 직후 부정/배제/계획이면 제외(fail-closed).
+    #   포함 동사 바로 앞 명사구라 문장 경계 넘는 오염 불가(외부리뷰 P2). 동사 직후 부정/배제/계획이면 제외(fail-closed).
     comp_set = {}
     for m in _COMPONENT_RE.finditer(text_norm):
         name = re.sub(r"\s+", " ", m.group(1)).strip()
@@ -869,7 +869,7 @@ def cmd_claim_basis(args):
                    any(rm in next_cl for rm in _CLINICAL_RESULT_MARKERS):
                     extra_id = "ev-%02d" % (len(evidence) + 1)
                     # kind 는 트리거(시험) 절의 실제 종류 보존 — in_vitro/시험성적을
-                    #   clinical_trial 로 오표기해 임상 블록을 무근거 해금하는 것 차단(Codex P2).
+                    #   clinical_trial 로 오표기해 임상 블록을 무근거 해금하는 것 차단(외부리뷰 P2).
                     evidence.append({
                         "id": extra_id, "kind": _evidence_kind(cl),
                         "grade": _evidence_grade(cl), "source": _src_from,
@@ -955,7 +955,7 @@ def _evidence_grade(sent):
 
 def _clean_decl_str(x):
     """반영 선언 텍스트 정규화: 문자열이면 앞뒤 공백 제거(그 외 타입/None 은 그대로).
-    공백-only(' ') 선언이 완전성 게이트를 truthy 로 통과해 빈 내용이 승격되는 것 차단(Codex P2)."""
+    공백-only(' ') 선언이 완전성 게이트를 truthy 로 통과해 빈 내용이 승격되는 것 차단(외부리뷰 P2)."""
     return x.strip() if isinstance(x, str) else x
 
 
@@ -1061,7 +1061,7 @@ def _extract_test_images(docs, dest_dir, evidence_assets_dir, rdir):
                          "선언한 근거를 조용히 누락하지 않고 멈춥니다.")
 
     # stale 초기화: 근거 이미지 디렉터리 재설정(요구 없으면 제거만; 부재면 no-op → 골든 불변).
-    # stale 초기화 + 원자성(Codex 3R-3): no-targets 면 기존 자산 제거만(실패 위험 없음). has-targets 면 '임시 디렉터리'로
+    # stale 초기화 + 원자성(외부리뷰 3R-3): no-targets 면 기존 자산 제거만(실패 위험 없음). has-targets 면 '임시 디렉터리'로
     #   추출한 뒤 전부 성공해야 기존 자산과 원자 교체 — 추출이 실패하면(범위밖 페이지·손상 래스터 등) real 디렉터리를 건드리지
     #   않아 이전 유효 추출물(다른 이미 승인된 시험성적서 이미지)이 보존된다. 실패 시 _outdir 는 다음 실행 _rm_dir 가 정리(멱등).
     def _rm_dir(p):
@@ -1069,7 +1069,7 @@ def _extract_test_images(docs, dest_dir, evidence_assets_dir, rdir):
             os.remove(p)
         elif os.path.isdir(p):
             shutil.rmtree(p)
-    # ★ 임시 추출 대상은 allowlist 자산트리(inputs/assets) '밖'(rdir 루트 아래 dotdir)에 둔다(Codex 3R-4) — 추출 실패로
+    # ★ 임시 추출 대상은 allowlist 자산트리(inputs/assets) '밖'(rdir 루트 아래 dotdir)에 둔다(외부리뷰 3R-4) — 추출 실패로
     #   temp 가 남아도 img_lint allowlist(inputs/assets/evidence) 밖이라 미승인 파일이 자산으로 새지 않는다. 매 호출 시작에
     #   정리하므로(no-target 경로 포함) 이전 실패 잔여도 남지 않는다.
     _outdir = os.path.join(rdir, ".evidence-extract.tmp")
@@ -1095,7 +1095,7 @@ def _extract_test_images(docs, dest_dir, evidence_assets_dir, rdir):
             if not (isinstance(it, dict) and isinstance(it.get("image_ref"), dict)):
                 continue
             pages = it["image_ref"].get("pages") or []
-            # P2-4(Codex): image_path 는 단일 슬롯이라 한 시험항목의 매칭 이미지는 '한 페이지(전후 합성 컷)'만 허용한다.
+            # P2-4(외부리뷰): image_path 는 단일 슬롯이라 한 시험항목의 매칭 이미지는 '한 페이지(전후 합성 컷)'만 허용한다.
             #   다중 페이지를 조용히 첫 장만 쓰면 나머지가 하류에서 유실되므로 fail-closed(무음 데이터 손실 금지).
             #   여러 이미지가 필요하면 시험항목을 나눠 선언하라(각 항목=한 페이지).
             if len(pages) > 1:
@@ -1129,7 +1129,7 @@ def _extract_test_images(docs, dest_dir, evidence_assets_dir, rdir):
                 shutil.copyfile(src_doc, out_img)
                 if not (os.path.isfile(out_img) and os.path.getsize(out_img) > 0):
                     raise SystemExit("[evidence-docs] %s 이미지 자산 복사 실패: %s" % (doc_id, out_img))
-                # P2-6(Codex): 확장자·크기만으론 손상/위장 파일이 깨진 <img> 로 유출된다(img_lint 는 경로만 봄) —
+                # P2-6(외부리뷰): 확장자·크기만으론 손상/위장 파일이 깨진 <img> 로 유출된다(img_lint 는 경로만 봄) —
                 #   매직바이트로 실제 이미지인지 확인(fail-closed). 페이지 추출(pdftoppm)은 png 를 직접 생성하므로 이 검증은 원본 복사 경로에만 필요.
                 with open(out_img, "rb") as _f:
                     _magic = _f.read(16)
@@ -1146,7 +1146,7 @@ def _extract_test_images(docs, dest_dir, evidence_assets_dir, rdir):
                                  "PDF 또는 이미지(png/jpg/webp)로 첨부하세요." % (doc_id, ext))
             if rels:
                 extracted[(doc_id, k)] = rels
-    # 전부 성공(위 루프에서 raise 없이 완주) → real 디렉터리와 원자 교체. 도중 실패면 여기 도달 못해 real 이 보존된다(Codex 3R-3).
+    # 전부 성공(위 루프에서 raise 없이 완주) → real 디렉터리와 원자 교체. 도중 실패면 여기 도달 못해 real 이 보존된다(외부리뷰 3R-3).
     _rm_dir(evidence_assets_dir)
     os.rename(_outdir, evidence_assets_dir)
     # sha256 감사 로그(스왑 후 최종 경로에서 — 동결 스키마에 저장 슬롯 없음, 로그로만 노출).
@@ -1162,7 +1162,7 @@ def _extract_test_images(docs, dest_dir, evidence_assets_dir, rdir):
 
 
 def _register_evidence_assets(rdir, extracted):
-    """추출 근거 이미지가 assets-manifest own_assets.files 에 **남지 않도록 보장**(멱등 정리). P2-2(Codex):
+    """추출 근거 이미지가 assets-manifest own_assets.files 에 **남지 않도록 보장**(멱등 정리). P2-2(외부리뷰):
     own_assets 에 넣으면 스토리보드/키비주얼 폴백 자산 로테이션이 임상 전후사진을 무관 섹션에 재사용해 오염시킨다.
     근거 이미지는 경로(inputs/assets/evidence/)로 img_lint 화이트리스트가 허용하고 결박은 claim-basis image_path 가
     담당하므로 own_assets 등록이 불필요·유해하다. `extracted` 인자는 하위호환 시그니처 보존용(미사용)."""
@@ -1177,7 +1177,7 @@ def _register_evidence_assets(rdir, extracted):
     oa = am.get("own_assets")
     if not isinstance(oa, dict):
         return
-    # P2-2(Codex): 추출 근거 이미지를 own_assets.files 에 **넣지 않는다** — 넣으면 스토리보드/키비주얼 폴백 자산
+    # P2-2(외부리뷰): 추출 근거 이미지를 own_assets.files 에 **넣지 않는다** — 넣으면 스토리보드/키비주얼 폴백 자산
     #   로테이션이 임상 전후사진을 무관 섹션에 재사용해 오염시킨다. 근거 이미지는 경로(inputs/assets/evidence/)로
     #   img_lint 화이트리스트가 이미 허용하고, 결박은 claim-basis evidence_on_file[].image_path 가 담당하므로
     #   own_assets 등록이 불필요·유해하다. 여기선 '혹시 등록돼 있으면 걷어내기'만 한다(멱등 정리; 변화 없으면 무기록 → 골든 불변).
@@ -1202,7 +1202,7 @@ def _register_evidence_assets(rdir, extracted):
 
 def _round_half_away(x):
     """관행 반올림(round half away from zero) — 보고서 표기 관행(-40.5→-41, 40.5→41)에 맞춘 정수 반올림.
-    파이썬 내장 round()의 banker's rounding(-40.5→-40)이 .5 타이에서 관행과 어긋나는 것을 피한다(Codex 5R)."""
+    파이썬 내장 round()의 banker's rounding(-40.5→-40)이 .5 타이에서 관행과 어긋나는 것을 피한다(외부리뷰 5R)."""
     import math
     return math.floor(x + 0.5) if x >= 0 else math.ceil(x - 0.5)
 
@@ -1260,13 +1260,13 @@ def _normalize_change_pct(tr, doc_label):
         declared_f = float(declared)
         if abs(declared_f - computed) <= 1e-9:
             return   # 정확 일치 → 선언 원문 그대로(골든 바이트 불변 — 핵심)
-        # 근사 일치 → 도출값(소수1)으로 '정규화'한다. ★ 원문 보존이 아니라 정규화여야 하는 이유(Codex 10R): build_context 가
+        # 근사 일치 → 도출값(소수1)으로 '정규화'한다. ★ 원문 보존이 아니라 정규화여야 하는 이유(외부리뷰 10R): build_context 가
         #   EVIDENCE_DOCS 로 이 값을 생성기에 주입하는데, validator(clinical_chart.numbers_consistent)는 도출값
         #   (signed_change_pct=소수1)으로 검증한다. 원문(-59.86)을 주입하고 -59.9 로 검증하면 스토리보드/차트가 self-inconsistent
         #   → 검증 실패. 그래서 주입·검증 둘 다 도출값(-59.9)으로 맞춘다. 인정하는 근사 2유형:
         #   ① 소수1자리 반올림 일치(정밀 2소수 표기, 예 -59.86→-59.9 · derive_chart 교차검증 허용오차와 동일).
         #   ② 정수(보고서 관행) 표기가 '관행 반올림'(half-away-from-zero)과 일치(예 -41→-40.9).
-        #      ⚠ 파이썬 round()는 banker's(-40.5→-40)라 .5 타이에서 관행(-40.5→-41)을 거부하므로 _round_half_away 를 쓴다(Codex 5R).
+        #      ⚠ 파이썬 round()는 banker's(-40.5→-40)라 .5 타이에서 관행(-40.5→-41)을 거부하므로 _round_half_away 를 쓴다(외부리뷰 5R).
         #   ⚠ 그 밖(예 -40.6 vs -40.9)은 진짜 모순 → fail-closed(정밀 선언의 실제 오차를 숨기지 않음).
         if round(declared_f, clinical_chart.ROUND_PREC) == computed \
                 or (declared_f == round(declared_f) and declared_f == _round_half_away(computed)):
@@ -1306,7 +1306,7 @@ def cmd_evidence_docs(args):
     manifest_path = os.path.join(rdir, "00-ingest", "evidence-documents.json")
     claim_basis_path = os.path.join(rdir, "00-ingest", "claim-basis.json")
 
-    # G5 재-인입 무결성(Codex P1): (재)인입 시 이전 00e 반영 제안(reflection-proposal.json)을 항상 무효화한다.
+    # G5 재-인입 무결성(외부리뷰 P1): (재)인입 시 이전 00e 반영 제안(reflection-proposal.json)을 항상 무효화한다.
     #   같은 파일명이라도 내용(sha256)이 바뀌면 옛 제안의 reflection_points 가 현재 문서 원문과 어긋나(stale) 비-verbatim
     #   발췌가 규제 산출물로 새어들 수 있다 → 스냅샷/매니페스트 재기록 전에 제안을 지워 run-stage evidence 재생성을 강제한다.
     #   (정상 최초 인입엔 제안이 아직 없어 no-op; no-evidence 골든 바이트 불변 — 존재 시에만 제거.)
@@ -1493,7 +1493,7 @@ def cmd_evidence_docs(args):
             d["linked_claim_ids"] = list(decl.get("linked_claim_ids", []))
             # 반영 선언(신설): reflect 기본 True(미선언=반영 의무). claim/verdict_text/test_report 는
             #   선언 시에만 덮어씀(미선언은 None 유지 → 완전성 게이트가 잡음). 텍스트는 앞뒤 공백 제거
-            #   (공백-only 선언이 truthy 로 게이트를 통과해 빈 내용이 승격되는 것 차단 — Codex P2).
+            #   (공백-only 선언이 truthy 로 게이트를 통과해 빈 내용이 승격되는 것 차단 — 외부리뷰 P2).
             d["reflect"] = bool(decl.get("reflect", True))
             if "claim" in decl:
                 d["claim"] = _clean_decl_str(decl["claim"])
@@ -1726,7 +1726,7 @@ def _promote_evidence_docs(docs, extracted, claim_basis_path, harness_root):
                 _meta["sample_size"] = tr["sample_size"]
             if tr.get("duration") is not None:
                 _meta["duration"] = tr["duration"]
-            # 부모 문서 레코드(doc-NN) — **항상 승격**(정성/measured_values 경로와 동일; 바이트 불변). P2-3(Codex):
+            # 부모 문서 레코드(doc-NN) — **항상 승격**(정성/measured_values 경로와 동일; 바이트 불변). P2-3(외부리뷰):
             #   정성 판정문 claim 의 evidence_ref=doc-NN 및 check_claim 실재성(evidence_ids)이 이 레코드에 의존한다.
             #   test_items 가 있어도 이 부모 레코드는 그대로 두고, 항목별 레코드(doc-NN-tKK)를 그 위에 추가한다.
             ent = {
@@ -1894,7 +1894,7 @@ def cmd_apply_proposal(args):
                 tgt.pop("spec_status", None)        # pending 해소
                 tgt.pop("reflection_points", None)  # test_report 는 verdict_text/test_report 채널(각주 reflection_points 아님)
             elif kind in GEN_KINDS:
-                # 안전 불변식(Codex 3R P1): 사람이 kind:test_report 로 선언한 pending 문서를 general 제안으로 '강등'할 수 없다.
+                # 안전 불변식(외부리뷰 3R P1): 사람이 kind:test_report 로 선언한 pending 문서를 general 제안으로 '강등'할 수 없다.
                 #   general 제안을 그대로 수용하면 규제 성격(시험성적서)이 조용히 일반 참조로 바뀌고 verdict_text/승격이 사라진다.
                 #   → test_report intent 문서엔 test_report 제안만 허용. 성격을 바꾸려면 사람이 사이드카 선언을 고쳐 재인입해야 한다.
                 if tgt.get("kind") == "test_report" and tgt.get("spec_status") == "pending":
@@ -1916,7 +1916,7 @@ def cmd_apply_proposal(args):
         v.validate(man, ev_schema)
         if v.errors:
             raise SystemExit("[apply-proposal] 재기록 매니페스트 스키마 위반: %s" % "; ".join(v.errors))
-        # ⚠ Codex 3R P2: 디스크 기록은 아래 추출(_extract_test_images) '성공 뒤'로 미룬다 — 추출이 실패하면
+        # ⚠ 외부리뷰 3R P2: 디스크 기록은 아래 추출(_extract_test_images) '성공 뒤'로 미룬다 — 추출이 실패하면
         #   pending 을 디스크에 보존해야, 재시도가 (잘못된 image_ref 를 고친) 제안을 다시 읽어 재병합할 수 있다(wedge 방지).
 
     # W-3: test_report 해소분 이미지 추출(G-B) + claim-basis 승격 — **인입과 동일 함수 재사용**(멱등).
@@ -1934,7 +1934,7 @@ def cmd_apply_proposal(args):
         "claim": md.get("claim"),
         "spec_status": md.get("spec_status"),   # 아직 미해소 pending 문서는 승격 제외(방어; 정상 경로는 해소 완료)
     } for md in docs if isinstance(md, dict)]
-    # ⚠ Codex 3R P2: 추출을 매니페스트 기록 '앞'에 둬 게이트로 삼는다 — 추출 실패면 (else-path) 매니페스트 미기록 →
+    # ⚠ 외부리뷰 3R P2: 추출을 매니페스트 기록 '앞'에 둬 게이트로 삼는다 — 추출 실패면 (else-path) 매니페스트 미기록 →
     #   pending 이 디스크에 남아 재시도가 고친 제안을 재병합. 회복 경로(pend 없음)는 이미 기록돼 있어 멱등 재추출만 한다.
     extracted = _extract_test_images(docs_shaped, dest_dir, evidence_assets_dir, rdir)
     if pend:   # else-path(신규 해소): 추출 성공 뒤에만 pending 해소 매니페스트를 디스크에 기록
@@ -2003,7 +2003,7 @@ def _intake_route_crawl_into(src, is_zip, unpacked, fn, dst):
     단일 파일=성격별 직접 복사. dst 구조는 ingest-bundle 이 기대하는 번들 형상(product.json·reviews.csv·images/)."""
     os.makedirs(dst, exist_ok=True)
     if is_zip:
-        # ★ Codex W4-R3: intake.sh 가 스냅샷 시 만든 _unpacked/ 트리(재검증 안 됨)가 아니라, '해시검증된 zip(src)'을
+        # ★ 외부리뷰 W4-R3: intake.sh 가 스냅샷 시 만든 _unpacked/ 트리(재검증 안 됨)가 아니라, '해시검증된 zip(src)'을
         #   apply 시점에 fresh 재추출한다 → routed 내용이 사람이 승인한 zip(sha256)과 반드시 일치(중간 _unpacked 변조·stale
         #   미탐지 차단). zip-slip(경로 이탈) 가드 포함. (unpacked 인자는 하위호환 시그니처 보존용·미사용.)
         import zipfile, tempfile
@@ -2068,7 +2068,7 @@ def cmd_apply_intake(args):
     unpacked = os.path.join(adir, "_unpacked")
     converted_wb = os.path.join(rdir, "00a-intake", "converted", "working-backwards.md")
     routed = os.path.join(rdir, "00a-intake", "routed")
-    # ★ 사람 선언(intake.sh --domain/--product)은 state.json 이 진실 — env(HARNESS_DOMAIN)·에이전트 제안 아님(Codex W4·AGENTS §8).
+    # ★ 사람 선언(intake.sh --domain/--product)은 state.json 이 진실 — env(HARNESS_DOMAIN)·에이전트 제안 아님(외부리뷰 W4·AGENTS §8).
     #   examples/<도메인> 라우팅과 합성 번들 제품명 모두 state.product 에서 읽어, gate.sh 가 도메인 미export 해도(그리고
     #   ingest-bundle 이 state 도메인으로 examples 를 찾아도) 일관되게 맞춘다.
     _st = load_json(os.path.join(rdir, "state.json"))
@@ -2106,7 +2106,7 @@ def cmd_apply_intake(args):
         raise SystemExit("[apply-intake] 제안이 스냅샷 첨부와 1:1 아님(누락/초과) — 재-인입 필요.")
 
     # 2) 스테이징 초기화(멱등 — 매 실행 wipe+rebuild → 재-인테이크 결정성). routed/ 하위만 만든다.
-    #    ★ Codex W4-R5: 파괴적 작업(rm/mkdir/copy) '전에' routed 의 실경로가 런 안인지 검증 — 00a-intake 가 심볼릭이면
+    #    ★ 외부리뷰 W4-R5: 파괴적 작업(rm/mkdir/copy) '전에' routed 의 실경로가 런 안인지 검증 — 00a-intake 가 심볼릭이면
     #      _intake_rm(routed)가 링크를 따라 런 밖을 지울 수 있다. assert 를 rm 앞으로 옮겨 escape 를 먼저 차단한다.
     _assert_under_root(routed, rdir, "라우팅 스테이징")
     _intake_rm(routed)
@@ -2134,12 +2134,12 @@ def cmd_apply_intake(args):
             own_count += 1
         elif cat == "reference_crawl":
             os.makedirs(examples_dst, exist_ok=True)
-            # ★ Codex W4-R6: zip 은 자기완결 사례라 개별 디렉터리, '느슨한 파일'(product.json+reviews.csv 등)은 한 참고
+            # ★ 외부리뷰 W4-R6: zip 은 자기완결 사례라 개별 디렉터리, '느슨한 파일'(product.json+reviews.csv 등)은 한 참고
             #   크롤이 파일로 쪼개진 것이라 단일 디렉터리로 병합(own 크롤이 bundle 하나로 합쳐지는 것과 동형) — 안 그러면
             #   product/·reviews/ 로 분리돼 00g 가 불완전 사례를 보고 후기/제품 쌍이 유실된다. 병합명 `_reference` 는
             #   sanitizer 가 leading `_` 를 strip 하므로 zip 파생명과 충돌 불가.
             if is_zip:
-                # ★ Codex W4-R8: sanitize 충돌(예 'brand a.zip'↔'brand_a.zip' → 둘 다 'brand_a')이면 뒤 것이 앞 것을
+                # ★ 외부리뷰 W4-R8: sanitize 충돌(예 'brand a.zip'↔'brand_a.zip' → 둘 다 'brand_a')이면 뒤 것이 앞 것을
                 #   덮어써 참고 사례가 조용히 사라진다 → 충돌 시 안정 접미사로 분리(routed 는 매 apply wipe+rebuild 라 결정적).
                 _stem = _intake_sanitize_example_name(fn)
                 ex_dir = os.path.join(examples_dst, _stem)
@@ -2168,7 +2168,7 @@ def cmd_apply_intake(args):
             if safe is None:
                 raise SystemExit("[apply-intake] 안전하지 않은 근거 파일명: %r" % fn)
             shutil.copy2(src, os.path.join(evidence_dst, safe))
-            # ★ Codex W4-R3: 근거 성격(kind)의 단일 출처는 '분류(category)'다 — 제안의 별도 kind 필드를 신뢰하면
+            # ★ 외부리뷰 W4-R3: 근거 성격(kind)의 단일 출처는 '분류(category)'다 — 제안의 별도 kind 필드를 신뢰하면
             #   category:evidence_test_report + kind:general 불일치로 시험성적서가 general 사이드카로 강등돼 test_report
             #   pending 흐름(00e verdict/grade/시험요소 요구)을 우회한다. category 에서 도출하고, 제안 kind 가 불일치면 fail-closed.
             _cat_kind = _INTAKE_CATEGORY_KIND.get(cat)
@@ -2180,13 +2180,13 @@ def cmd_apply_intake(args):
         else:
             raise SystemExit("[apply-intake] 알 수 없는 분류(category=%r) — 재-인입 필요: %s" % (cat, fn))
 
-    # 4) 번들 필수 파일(product.json·reviews.csv) 보장 — ingest-bundle 이 둘 다 요구한다. ★ Codex W4-R4: own_count 로
+    # 4) 번들 필수 파일(product.json·reviews.csv) 보장 — ingest-bundle 이 둘 다 요구한다. ★ 외부리뷰 W4-R4: own_count 로
     #    분기하면 '부분 크롤'(product.json 만 있고 reviews.csv 없는 크롤·zip)에서 폴백이 억제돼 ingest-bundle 이 hard-fail →
     #    00a 훅 무한 재시도. 그래서 own 유무가 아니라 '없는 파일만' 채운다(크롤이 준 파일은 보존).
     _bp = os.path.join(bundle_dst, "product.json")
     _br = os.path.join(bundle_dst, "reviews.csv")
     if not os.path.isfile(_bp):
-        # 합성 제품명 = 사람 선언(state.product.name, intake.sh --product) — 에이전트 제안 아님(AGENTS §8·Codex W4).
+        # 합성 제품명 = 사람 선언(state.product.name, intake.sh --product) — 에이전트 제안 아님(AGENTS §8·외부리뷰 W4).
         pname = (_sp.get("name") or "").strip()
         if not pname:
             raise SystemExit("[apply-intake] state.product.name 이 비어있습니다 — 인입 시 --product 로 제품명을 선언하세요(번들 제품명의 단일 출처).")

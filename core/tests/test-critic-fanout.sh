@@ -5,7 +5,9 @@
 #   (1) 머지 단위검증: baseline high 불멸 · refute 된 후보 제외 · confirm 된 후보 유지(엔진 무관, 보존).
 #   (2) 통합(로컬 ADK 목 서버): Pass-A 후보 → Pass-B refute → 최종 verdict 에 confirm 만 (ADK_CRITIC_ALLOW_LOCAL=1).
 #   (3) offline(CI) → 양 pass 스킵(머지=baseline, 결정성 불변).
-#   (4) ADK 미구현 도메인(drug=adk_critic 블록 없음, resolve 4) → 룰엔진-단독(critic_ran=false·review_depth=rule_engine_only).
+#   (4a) ADK 구현 도메인인데 URL env 비었음(drug=adk_critic 블록 보유, resolve 3) → 설정오류 fail-closed(중단·verdict 미생성).
+#   (4b) ADK 미구현 도메인(adk_critic 블록 없음, resolve 4) → 룰엔진-단독(critic_ran=false·review_depth=rule_engine_only).
+#        실팩엔 이 조합(블록 없음 + status=active)이 없어 임시 PACKS_DIR 합성 팩으로 태운다(실팩 무변경).
 #   (5) 폐기된 critic 엔진 선언(codex/claude-subagent) → die(화이트리스트 adk-http/미설정만).
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 echo "## WS-CRITIC-B — 건별 적대검증 2-pass (critic=adk-http)"
@@ -213,18 +215,59 @@ check "(3) offline → critic_ran=false · review_depth=rule_engine_only" \
   "python3 -c \"import json;d=json.load(open('$VP3'));import sys;sys.exit(0 if d.get('critic_ran') is False and d.get('review_depth')=='rule_engine_only' else 1)\""
 rm -rf "$ROOT/runs/$RID3"
 
-# ── (4) ADK 미구현 도메인(drug = adk_critic 블록 없음, resolve 4) → 룰엔진-단독(가시화) ──
-#   온라인이어도 drug 는 ADK 블록이 없어 critic 을 생략(die 아님) → critic_ran=false·review_depth=rule_engine_only.
+# ── (4a) ADK 구현 도메인인데 URL env 비었음(drug, resolve 3) → 설정오류 fail-closed(중단) ──
+#   packs/drug/domain.json 은 adk_critic 블록(url_env=ADK_DRUG_CRITIC_URL)을 갖는 active 도메인이다. '구현됨' 마커가
+#   있는데 엔드포인트 설정이 없으면 룰엔진-단독으로 조용히 내려앉지 않고 **중단**한다(AGENTS 2번 절 가용성 판정 2번째 분기).
 RIDD=ci-cfan-drug; rm -rf "$ROOT/runs/$RIDD"
 ( cd "$ROOT" && HARNESS_CLI=claude HARNESS_DOMAIN=drug HARNESS_FORMAT=multipage_bm bash scripts/ingest-bundle.sh "$BUNDLE" "$RIDD" \
     && HARNESS_CLI=claude HARNESS_DOMAIN=drug bash scripts/run-stage.sh brief "$RIDD" && bash scripts/approve.sh "$RIDD" --ra-ok ) >/dev/null 2>&1
 VPD="$ROOT/runs/$RIDD/01-brief/brief-verdict.json"
-OUTD="$( ( cd "$ROOT" && env -u HARNESS_OFFLINE bash scripts/kcia-check.sh "$RIDD" ) 2>&1 )"; RCD=$?
-check "(4) drug(ADK 미구현) 온라인 심의 → die 아님(rc=0, 룰엔진-단독)" "[ $RCD -eq 0 ] && [ -f \"$VPD\" ]"
-check "(4) 룰엔진-단독 가시화 → critic_ran=false · review_depth=rule_engine_only" \
-  "python3 -c \"import json;d=json.load(open('$VPD'));import sys;sys.exit(0 if d.get('critic_ran') is False and d.get('review_depth')=='rule_engine_only' else 1)\""
-check "(4) 사람 확인 권장 평이 안내(조용한 강등 금지)" "echo \"$OUTD\" | grep -q '사람 확인'"
+# URL/host env 는 명시적으로 비운다(개발 셸 누수 차단 — 누수되면 resolve 0 으로 분기가 바뀐다).
+OUTD="$( ( cd "$ROOT" && env -u HARNESS_OFFLINE -u ADK_DRUG_CRITIC_URL -u ADK_DRUG_CRITIC_ALLOWED_HOST \
+    bash scripts/kcia-check.sh "$RIDD" ) 2>&1 )"; RCD=$?
+check "(4a) drug(ADK 구현 · URL env 비었음) 온라인 심의 → 설정오류 fail-closed(중단)" "[ $RCD -ne 0 ]"
+check "(4a) 중단 메시지가 빠진 설정을 지목(*_CRITIC_URL)" "echo \"$OUTD\" | grep -q 'CRITIC_URL'"
+check "(4a) fail-closed → verdict 미생성 · 페이즈 유지(조용한 강등/통과 없음)" \
+  "[ ! -f \"$VPD\" ] && [ \"\$(jq_phase \"$RIDD\" phase)\" = '01-brief' ] && [ \"\$(jq_phase \"$RIDD\" gate)\" = 'review' ]"
 rm -rf "$ROOT/runs/$RIDD"
+
+# ── (4b) ADK 미구현 도메인(adk_critic 블록 없음, resolve 4) → 룰엔진-단독(가시화, die 아님) ──
+#   ⚠ 실팩(packs/)에는 이 분기를 태울 도메인이 없다: 블록 없는 도메인은 health_food(status=ready-only)·
+#     quasi_drug(status=tbd) 뿐이고 status!=active 는 ADK resolve '앞'에서 placeholder-autopass 로 빠진다.
+#   → 작업영역 밖 임시 PACKS_DIR 에 '실 drug 팩에서 adk_critic 블록만 뺀' 합성 active 팩을 만들어 이 분기만 태운다.
+#     실팩은 손대지 않는다(다른 팩은 symlink, domain.json 만 사본) → test-pack-lint·pack-conformance 무영향.
+TPACKS="$(mktemp -d)"; mkdir -p "$TPACKS/drug"
+REAL_FORMATS="$PACKS_DIR/_format"   # 포맷 팩(비-도메인)은 실팩 그대로 — PACKS_DIR 만 합성으로 바꾼다
+for _p in "$PACKS_DIR"/*; do
+  [ "$(basename "$_p")" = "drug" ] && continue
+  ln -s "$_p" "$TPACKS/$(basename "$_p")"
+done
+for _f in "$PACKS_DIR"/drug/*; do
+  [ "$(basename "$_f")" = "domain.json" ] && continue
+  ln -s "$_f" "$TPACKS/drug/$(basename "$_f")"
+done
+python3 - "$PACKS_DIR/drug/domain.json" "$TPACKS/drug/domain.json" <<'PYND'
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+d.pop("adk_critic", None)          # 'ADK 구현됨' 마커만 제거(status=active 는 유지) → resolve 4 분기
+json.dump(d, open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PYND
+# 합성 팩이 정말 '블록 없음(resolve 4)'인지 먼저 증명(거짓 그린 방지 — 3=설정오류로 새면 분기가 다르다).
+( cd "$ROOT" && PACKS_DIR="$TPACKS" FORMATS_DIR="$REAL_FORMATS" \
+    python3 "$ROOT/scripts/lib/adk_critic.py" resolve --domain drug ) >/dev/null 2>&1; RC4R=$?
+check "(4b) 합성 팩(adk_critic 블록 없음) → resolve rc=4(미구현 분기 확정)" "[ $RC4R -eq 4 ]"
+RIDN=ci-cfan-ruleonly; rm -rf "$ROOT/runs/$RIDN"
+( cd "$ROOT" && export PACKS_DIR="$TPACKS" FORMATS_DIR="$REAL_FORMATS" &&
+  HARNESS_CLI=claude HARNESS_DOMAIN=drug HARNESS_FORMAT=multipage_bm bash scripts/ingest-bundle.sh "$BUNDLE" "$RIDN" \
+    && HARNESS_CLI=claude HARNESS_DOMAIN=drug bash scripts/run-stage.sh brief "$RIDN" && bash scripts/approve.sh "$RIDN" --ra-ok ) >/dev/null 2>&1
+VPN="$ROOT/runs/$RIDN/01-brief/brief-verdict.json"
+OUTN="$( ( cd "$ROOT" && env -u HARNESS_OFFLINE PACKS_DIR="$TPACKS" FORMATS_DIR="$REAL_FORMATS" \
+    bash scripts/kcia-check.sh "$RIDN" ) 2>&1 )"; RCN=$?
+check "(4b) ADK 미구현 도메인 온라인 심의 → die 아님(rc=0, 룰엔진-단독으로 진행)" "[ $RCN -eq 0 ] && [ -f \"$VPN\" ]"
+check "(4b) 룰엔진-단독 가시화 → critic_ran=false · review_depth=rule_engine_only" \
+  "python3 -c \"import json;d=json.load(open('$VPN'));import sys;sys.exit(0 if d.get('critic_ran') is False and d.get('review_depth')=='rule_engine_only' else 1)\""
+check "(4b) 사람 확인 권장 평이 안내(조용한 강등 금지)" "echo \"$OUTN\" | grep -q '사람 확인'"
+rm -rf "$ROOT/runs/$RIDN" "$TPACKS"
 
 # ── (5) 폐기된 critic 엔진 선언 → die(화이트리스트: 비움/adk-http 만) ──
 RIDX=ci-cfan-eng; rm -rf "$ROOT/runs/$RIDX"

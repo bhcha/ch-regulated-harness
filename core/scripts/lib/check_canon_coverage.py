@@ -126,7 +126,7 @@ def _disallowed_for(rdir):
 def _option_html_blocks(rdir):
     """전 옵션 04-keyvisual/options/*/index.html 의 data-block 값 집합(금지블록 탐지 한정).
        check_html_blocks 의 견고한 파서를 재사용(CSS/주석 오탐 없음). design-manifest 는 '선택안'만 담아
-       비선택 B/C 옵션의 금지블록이 사각이므로(RCA 8-1.4) 커버리지 경로에서도 전수 스캔한다(Codex P2)."""
+       비선택 B/C 옵션의 금지블록이 사각이므로(RCA 8-1.4) 커버리지 경로에서도 전수 스캔한다(외부리뷰 P2)."""
     odir = os.path.join(rdir, "04-keyvisual/options")
     if not os.path.isdir(odir):
         return set()
@@ -153,7 +153,7 @@ def _option_html_blocks(rdir):
 def _raw_present_types(rdir, scope):
     """scope 별 산출물의 RAW 블록 type 집합 — 금지블록 탐지용(빈/placeholder 도 잡도록 _has_content 필터 미적용, RCA 8-1.3).
        outline 은 선택 전/후 무관 전(全) 옵션 union(어느 옵션의 금지블록도 잡음).
-       design 은 design-manifest(선택안) + 전 옵션 HTML data-block union → 비선택 B/C 사각 해소(Codex P2)."""
+       design 은 design-manifest(선택안) + 전 옵션 HTML data-block union → 비선택 B/C 사각 해소(외부리뷰 P2)."""
     types = set()
     if scope == "design":
         man = os.path.join(rdir, "04-keyvisual/design-manifest.json")
@@ -244,7 +244,7 @@ def main():
     has_brand = bool(_declared_brand(rdir))
     has_sales_claim = _has_sales_claim(rdir)   # 판매/수상 주장 실제 제기 여부(claim_gated 면제 신호)
 
-    # 코덱스 M3 HIGH: outline 선택 전(다옵션)은 '합집합'이 아니라 '각 옵션 독립' 평가 —
+    # 외부리뷰 M3 HIGH: outline 선택 전(다옵션)은 '합집합'이 아니라 '각 옵션 독립' 평가 —
     #   불완전한 옵션을 사용자가 선택해도 누락이 안 잡히는 false-pass 차단(두 단계 커버리지 목적).
     per_option = None
     if scope == "outline" and not _selected_outline(rdir):
@@ -273,7 +273,7 @@ def main():
     #   validate_storyboard 가 outline/plan 을 이미 막지만, 이 경로는 --scope design·check-components.sh 까지 파급되어
     #   비어있는 금지블록(_has_content 필터로 놓칠 수 있는)도 raw type 으로 결정적으로 잡는다(RCA 8-1.3).
     #   ★ report 기록(atomic_write_json) '전'에 계산·주입한다 — 실패한 검사가 canon-coverage.json 에 남아
-    #     run.md/완결성 요약이 위반을 보이게(가시화 목적). write 뒤 주입은 미영속(Codex P2).
+    #     run.md/완결성 요약이 위반을 보이게(가시화 목적). write 뒤 주입은 미영속(외부리뷰 P2).
     disallowed = _disallowed_for(rdir)
     banned_present = sorted(disallowed & _raw_present_types(rdir, scope)) if disallowed else []
 

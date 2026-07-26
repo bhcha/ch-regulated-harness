@@ -87,7 +87,7 @@ export class Transcript {
    * 스텝 하나 추가(발화 + 이후 화면들 + 선택 na). 입력을 **깊은 복사**해 이후 호출자 변형과 격리한다 —
    *   트랜스크립트는 시점(point-in-time) 스냅샷이라, append 이후 드라이버가 같은 Presentation/ChatEvent/
    *   NextAction 객체를 재사용·변형해도 이미 쌓인 엔트리는 불변이어야 한다(그래야 JSONL 아티팩트가 정확하다).
-   *   recording-port.ts 의 structuredClone 격리와 같은 규율(Codex W-A 리뷰 P2). 얕은 `[...screens]` 는 배열만
+   *   recording-port.ts 의 structuredClone 격리와 같은 규율(외부리뷰 W-A P2). 얕은 `[...screens]` 는 배열만
    *   격리하고 원소·utterance·na 참조는 공유해 소급 변경을 허용했었다 — 전체 엔트리 깊은 복사로 봉인.
    */
   append(utterance: ChatEvent, screens: Presentation[], na?: NextAction): this {
@@ -102,7 +102,7 @@ export class Transcript {
   /**
    * 쌓인 엔트리(읽기 전용 시점 스냅샷). 내부 객체를 그대로 노출하면 소비자가 반환된 엔트리의 screens/utterance/na 를
    *   변형해 이후 toJSONL() 출력을 오염시킬 수 있다(readonly 는 바깥 배열만 얼린다) — append 의 깊은복사 격리와 같은
-   *   규율로 **깊은 복사**를 돌려준다(Codex S2 리뷰 P2). toJSONL() 은 내부 _entries 를 직접 읽으므로 이 복사에 무관하다.
+   *   규율로 **깊은 복사**를 돌려준다(외부리뷰 S2 P2). toJSONL() 은 내부 _entries 를 직접 읽으므로 이 복사에 무관하다.
    */
   get entries(): readonly TranscriptEntry[] {
     return structuredClone(this._entries);

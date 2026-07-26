@@ -3,7 +3,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 echo "## B7 — 현업 파일럿·핸드오프 (run.md 단독 완주)"
 
-# run.md '다음 명령:' 백틱 안의 명령을 '그대로' 추출(가공 금지 — Codex B7#8)
+# run.md '다음 명령:' 백틱 안의 명령을 '그대로' 추출(가공 금지 — 외부리뷰 B7#8)
 op_next_cmd() {
   python3 - "$ROOT/runs/$1/run.md" <<'PYEOF'
 import re, sys
@@ -53,7 +53,7 @@ OUT_BAD="$( ( cd "$ROOT" && bash scripts/run-stage.sh nonsense $RID ) 2>&1 )"; R
 check "(R2) 오입력(잘못된 stage) 친절 반려" "[ $RC_BAD -ne 0 ]"
 unset HARNESS_CLI HARNESS_OFFLINE
 
-# (R1) 중단→재개를 현업이 run.md 만 보고 다른 CLI 로 직접 수행
+# (R1) 중단→재개를 현업이 run.md 만 보고 새 프로세스(다른 PC/세션)에서 직접 수행
 RID2=ci-b7r; rm -rf "$ROOT/runs/$RID2" "$ROOT/inputs/bundle"
 export HARNESS_CLI=claude HARNESS_OFFLINE=1
 ( cd "$ROOT" && bash scripts/ingest-bundle.sh "$BUNDLE" "$RID2" ) >/dev/null 2>&1
@@ -61,9 +61,9 @@ export HARNESS_CLI=claude HARNESS_OFFLINE=1
 run_operator_loop "$RID2" 6
 PH_MID="$(jq_phase $RID2 phase)"
 check "(R1) 절반 진행 후 중간 상태(아직 미완료)" "[ \"$PH_MID\" != 'done' ]"
-export HARNESS_CLI=codex   # 다른 PC/CLI 로 재개 — 동일 run.md 루프로 완주
+export HARNESS_CLI=claude   # 다른 PC/세션에서 재개 — 동일 run.md 루프로 완주
 run_operator_loop "$RID2" 28
-check "(R1) 다른 CLI 로 run.md 따라 재개·완주(done)" "[ $OP_DONE -eq 1 ] && [ $OP_INTERV -eq 0 ]"
+check "(R1) 새 프로세스로 run.md 따라 재개·완주(done)" "[ $OP_DONE -eq 1 ] && [ $OP_INTERV -eq 0 ]"
 unset HARNESS_CLI HARNESS_OFFLINE
 
 rm -rf "$ROOT"/runs/ci-* "$ROOT/inputs/bundle" 2>/dev/null; true

@@ -69,7 +69,7 @@ def advise(rdir, st):
     if phase in ("03-storyboard", "04-keyvisual") and clinical:
         # (B-1) 필수 4요소: 차트 도출에 반드시 필요 — 강제 게이트(kcia_engine._evidence_satisfies)와 동일 어휘.
         #   측정 전·후 값(before/after 둘 다 OR series≥2) · 시험기관 · 참여자수 · 시험기간.
-        #   ⚠ 게이트는 '단일 evidence 레코드'가 4요소를 모두 가져야 통과한다(레코드 간 합산 아님 — Codex 정정).
+        #   ⚠ 게이트는 '단일 evidence 레코드'가 4요소를 모두 가져야 통과한다(레코드 간 합산 아님 — 외부리뷰 정정).
         #     따라서 '가장 완성된 후보 레코드' 기준으로 평가한다: 어느 레코드도 4요소 완비가 아니면 그 후보가
         #     무엇을 더 채우면 되는지 안내한다. 품질(변화율·p값)도 동일 후보 레코드 기준(차트를 받칠 그 레코드).
         #   ⚠ 개인차 디스클레이머는 evidence 필드가 아니라 '차트 블록 본문' 요건이라 claim-basis 스코프인 여기서는 평가하지 않는다
@@ -88,9 +88,9 @@ def advise(rdir, st):
         order = ["measured_pair", "institution", "sample_size", "duration"]
 
         def _has_measure_intent(e):
-            # '측정 차트를 만들 의도'가 있는 레코드인지 — 4요소(_req_flags) 외에 정량 측정 신호까지 본다(Codex P2):
+            # '측정 차트를 만들 의도'가 있는 레코드인지 — 4요소(_req_flags) 외에 정량 측정 신호까지 본다(외부리뷰 P2):
             #   보고요소(시험기관·n·기간)는 아직 비었어도 측정치(change_pct·before/after·series 1개·p값·metric)가
-            #   하나라도 등록됐으면 차트 의도가 있는 것 → 불완전하면 임계. 순수 정성·출처수준(신호 전무)만 침묵(Codex P1).
+            #   하나라도 등록됐으면 차트 의도가 있는 것 → 불완전하면 임계. 순수 정성·출처수준(신호 전무)만 침묵(외부리뷰 P1).
             if any(_req_flags(e).values()):
                 return True
             if _is_num(e.get("change_pct")) or _is_num(e.get("before")) or _is_num(e.get("after")):
@@ -102,7 +102,7 @@ def advise(rdir, st):
         scored = [(e, _req_flags(e)) for e in clinical]
         best_e, best_f = max(scored, key=lambda t: sum(t[1].values()))   # 4요소를 가장 많이 갖춘 후보 레코드
         # 측정/차트 의도가 있는 레코드가 하나라도 있을 때만 '측정 차트' 필수·품질을 평가한다.
-        #   순수 정성·출처수준 clinical_trial(측정 신호 전무 = 차트 의도 없음)은 임계(must_fill)로 올리지 않는다(Codex P1):
+        #   순수 정성·출처수준 clinical_trial(측정 신호 전무 = 차트 의도 없음)은 임계(must_fill)로 올리지 않는다(외부리뷰 P1):
         #   만들 차트가 없는데 멈추면 정상 클리니컬 참조에 override 를 강요하게 된다. 이때는 권고도 침묵(노이즈 0).
         if any(_has_measure_intent(e) for e in clinical):
             for k in order:                               # 필수도 완결성 카운트에 포함(거짓 N/M 방지)

@@ -65,7 +65,7 @@ ENG="$(python3 "$ROOT/scripts/lib/harness.py" jget "$VP" engine)"
 check "(e) engine 필드 = subagent | ruleset+subagent" "[ \"$ENG\" = 'subagent' ] || [ \"$ENG\" = 'ruleset+subagent' ]"
 check "(f) 가짜/비실증 evidence_ref → verdict=fail(통과 0건)" "[ \"\$(python3 "$ROOT/scripts/lib/harness.py" jget "$VP" verdict)\" = 'fail' ]"
 
-# (R1) 심의 idempotent — 코덱스 5R(CRITICAL 위조 방지): 'kcia-check 가 실제 생산한'(state.history 의 review:produced 마커 보유)
+# (R1) 심의 idempotent — 외부리뷰 5R(CRITICAL 위조 방지): 'kcia-check 가 실제 생산한'(state.history 의 review:produced 마커 보유)
 #   verdict 만 재심의 생략한다. id 존재만으론 부족(id 는 위조 가능). 정당 경로 = 생산 후 gate.sh 호출 전 크래시한 복구.
 RID=ci-b3r; rm -rf "$ROOT/runs/$RID"
 export HARNESS_CLI=claude HARNESS_OFFLINE=1
@@ -83,7 +83,7 @@ M1="$(mt "$VP2")"; sleep 1
 M2="$(mt "$VP2")"
 check "(R1) 생산 마커 보유 verdict → 재심의 생략(mtime 불변)" "[ \"$M1\" = \"$M2\" ]"
 check "(R1) 재사용 후 게이트 전이됨(review 아님 = advance)" "[ \"\$(jq_phase $RID gate)\" != 'review' ]"
-# (R1·위조방어 코덱스 5R CRITICAL) id 만 있고 생산 마커 없는 verdict(외부 위조) → idempotent-skip 거부 → 위조본 제거 후 실제 재심의(mtime 변경)
+# (R1·위조방어 외부리뷰 5R CRITICAL) id 만 있고 생산 마커 없는 verdict(외부 위조) → idempotent-skip 거부 → 위조본 제거 후 실제 재심의(mtime 변경)
 RIDF=ci-b3forge; rm -rf "$ROOT/runs/$RIDF"
 ( cd "$ROOT" && bash scripts/ingest-bundle.sh "$BUNDLE" "$RIDF" && bash scripts/run-stage.sh brief "$RIDF" && bash scripts/approve.sh "$RIDF" --ra-ok ) >/dev/null 2>&1   # gate=review, verdict 없음
 VPF="$ROOT/runs/$RIDF/01-brief/brief-verdict.json"
@@ -95,7 +95,7 @@ check "(R1·위조방어) 생산 마커 없는 위조 verdict → 재심의(mtim
 unset HARNESS_CLI HARNESS_OFFLINE
 unset HARNESS_CLI HARNESS_OFFLINE
 
-# ─────────── [Codex B3 리뷰 수용] 회귀 잠금 ───────────
+# ─────────── [외부리뷰 B3 수용] 회귀 잠금 ───────────
 # #B general_allowed 전역 veto 제거: 허용어를 끼워도 효능어 세탁 불가
 LAUNDER="$(python3 -c "
 import sys;sys.path.insert(0,'$ROOT/scripts/lib')

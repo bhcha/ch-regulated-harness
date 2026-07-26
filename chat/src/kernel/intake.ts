@@ -152,7 +152,7 @@ export async function stageIntakeFolder(
       let name = basename(f.realPath);
       if (used.has(name)) name = `${used.size}-${name}`; // 충돌 회피(인덱스 접두).
       used.add(name);
-      // ⚠ 검증→복사 TOCTOU 봉쇄(Codex P3 HIGH): validateIntakeFiles 뒤 최종 경로가 심링크로 바뀌었을 수 있다.
+      // ⚠ 검증→복사 TOCTOU 봉쇄(외부리뷰 P3 HIGH): validateIntakeFiles 뒤 최종 경로가 심링크로 바뀌었을 수 있다.
       //   O_NOFOLLOW 로 열어 최종 경로가 심링크면 거부(ELOOP) → 봉쇄 밖 파일이 스냅샷에 섞이는 것 차단.
       //   일반 파일(fstat)만 스트림 복사한다.
       const fh = await open(f.realPath, constants.O_RDONLY | constants.O_NOFOLLOW);

@@ -46,10 +46,10 @@ grep -q '"step": *"review"' "$PJ" 2>/dev/null && pass "(L-1) review 실행기록
 grep -qE '"git_sha": *"[0-9a-f]+"' "$PJ" 2>/dev/null && pass "(L-1) git_sha 기록" || fail "(L-1) git_sha 누락(git 체크아웃 필요)"
 grep -qE '"prompts_sha256": *"[0-9a-f]{16}' "$PJ" 2>/dev/null && pass "(L-1) prompts_sha256 프롬프트 지문 기록" || fail "(L-1) prompts_sha256 누락"
 grep -q '"effective"' "$PJ" 2>/dev/null && pass "(L-1) effective 유효플래그 블록 기록" || fail "(L-1) effective 누락"
-# Codex P3: 유효값은 미-export 셸 var(GEN_TIMEOUT=600 등)에서 읽어야 기본값이 빈 값으로 안 남는다 — 실제 값 채워짐 단정.
+# 외부리뷰 P3: 유효값은 미-export 셸 var(GEN_TIMEOUT=600 등)에서 읽어야 기본값이 빈 값으로 안 남는다 — 실제 값 채워짐 단정.
 grep -qE '"GEN_TIMEOUT": *"[0-9]+"' "$PJ" 2>/dev/null && pass "(L-1) effective 실제값 기록(GEN_TIMEOUT 비어있지 않음)" || fail "(L-1) effective 값이 비어있음(os.environ 만 읽는 회귀)"
 grep -q '"engine": *"claude"' "$PJ" 2>/dev/null && pass "(L-1) generate engine 라벨 기록(claude)" || fail "(L-1) engine 누락"
-# gen_source 기록(생성표면 stub|insession|subprocess 구분 — Codex P3: insession 도 공통 지점서 남는다). 오프라인 테스트=stub.
+# gen_source 기록(생성표면 stub|insession|subprocess 구분 — 외부리뷰 P3: insession 도 공통 지점서 남는다). 오프라인 테스트=stub.
 grep -qE '"gen_source": *"(stub|insession|subprocess)"' "$PJ" 2>/dev/null && pass "(L-1) gen_source 생성표면 기록" || fail "(L-1) gen_source 누락"
 # provenance.jsonl 은 .logs 경로 → 골든 제외(baseline SKIP_PREFIX '.logs'; 휘발성 ts·git_sha 로 결정성 파괴 없음). run.md 비노출.
 # in-flight: 시작만 있고 완료 없는 timing.jsonl → timing.sh '진행 중' + 잭곤 없음

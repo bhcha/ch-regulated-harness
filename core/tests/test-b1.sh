@@ -88,7 +88,7 @@ check "(R2) ingest 재실행 시 voc.json 비재생성(mtime 불변)" "[ \"$M1\"
 
 unset HARNESS_CLI HARNESS_OFFLINE
 
-# [Codex B1 리뷰 수용] 추출 환각 안전성 — 적대적 입력 (fail-open 차단)
+# [외부리뷰 B1 수용] 추출 환각 안전성 — 적대적 입력 (fail-open 차단)
 adv_func() { printf '%s' "$1" > /tmp/wb-adv-$$.md; python3 "$ROOT/scripts/lib/ingest.py" claim-basis /tmp/wb-adv-$$.md /tmp/cb-adv-$$.json >/dev/null 2>&1
   python3 -c "import json;d=json.load(open('/tmp/cb-adv-$$.json'));print(d['functional_status']['$2']['status'])"; }
 adv_ev() { printf '%s' "$1" > /tmp/wb-adv-$$.md; python3 "$ROOT/scripts/lib/ingest.py" claim-basis /tmp/wb-adv-$$.md /tmp/cb-adv-$$.json >/dev/null 2>&1
@@ -102,7 +102,7 @@ check "(adv-pos) 정상 uv 승인 동작" "[ \"\$(adv_func '자외선차단 기�
 check "(adv-pos) 정상 실증 보유는 evidence 1" "[ \"\$(adv_ev '미백 인체적용시험 결과 보유 n=30 완료')\" = '1' ]"
 rm -f /tmp/wb-adv-$$.md /tmp/cb-adv-$$.json
 
-# [Codex B1 리뷰 수용] 승인 경로 RA 게이트 우회 불가 (fail-closed) + M4 중단-복구(심의 직전 중단 → kcia-check 재개)
+# [외부리뷰 B1 수용] 승인 경로 RA 게이트 우회 불가 (fail-closed) + M4 중단-복구(심의 직전 중단 → kcia-check 재개)
 # M4 에선 approve 가 한 atomic 전이(approved+user 중단 상태 없음) → 중단점은 'approve 후(gate=review) / kcia-check 전'.
 rm -rf "$ROOT/runs/ci-healra"
 export HARNESS_CLI=claude HARNESS_OFFLINE=1
@@ -117,7 +117,7 @@ check "(adv#5·중단점) 승인 후 심의 대기(gate=review)에서 중단" "[
 ( cd "$ROOT" && bash scripts/kcia-check.sh ci-healra ) >/dev/null 2>&1
 check "(adv#5) 중단된 승인(gate=review)에서 심의 통과 시 재개 성공(02-concept)" "[ \"\$(jq_phase ci-healra phase)\" = '02-concept' ]"
 
-# [Codex B1 리뷰 수용] 정확도 게이트가 거짓 승인/오추출을 잡는다 (가짜 claim-basis 주입)
+# [외부리뷰 B1 수용] 정확도 게이트가 거짓 승인/오추출을 잡는다 (가짜 claim-basis 주입)
 python3 - <<'PYEOF'
 import json
 d=json.load(open('/tmp/cb-real.json')) if __import__('os').path.exists('/tmp/cb-real.json') else {}

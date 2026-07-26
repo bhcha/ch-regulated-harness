@@ -76,13 +76,13 @@ os.makedirs(os.path.dirname(vp), exist_ok=True)
 atomic_write_json(vp, {"verdict": "pass", "engine": "route-test", "confidence": 1.0, "violations": [], "escalate": False})
 PY
   # 04-keyvisual review-pass 는 실제로 gate.sh 가 export_package 를 만든 뒤 advance 한다 → 동일 상태 충실 모사(export 스텁).
-  #   (advance-phase 의 '04→done 은 export 패키지 존재 시에만' 가드와 정합 — 코덱스 2R Critical.)
+  #   (advance-phase 의 '04→done 은 export 패키지 존재 시에만' 가드와 정합 — 외부리뷰 2R Critical.)
   if [ "$phase" = "04-keyvisual" ]; then
     mkdir -p "$ROOT/runs/$rid/04-keyvisual/export/kcia-package"
     [ -f "$ROOT/runs/$rid/04-keyvisual/export/kcia-package/package.json" ] \
       || echo '{"_route_test_stub":true}' > "$ROOT/runs/$rid/04-keyvisual/export/kcia-package/package.json"
   fi
-  # gate.sh review-pass 가 advance 직전 남기는 전이 마커를 충실 모사(advance-phase 의 마커 가드와 정합 — 코덱스 4R High).
+  # gate.sh review-pass 가 advance 직전 남기는 전이 마커를 충실 모사(advance-phase 의 마커 가드와 정합 — 외부리뷰 4R High).
   python3 - "$ROOT" "$sf" <<'PY'
 import os, sys
 root, sf = sys.argv[1], sys.argv[2]
@@ -150,7 +150,7 @@ _drive_core() {
   ) >/dev/null 2>&1
 }
 
-# 오프라인(결정적) 전 파이프라인 완주(키비주얼 '생성'까지만). $1=run_id, $2=engine(claude|codex)
+# 오프라인(결정적) 전 파이프라인 완주(키비주얼 '생성'까지만). $1=run_id, $2=engine(claude|stub)
 drive_pipeline() {
   local rid="$1" eng="$2"
   rm -rf "$ROOT/runs/$rid"
@@ -163,7 +163,7 @@ drive_pipeline() {
 }
 
 # 오프라인(결정적) 전 파이프라인을 **done 까지** 완주(키비주얼 select→승인→심의→export 포함). baseline 골든 캡처/검증용.
-#   drive_pipeline 은 키비주얼 '생성'까지만 — 최종 제출 패키지(decision/design-verdict/export)를 골든이 덮도록 done 까지 간다(코덱스 HIGH).
+#   drive_pipeline 은 키비주얼 '생성'까지만 — 최종 제출 패키지(decision/design-verdict/export)를 골든이 덮도록 done 까지 간다(외부리뷰 HIGH).
 drive_to_done() {
   local rid="$1" eng="$2"
   rm -rf "$ROOT/runs/$rid"

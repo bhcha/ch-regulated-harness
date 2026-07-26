@@ -75,8 +75,8 @@ export HARNESS_CLI=claude HARNESS_OFFLINE=1
   bash scripts/run-stage.sh storyboard-plan "$RID2" && bash scripts/approve.sh "$RID2" && bash scripts/kcia-check.sh "$RID2" &&
   bash scripts/run-stage.sh keyvisual "$RID2" ) >/dev/null 2>&1
 HTML_MT1="$(mt "$ROOT/runs/$RID2/04-keyvisual/options/A/index.html")"; sleep 1
-# (R1) 다른 CLI 로 2중승인 재개(select→approve→심의) 시 완료 HTML 비재생성. M4: export/done 은 심의 통과(kcia-check)에서 발생.
-export HARNESS_CLI=codex
+# (R1) 새 프로세스로 2중승인 재개(select→approve→심의) 시 완료 HTML 비재생성. M4: export/done 은 심의 통과(kcia-check)에서 발생.
+export HARNESS_CLI=claude
 ( cd "$ROOT" && bash scripts/select.sh "$RID2" A && bash scripts/approve.sh "$RID2" && bash scripts/kcia-check.sh "$RID2" ) >/dev/null 2>&1
 check "(R1) 재개 시 완료 디자인안 비재생성(mtime 불변)" "[ \"$HTML_MT1\" = \"\$(mt "$ROOT/runs/$RID2/04-keyvisual/options/A/index.html")\" ]"
 # M4: 2중 승인(select→approve) 뒤 심의 통과(kcia-check)가 done 으로 finalize.
@@ -98,7 +98,7 @@ release_held "$ROOT/runs/$RID2"
 check "(R2) 렌더 중 동시 lock 친절 종료" "[ $RC_LK -ne 0 ] && echo \"\$OUT_LK\" | grep -q '다른 작업이 진행 중'"
 unset HARNESS_CLI HARNESS_OFFLINE
 
-# ─────────── [Codex B5 리뷰 수용] 회귀 잠금 ───────────
+# ─────────── [외부리뷰 B5 수용] 회귀 잠금 ───────────
 # #1 allowlist: 엔티티/퍼센트 인코딩으로 크롤원본을 숨겨도 차단, 미상 외부 URL 도 차단
 TMPL="$(mktemp -d)"; mkdir -p "$TMPL/A"
 printf '<img src="..%%2F..%%2F..%%2F..%%2Finputs%%2Fbundle%%2Fimages%%2Fdetail%%2F001.jpg">\n' > "$TMPL/A/index.html"

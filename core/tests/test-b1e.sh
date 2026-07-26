@@ -103,7 +103,7 @@ check "(skip) no-evidence 인입 성공" "[ $RC -eq 0 ]"
 check "(skip) 근거 없음 → 곧장 01-brief(00e 건너뜀)" "[ \"\$(jq_phase ci-b1e-s phase)\" = '01-brief' ]"
 check "(skip) run.md 에 00e 미출현(backward-compat)" "! grep -q '00e-evidence' '$ROOT/runs/ci-b1e-s/run.md'"
 
-# ── (stale) 재-인입 시 이전 00e 제안 무효화(내용 변경·같은 파일명 stale 방지 — Codex P1) ──
+# ── (stale) 재-인입 시 이전 00e 제안 무효화(내용 변경·같은 파일명 stale 방지 — 외부리뷰 P1) ──
 #   evidence-docs (재)인입은 이전 reflection-proposal.json 을 항상 지워 run-stage evidence 재생성을 강제한다
 #   → 같은 파일명이라도 내용(sha256)이 바뀌면 옛 발췌가 규제 산출물로 새지 않는다.
 echo "# (stale) 재-인입 → 이전 제안 무효화"
@@ -238,7 +238,7 @@ ids = [e.get("id") for e in cb.get("evidence_on_file") or []]
 sys.exit(0 if "spec_status" not in d and d.get("kind") == "test_report" and "doc-01" in ids else 1)
 PY
 
-# ── (P1·Codex 3R) 사람이 kind:test_report 로 선언한 pending 문서를 general 제안으로 '강등' 시도 → fail-closed ──
+# ── (P1·외부리뷰 3R) 사람이 kind:test_report 로 선언한 pending 문서를 general 제안으로 '강등' 시도 → fail-closed ──
 #   case (b) 의 역방향(그건 general→test_report 승격 차단). 규제 성격을 조용히 일반 참조로 바꿔 verdict_text/승격을 잃는 것 방지.
 echo "# (P1) test_report intent → general 제안 강등 시도 → 거부"
 ingest_tr ci-b1e-p1 "$TRDIR" >/dev/null 2>&1
@@ -252,7 +252,7 @@ check "(P1) 거부 메시지에 '강등할 수 없습니다'" "printf '%s' \"\$P
 python3 -c "import json,sys;d=json.load(open('$P1R/00-ingest/evidence-documents.json'))['documents'][0];sys.exit(0 if d.get('spec_status')=='pending' and d.get('kind')=='test_report' else 1)"; RC=$?
 check "(P1) 거부 후 매니페스트 불변(pending·kind=test_report 유지)" "[ $RC -eq 0 ]"
 
-# ── (P2·Codex 3R) 잘못된 image_ref(다중 페이지)로 추출 실패 → pending 디스크 보존(wedge 방지) → 고친 제안 재적용 성공 ──
+# ── (P2·외부리뷰 3R) 잘못된 image_ref(다중 페이지)로 추출 실패 → pending 디스크 보존(wedge 방지) → 고친 제안 재적용 성공 ──
 #   추출을 매니페스트 기록 '앞'에 둬, 실패 시 pending 이 디스크에 남아 재시도가 고친 image_ref 를 재병합할 수 있다.
 echo "# (P2) 추출 실패 시 pending 보존 → 고친 제안 재적용"
 ingest_tr ci-b1e-p2 "$TRDIR" >/dev/null 2>&1
@@ -276,7 +276,7 @@ check "(P2) 고친 제안(단일 페이지) 재적용 성공(rc=0)" "[ $RC -eq 0
 python3 -c "import json,sys;d=json.load(open('$P2R/00-ingest/evidence-documents.json'))['documents'][0];sys.exit(0 if 'spec_status' not in d and d.get('kind')=='test_report' else 1)"; RC=$?
 check "(P2) 재적용 후 pending 해소·kind=test_report 확정" "[ $RC -eq 0 ]"
 
-# ── (P2b·Codex 3R-3) 추출 실패가 '기존(다른 승인) 근거 자산'을 삭제하지 않는다(temp-swap 원자성) ──
+# ── (P2b·외부리뷰 3R-3) 추출 실패가 '기존(다른 승인) 근거 자산'을 삭제하지 않는다(temp-swap 원자성) ──
 echo "# (P2b) 추출 실패 시 기존 근거 자산 보존(원자성)"
 python3 - "$ROOT" <<'PY' && pass "(P2b) 추출 실패해도 기존 evidence 자산 보존(temp-swap 원자성)" || fail "(P2b) 추출 실패가 기존 자산 삭제(비원자)"
 import sys, os, tempfile, shutil

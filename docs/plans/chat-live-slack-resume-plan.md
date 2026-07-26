@@ -1,7 +1,7 @@
 # 챗 라이브(Slack) 재개·가시성 수정 계획 — 드라이버 생애 분리 + 중간-재개(attach) + 아티팩트 정직화
 
 > **지위**: `docs/plans/`(진행 중 계획 · **chat 계층 문서 — core 정본 D-1 갱신 의무 밖**). **작성**: 2026-07-21. **브랜치**: `feat/chat-live-driver-fix`.
-> **관계**: [`chat-review-retry-plan.md`](chat-review-retry-plan.md)(완료 — 잡-레벨 재시도, 이번 라이브에서 발화·검증됨) ·
+> **관계**: [`chat-review-retry-plan.md`](../_archive/chat-review-retry-plan.md)(**완료·아카이브** — 잡-레벨 재시도, 이번 라이브에서 발화·검증됨) ·
 > [`chat-live-driver-fix-plan.md`](chat-live-driver-fix-plan.md)(드라이버 정책 — 본 계획은 그 위에 attach 를 얹는다) ·
 > [`../reference/daemon-live-verification-runbook.md`](../reference/daemon-live-verification-runbook.md)(런북 — 운영 규칙·기동 표준 갱신 대상).
 > **근거**: 2026-07-20 이지덤 뷰티 여드름 라이브 런(rid `chat-slack-C0BJ7FJ4A8M-1784518245-189909`) 회고 — 본인 분석 + Codex 병렬 리뷰 취합.

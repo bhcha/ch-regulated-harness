@@ -7,7 +7,7 @@
       "aliases": ["여러장", "여러장짜리", "BM", "BM자료", "상세페이지", "multipage", "multipage_bm"],
       "canon": "multipage_bm/canon.json",
       "disallowed_blocks": ["cta", "header", "nav", "point"],
-      "_disallowed_note": "세로 상세페이지에서 도메인 무관하게 out-of-scope 인 블록만 포맷-레벨로 결정적 금지(RCA 8장 게이트). cta=구매전환 UI(상세페이지는 판매채널 구매 UI '앞' 콘텐츠 = 사고 대상; GOOD 화장품·GOOD 의약품 BM 모두 미사용)·header/nav=제거된 website 포맷 크롬·point=미사용 확장. ⚠ footer·mainPositioning·ingredientDetail 는 금지하지 않는다 — drug(active) BM 이 정당/필수로 쓴다(footer=광고심의필·제조판매원 등 필수기재 컨테이너[test-drug-golden 준수형], mainPositioning·ingredientDetail=품목 심화 블록[GOOD ursa-lineup-2026 사용]). RCA 8-1.1 원 목록에서 이 3개 제외 = 구현 정정(Codex 교차도메인 리뷰). 가격 하드코딩은 별도 값-대조 가드가 심층 방어.",
+      "_disallowed_note": "세로 상세페이지에서 도메인 무관하게 out-of-scope 인 블록만 포맷-레벨로 결정적 금지(RCA 8장 게이트). cta=구매전환 UI(상세페이지는 판매채널 구매 UI '앞' 콘텐츠 = 사고 대상; GOOD 화장품·GOOD 의약품 BM 모두 미사용)·header/nav=제거된 website 포맷 크롬·point=미사용 확장. ⚠ footer·mainPositioning·ingredientDetail 는 금지하지 않는다 — drug(active) BM 이 정당/필수로 쓴다(footer=광고심의필·제조판매원 등 필수기재 컨테이너[test-drug-golden 준수형], mainPositioning·ingredientDetail=품목 심화 블록[GOOD ursa-lineup-2026 사용]). RCA 8-1.1 원 목록에서 이 3개 제외 = 구현 정정(외부 교차도메인 리뷰). 가격 하드코딩은 별도 값-대조 가드가 심층 방어.",
       "active_phases": ["00-ingest", "00e-evidence", "00g-guideline", "01-brief", "02-concept", "03-storyboard", "04-keyvisual"],
       "final_page_phase": "04-keyvisual",
       "channel": { "name": "naver_smartstore", "width_px": 860, "max_height_px": 5000, "gif_allowed": true },

@@ -96,10 +96,10 @@ export type LiveDecision =
 | NlProposal·IngestPrompt·ApproveGate·ConfirmGate·OptionSet·ImageOptionSet | `fire`(decideForward 결과) · 결과가 null 이면 `stop:human-input` | 기존 auto-happy 그대로(잠긴 결정 1 — 직전 렌더의 affordance 에서만 도출) |
 | Setup | `stop:human-input` | 완결 NL 멘션이면 애초에 NlProposal 이 온다 — Setup 잔류는 사람 입력 필요 |
 | Progress | `wait` | 표시 전용 — 캐스케이드(자동 review/generate 적재)가 진행 중이거나 Bridge 가 폴링 중 |
-| Verdict(pass·revise) | `wait` | **발화 금지가 핵심**: revise 든 pass 든 `onOutcome` 이 이미 다음 잡(재생성/심의/다음 생성)을 자동 적재한다(flow.ts 978~994행). 여기서 Verdict 카드의 [다시 만들기](affordances.ts 110~112행)를 또 누르면 **이중 적재**가 되어 enqueueJob 이 in_progress 거부 → 불필요한 Failure 카드를 스스로 만든다 |
+| Verdict(pass·revise) | `wait` | **발화 금지가 핵심**: revise 든 pass 든 `onOutcome` 이 이미 다음 잡(재생성/심의/다음 생성)을 자동 적재한다(flow.ts 978~994행). 여기서 Verdict 카드의 [다시 만들기] 버튼(`chat/src/acceptance/affordances.ts` 110~112행)을 또 누르면 **이중 적재**가 되어 enqueueJob 이 in_progress 거부 → 불필요한 Failure 카드를 스스로 만든다 |
 | Verdict(human) | `stop:escalation` | 사람 판단 대상(아래 Escalation 과 동일 취급) |
-| Failure | `recover`([상태 다시 확인] = RECONCILE affordance, affordances.ts 91~92행) | 읽기 전용 화해 — 현재 게이트 카드를 다시 그린다. 생성 차례면 GenerateRetry 카드가 온다(flow.ts presentationForStatusCheck) |
-| GenerateRetry | `recover`([다시 만들기] affordance, affordances.ts 93~94행) | **새 마감이 붙은 새 요청**을 적재(프로토콜 v2 — stale 부활 아님). Bridge 타임아웃 후 소비자가 늦었을 때의 정식 출구 |
+| Failure | `recover`([상태 다시 확인] = RECONCILE affordance, `chat/src/acceptance/affordances.ts` 91~92행) | 읽기 전용 화해 — 현재 게이트 카드를 다시 그린다. 생성 차례면 GenerateRetry 카드가 온다(flow.ts presentationForStatusCheck) |
+| GenerateRetry | `recover`([다시 만들기] affordance, `chat/src/acceptance/affordances.ts` 93~94행) | **새 마감이 붙은 새 요청**을 적재(프로토콜 v2 — stale 부활 아님). Bridge 타임아웃 후 소비자가 늦었을 때의 정식 출구 |
 | Escalation | `stop:escalation` | 심의 반복 상한 해제(raise-limit)는 적대 게이트를 무력화하는 **사람/RA 결정** — 자동 발화 금지. 카드·리포트로 가시화하고 멈춘다 |
 | Done | `stop:done` | 종단 |
 
@@ -214,7 +214,7 @@ keyvisual 은 이미지 실생성(NanoBanana)·Playwright 렌더가 전이 단�
    `CHAT_BRIDGE_TIMEOUT`(keyvisual 대비 3600 권장) · `ADK_CRITIC_RETRY` 행을 추가한다(문서 변경 — chat 계층 문서라
    D-1 의무 밖).
 
-> **개정 각주(2026-07-19)**: 이 수정 3의 "새 재시도 메커니즘 없음" 결정은 [`chat-review-retry-plan.md`](chat-review-retry-plan.md) 의 **잡-레벨 리뷰 재시도 신설**로 개정·승인됨(W0). `ADK_CRITIC_RETRY` 는 상향이 아니라 **코드 기본(8) 이상 유지**로 교정한다.
+> **개정 각주(2026-07-19)**: 이 수정 3의 "새 재시도 메커니즘 없음" 결정은 [`chat-review-retry-plan.md`](../_archive/chat-review-retry-plan.md)(완료·아카이브) 의 **잡-레벨 리뷰 재시도 신설**로 개정·승인됨(W0). `ADK_CRITIC_RETRY` 는 상향이 아니라 **코드 기본(8) 이상 유지**로 교정한다.
 
 ---
 

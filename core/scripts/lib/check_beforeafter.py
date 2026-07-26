@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_beforeafter.py — beforeAfter 섹션 내부에 개인차 디스클레이머 강제 (Codex B5 #2 · B-3 Seam C).
+"""check_beforeafter.py — beforeAfter 섹션 내부에 개인차 디스클레이머 강제 (외부리뷰 B5 #2 · B-3 Seam C).
 
 파일 어디에나 있는 게 아니라 해당 <section data-block="beforeAfter"> ... </section> 내부에 있어야 한다.
 디스클레이머 = '개인차' + ('연출'[연출 이미지] 또는 '측정'[인체적용시험 측정 실사진]). B-3(Seam C): 측정

@@ -17,7 +17,7 @@
 | 변수 | 기본값 | 역할 |
 |---|---|---|
 | `HARNESS_OFFLINE` | (미설정 = 온라인) | **stub 게이트(유일 진입조건)**. `1` 이면 생성·이미지·근거가 결정적 stub(CI/골든 전용). 미설정 = 온라인 = 실엔진 강제. 생성·이미지·근거 엔진의 stub 강등은 전부 이 변수 하나로만 결정된다 |
-| `HARNESS_CLI` | 오프라인=`stub` / 온라인=`claude` | 생성 엔진(`claude`\|`codex`\|`stub`). **기본값은 환경 의존**(오프라인=stub · 온라인=claude, `run-stage.sh`). **온라인에서 `stub` 명시 = 거부**(중단, CI 전용) |
+| `HARNESS_CLI` | 오프라인=`stub` / 온라인=`claude` | 생성 엔진(`claude`\|`stub`) — **Claude 단일**(그 외 값은 중단). **기본값은 환경 의존**(오프라인=stub · 온라인=claude, `run-stage.sh`). **온라인에서 `stub` 명시 = 거부**(중단, CI 전용) |
 | `HARNESS_GEN_MODE` | (미지정 = 자동: 실엔진+세션 감지면 `insession`, 아니면 `subprocess`) | 생성 표면(`subprocess`\|`insession`). **세션 밖 실엔진 헤드리스 생성(`subprocess`+실엔진)은 폐기 → fail-closed**. 도달 가능 = insession(실엔진, 세션 내 직접 생성) 또는 subprocess+STUB_MODE(CI stub). STUB_MODE 는 명시 `insession` 이라도 항상 subprocess+stub 로 강제(골든 결정성 불변) |
 
 ## 이미지(NanoBanana)
@@ -48,11 +48,11 @@
 
 ## 심의(ADK)
 
-> 심의 엔진 = **원격 ADK(`adk-http`) 단일 · 도메인별 엔드포인트**. 로컬 헤드리스 크리틱(`claude-subagent`/`codex`/`KCIA_CRITIC_CMD`·self-grading 가드)은 폐기. 엔드포인트는 `packs/<도메인>/domain.json` 의 `adk_critic` 블록이 가리키는 env 로 잡는다.
+> 심의 엔진 = **원격 ADK(`adk-http`) 단일 · 도메인별 엔드포인트**. 로컬 헤드리스 크리틱(`claude-subagent`/`KCIA_CRITIC_CMD`·self-grading 가드)은 폐기. 엔드포인트는 `packs/<도메인>/domain.json` 의 `adk_critic` 블록이 가리키는 env 로 잡는다.
 
 | 변수 | 기본값 | 역할 |
 |---|---|---|
-| `KCIA_CRITIC_ENGINE` | (미설정) | 심의 엔진 선언 — **비우거나 `adk-http` 만** 허용(그 외 값은 중단). 로컬 `claude-subagent`/`codex` 는 폐기 |
+| `KCIA_CRITIC_ENGINE` | (미설정) | 심의 엔진 선언 — **비우거나 `adk-http` 만** 허용(그 외 값은 중단). 로컬 `claude-subagent` 등은 폐기 |
 | `ADK_<도메인>_CRITIC_URL` / `ADK_<도메인>_CRITIC_ALLOWED_HOST` | (없음) | 도메인별 원격 ADK 심의 엔드포인트(https·공인 host). 화장품=`ADK_COSMETICS_CRITIC_URL`/`ADK_COSMETICS_CRITIC_ALLOWED_HOST`(app `cosmetics_agent` · author `cosmetics_review_agent`). `domain.json` 의 `adk_critic` 블록(`url_env`/`host_env`)이 가리키는 env. **단일 `ADK_CRITIC_URL`/`ADK_CRITIC_ALLOWED_HOST`/`ADK_CRITIC_APP` 은 폐기** |
 | `ADK_CRITIC_AUTH` | `none` | (선택, `adk_critic.py` 가 읽음) `none`\|`oidc`. `oidc` 면 `ADK_CRITIC_ID_TOKEN` 함께 |
 | `ADK_CRITIC_ID_TOKEN` | (없음) | (선택) `ADK_CRITIC_AUTH=oidc` 일 때 사용할 ID 토큰 |
@@ -68,7 +68,6 @@
 | 변수 | 기본값 | 역할 |
 |---|---|---|
 | `HARNESS_CLAUDE_FLAGS` | `--permission-mode acceptEdits` | 세션 내(insession) 실 Claude **생성**이 산출물 파일을 쓰도록 하는 권한 플래그(생성 전용; 심의는 원격 ADK 라 무관) |
-| `HARNESS_CODEX_FLAGS` | `--skip-git-repo-check --sandbox workspace-write` | 세션 내(insession) 실 Codex **생성**이 산출물 파일을 쓰도록 하는 권한 플래그(생성 전용; 심의는 원격 ADK 라 무관) |
 
 ## 근거 첨부
 

@@ -58,7 +58,7 @@ if _LIB not in sys.path:
 from harness import load_json, atomic_write_json, now_iso, Validator  # 표준 라이브러리 전용(레포 스타일 재사용)
 
 SCHEMA_PATH = os.path.join(ROOT, "harness", "agui-projection.schema.json")
-_GEN_ENGINES = ("claude", "codex", "stub")
+_GEN_ENGINES = ("claude", "stub")
 # 실행 락(블로킹 획득) 다이얼 — 하드코딩(새 env 미도입: 계약/조회표 무영향). 경쟁 시 유한 대기 상한을 두고,
 #   초과하면 무락 진행(위치 기반 dedup 이 무한 중복 방지). ⚠ None 반환 금지 = 조용한 skip-all 금지(HIGH-1).
 _LOCK_TIMEOUT = 5.0    # 초. 경쟁 시 블로킹 획득 상한(flock·mkdir 공통) — 초과하면 무락 진행.
@@ -284,7 +284,7 @@ def _recommendation(rdir, st):
 
 # ───────────────────── history 문자열 → 생명주기 이벤트(스키마 x-history-event-map) ─────────────────────
 def _gen_stepname(ev):
-    """generate:* 이벤트에서 엔진 접미(:claude|:codex|:stub)를 떼어낸 스텝명."""
+    """generate:* 이벤트에서 엔진 접미(:claude|:stub)를 떼어낸 스텝명."""
     parts = ev.split(":")
     if parts and parts[-1] in _GEN_ENGINES:
         parts = parts[:-1]

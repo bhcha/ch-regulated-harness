@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-a2ui-action.sh — A2UI 액션 브리지(a2ui-action.sh / a2ui-surface.sh) 런타임 회귀 게이트(결정적·오프라인).
-#   Stage 3(A2UI surface + action bridge)의 Codex 리뷰 실결함 회귀 봉인:
+#   Stage 3(A2UI surface + action bridge)의 외부리뷰 실결함 회귀 봉인:
 #     CRITICAL: 사용자 텍스트(comment/by/value)가 위임 스크립트 옵션('--ra-ok'/'--by=')으로 오인돼 RA 승인 우회·
 #               감사 행위자 위조되는 것 차단(브리지가 rc2 로 거부, RA_OK 미설정).
 #     HIGH-A: 성공·거부 모두 stdout 이 단일 JSON envelope(json.loads 가능) + 위임 exit code 보존.
@@ -69,7 +69,7 @@ act "$RID" '{"action":{"x":1}}'
 check "LOW: dict action 은 rc2 깔끔 거부(traceback 아님)" \
   '[ "'"$RC"'" = "2" ] && [ "$(is_envelope)" = "y" ] && ! grep -q "Traceback" /tmp/a2ui_act.err'
 
-# ── HIGH-1(Codex 재리뷰): 위임 출력 디코드/exit 충실성 — _delegate_result seam 직접 검증(no-LLM) ──
+# ── HIGH-1(외부 재리뷰): 위임 출력 디코드/exit 충실성 — _delegate_result seam 직접 검증(no-LLM) ──
 #   비-UTF8 바이트가 있어도 위임 exit 을 '잃지 않음'(옛 text=True 는 그 바이트에서 크래시→rc3·delegate=None 오보),
 #   비-0 충실, 신호사망은 128+signal 로 envelope["exit"]==프로세스 rc 일치, 대용량 출력은 캡처 상한(OOM 방지).
 DR="$($PY - "$ROOT" <<'PYEOF'
@@ -155,7 +155,7 @@ check "MED: 그 상태에서 select 는 브리지가 거부(rc2, 카탈로그 �
 RESTORED="$($PY -c "import json;print(json.load(open('$CAT'))['surfaces']['select']['actions'])")"
 check "MED: 카탈로그 원상복구됨(select.actions=['select','revise'])" "[ \"$RESTORED\" = \"['select', 'revise']\" ]"
 
-# ── MED-2(Codex 재리뷰): escalated surface = 카탈로그 '엄격한 상한' — 컴포넌트 없는 action(revise) 방출 금지 ──
+# ── MED-2(외부 재리뷰): escalated surface = 카탈로그 '엄격한 상한' — 컴포넌트 없는 action(revise) 방출 금지 ──
 #   실 런타임 escalated = gate=review·status=escalated(revise_available=false) → actions=[raise-limit]·ReviseButton 없음(Stage1 불변).
 #   레거시(합성) gate=user·status=escalated 는 revise_available=true 여도 카탈로그 escalated 가 revise 를 안 실으니 revise 미방출.
 EID="t-a2ui-esc"; seed_fixture concept "$EID"

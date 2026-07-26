@@ -90,31 +90,31 @@ check "(c) 위반에 evidence/실증 축 포함" "[ \"$FAKEHIT\" = 'True' ]"
 check "(c) 가짜 id로 verdict=pass 불가" "[ \"$VERD\" != 'pass' ]"
 unset HARNESS_CLI HARNESS_OFFLINE
 
-# (g) a2 이식성: 두 CLI 컨셉 산출물 구조 동일 + 동일 심의 분류
+# (g) a2 결정성: 독립 2런(동일 엔진)의 컨셉 산출물 구조 동일 + 동일 심의 분류
 drive_to_concept ci-b2c claude
-drive_to_concept ci-b2x codex
+drive_to_concept ci-b2x claude
 # (R2) 동시 select 두 번째 친절 종료 — ci-b2c 가 아직 select 게이트일 때(심의 전) lock 보유 → 거부
 hold_lock "$ROOT/runs/ci-b2c"
 OUT_CC="$( ( cd "$ROOT" && bash scripts/select.sh ci-b2c B ) 2>&1 )"; RC_CC=$?
 release_held "$ROOT/runs/ci-b2c"
 check "(R2) 동시 select 시 lock 으로 친절 종료" "[ $RC_CC -ne 0 ] && echo \"\$OUT_CC\" | grep -q '다른 작업이 진행 중'"
-# M4: 선택(B) → 심의(선택안만) → 두 CLI 비교.
+# M4: 선택(B) → 심의(선택안만) → 두 런 비교.
 export HARNESS_CLI=claude HARNESS_OFFLINE=1; ( cd "$ROOT" && bash scripts/select.sh ci-b2c B && bash scripts/kcia-check.sh ci-b2c ) >/dev/null 2>&1; unset HARNESS_CLI HARNESS_OFFLINE
-export HARNESS_CLI=codex  HARNESS_OFFLINE=1; ( cd "$ROOT" && bash scripts/select.sh ci-b2x B && bash scripts/kcia-check.sh ci-b2x ) >/dev/null 2>&1; unset HARNESS_CLI HARNESS_OFFLINE
+export HARNESS_CLI=claude HARNESS_OFFLINE=1; ( cd "$ROOT" && bash scripts/select.sh ci-b2x B && bash scripts/kcia-check.sh ci-b2x ) >/dev/null 2>&1; unset HARNESS_CLI HARNESS_OFFLINE
 SD=1
 for rel in 02-concept/options/A-efficacy/rtb.json 02-concept/options/B-emotional/key-message.json 02-concept/recommendation.json 02-concept/review/concept-verdict.json; do
   python3 "$ROOT/scripts/lib/harness.py" structdiff "$ROOT/runs/ci-b2c/$rel" "$ROOT/runs/ci-b2x/$rel" >/dev/null 2>&1 || SD=0
 done
-check "(a2) 두 CLI 컨셉 산출물 키 집합·타입 동일" "[ $SD -eq 1 ]"
+check "(a2) 독립 2런 컨셉 산출물 키 집합·타입 동일(결정성)" "[ $SD -eq 1 ]"
 V1="$(python3 "$ROOT/scripts/lib/harness.py" jget "$ROOT/runs/ci-b2c/02-concept/review/concept-verdict.json" verdict)"
 V2="$(python3 "$ROOT/scripts/lib/harness.py" jget "$ROOT/runs/ci-b2x/02-concept/review/concept-verdict.json" verdict)"
-check "(a2) 두 CLI 심의 동일 분류(verdict)" "[ \"$V1\" = \"$V2\" ]"
+check "(a2) 독립 2런 심의 동일 분류(verdict)" "[ \"$V1\" = \"$V2\" ]"
 
 # (R3) loop guard: 컨셉 revise 가 max 초과 → escalated
 SF="$ROOT/runs/ci-fake/state.json"
 check "(R3) loop guard 필드(iteration/max_iterations) 존재" "python3 "$ROOT/scripts/lib/harness.py" jget '$SF' max_iterations >/dev/null 2>&1"
 
-# ─────────── [Codex B2 리뷰 수용] 회귀 잠금 ───────────
+# ─────────── [외부리뷰 B2 수용] 회귀 잠금 ───────────
 # #3 독립 축별 생성: 축별 별도 생성 이벤트가 history 에 남는다
 AXEV="$(python3 -c "import json;print(sum(1 for h in json.load(open('$ROOT/runs/ci-b2x/state.json'))['history'] if h['event'].startswith('generate:concept-axis:')))")"
 check "(#3) 컨셉 축별 독립 생성 이벤트 ≥2 (mode collapse 방지)" "[ \"$AXEV\" -ge 2 ]"

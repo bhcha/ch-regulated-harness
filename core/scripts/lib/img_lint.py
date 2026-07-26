@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""img_lint.py — 디자인 이미지 출처 allowlist 검증 (B5 저작권, Codex B5 #1).
+"""img_lint.py — 디자인 이미지 출처 allowlist 검증 (B5 저작권, 외부리뷰 B5 #1).
 
 denylist(grep) 대신 allowlist: 디자인 html/css 의 모든 리소스 참조(src/srcset/CSS url())를
 HTML 엔티티·URL 인코딩 디코드 후 해석해, 다음만 허용한다:
@@ -43,7 +43,7 @@ def _refs(text):
                 refs.append(u)
     for m in re.finditer(r'url\(\s*["\']?([^"\')]+)["\']?\s*\)', text, re.I):
         refs.append(m.group(1))
-    # 디코드 순서 중요(Codex 5차): 엔티티 → 퍼센트 → CSS escape(\\2e 등) → 역슬래시 치환.
+    # 디코드 순서 중요(외부리뷰 5차): 엔티티 → 퍼센트 → CSS escape(\\2e 등) → 역슬래시 치환.
     #   역슬래시를 먼저 '/'로 바꾸면 '\\2e\\2e'(..) 우회를 놓친다.
     out = []
     for r in refs:
@@ -91,7 +91,7 @@ def main():
                         continue
                     if ref.startswith(("http://", "https://", "//")):
                         host = urlparse(ref if "//" in ref[:8] else "http:" + ref).hostname or ""
-                        # 정확 일치 또는 '.<도메인>' 서브도메인만 허용. endswith(a) 는 evilpstatic.net 우회라 제거(Codex 4차).
+                        # 정확 일치 또는 '.<도메인>' 서브도메인만 허용. endswith(a) 는 evilpstatic.net 우회라 제거(외부리뷰 4차).
                         ok = any(host == a or host.endswith("." + a) for a in allow_hosts)
                         if not ok:
                             violations.append("%s: 허용되지 않은 외부 URL host '%s' (%s)" % (fn, host, ref[:60]))

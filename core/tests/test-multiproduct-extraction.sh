@@ -83,7 +83,7 @@ check "(scope·대조) 선언명 없으면 evidence 3건(타제품 혼입 재현
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (prefix) 접두사 제품명 정확일치 — 선언 '이지덤 뷰티'(형제 '이지덤 뷰티 릴리프'의 접두사)가
-#   첫 제품에 정확 국소화(부분문자열이면 두 섹션 매칭 → 전체-WB 폴백·오염; Codex P1)
+#   첫 제품에 정확 국소화(부분문자열이면 두 섹션 매칭 → 전체-WB 폴백·오염; 외부리뷰 P1)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (prefix) 접두사 제품명 → 정확일치 국소화(전체-WB 폴백 아님)"
 HARNESS_DOMAIN=cosmetic python3 "$INGEST" claim-basis "$MULTI" "$SCRATCH/cb-prefix.json" "이지덤 뷰티" 2>/dev/null
@@ -99,7 +99,7 @@ PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (brand) 브랜드 접두사 제품명 — state.product.name '[대웅제약] 우루사' vs WB '제품명: 우루사'
-#   (접두사 미제거면 미발견 → 전체-WB 오염; Codex P2. 우루사 실런 케이스)
+#   (접두사 미제거면 미발견 → 전체-WB 오염; 외부리뷰 P2. 우루사 실런 케이스)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (brand) 브랜드 접두사 [대웅제약] 제거 후 정확 국소화"
 BRANDWB="$SCRATCH/wb-brand.md"
@@ -128,7 +128,7 @@ names = " ".join(i["name"] for i in f["key_ingredients"])
 sys.exit(0 if "우르소데옥시콜산" in names and "타우린" not in names else 1)
 PY
 
-# ── (bullet) Word/Docs '•' 불릿 마커 인식 (Codex R14 P2a) ──
+# ── (bullet) Word/Docs '•' 불릿 마커 인식 (외부리뷰 R14 P2a) ──
 echo "# (bullet) '•' 불릿 마커 인식"
 BULLETWB="$SCRATCH/wb-bullet.md"
 printf '# 워킹백워드 — 불릿\n\n## 제품 알파\n\xe2\x80\xa2 제품명: 제품 알파\n\xe2\x80\xa2 여드름 인체적용시험 결과 보유 n=30 완료\n\n## 제품 베타\n\xe2\x80\xa2 제품명: 제품 베타\n\xe2\x80\xa2 미백 인체적용시험 결과 보유 n=20 완료\n' > "$BULLETWB"
@@ -140,7 +140,7 @@ summ = " ".join(e.get("summary", "") for e in ev)
 sys.exit(0 if "여드름" in summ and "미백" not in summ and len(ev) == 1 else 1)
 PY
 
-# ── (variant) 괄호 변이 태그 '(소형)/(대형)' 는 제거 안 함 — raw 정확일치로 구분 (Codex R14 P2b) ──
+# ── (variant) 괄호 변이 태그 '(소형)/(대형)' 는 제거 안 함 — raw 정확일치로 구분 (외부리뷰 R14 P2b) ──
 echo "# (variant) 괄호 변이 태그 raw 구분"
 VARWB="$SCRATCH/wb-variant.md"
 cat > "$VARWB" <<'MD'
@@ -162,7 +162,7 @@ summ = " ".join(e.get("summary", "") for e in ev)
 sys.exit(0 if "미백" in summ and "여드름" not in summ and len(ev) == 1 else 1)
 PY
 
-# ── (mixed-marker) 제품유형은 전 섹션·제품명은 한 섹션만 → 제품유형으로 tier 검출 (Codex R15 P2a) ──
+# ── (mixed-marker) 제품유형은 전 섹션·제품명은 한 섹션만 → 제품유형으로 tier 검출 (외부리뷰 R15 P2a) ──
 echo "# (mixed-marker) 제품유형 전섹션·제품명 일부 → 제품유형 tier"
 MIXWB="$SCRATCH/wb-mixed.md"
 cat > "$MIXWB" <<'MD'
@@ -185,7 +185,7 @@ summ = " ".join(e.get("summary", "") for e in ev)
 sys.exit(0 if "여드름" in summ and "미백" not in summ and len(ev) == 1 else 1)
 PY
 
-# ── (heading-ident) 제품명이 선언과 불일치(SKU 코드)라도 헤딩이 선언과 맞으면 식별 (Codex R16) ──
+# ── (heading-ident) 제품명이 선언과 불일치(SKU 코드)라도 헤딩이 선언과 맞으면 식별 (외부리뷰 R16) ──
 echo "# (heading-ident) 제품명 불일치·헤딩 일치 → 헤딩으로 식별"
 HIWB="$SCRATCH/wb-headingident.md"
 cat > "$HIWB" <<'MD'
@@ -207,7 +207,7 @@ summ = " ".join(e.get("summary", "") for e in ev)
 sys.exit(0 if "미백" in summ and "여드름" not in summ and len(ev) == 1 else 1)
 PY
 
-# ── (brand-bracket) '[대웅제약 이지듀] …' vs WB '이지듀 …' — 괄호 문자만 제거·토큰 부분열 매칭 (Codex R15 P2b) ──
+# ── (brand-bracket) '[대웅제약 이지듀] …' vs WB '이지듀 …' — 괄호 문자만 제거·토큰 부분열 매칭 (외부리뷰 R15 P2b) ──
 echo "# (brand-bracket) 브랜드 괄호 안 부분명 → 토큰 부분열 매칭"
 BBWB="$SCRATCH/wb-brandbracket.md"
 cat > "$BBWB" <<'MD'
@@ -231,11 +231,11 @@ PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (heading) 마커 없는 헤딩-only 다제품 WB — 헤딩 자체를 제품 경계로 스코핑
-#   (제품명:/제품유형: 없이 '## 제품A'/'## 제품B' 만이면 옛 마커기반은 단제품 처리→전체-WB 오염; Codex R4 P2)
+#   (제품명:/제품유형: 없이 '## 제품A'/'## 제품B' 만이면 옛 마커기반은 단제품 처리→전체-WB 오염; 외부리뷰 R4 P2)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (suffix) 번들 제품명 접미사 — state.product.name '우루사 100정' vs WB '제품명: 우루사'
-#   (부분일치만이면 미발견→전체-WB 폴백; Codex R5 P2. 접미사 tier 매칭으로 국소화)
+#   (부분일치만이면 미발견→전체-WB 폴백; 외부리뷰 R5 P2. 접미사 tier 매칭으로 국소화)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (suffix) 번들 용량 접미사 → 접미사 tier 국소화"
 python3 - "$ROOT" "$BRANDWB" <<'PY' && pass "(suffix) '우루사 100정' → 우루사 섹션(우르소데옥시콜산만·복합우루사 타우린 0)" || fail "(suffix) 접미사 → 전체-WB 폴백/오염"
@@ -251,7 +251,7 @@ PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (title) 제목 + 마커블록(제품별 헤딩 없음) — 마커 위치로 재분할해 스코핑
-#   (제목 헤딩 하나가 전체를 1섹션으로 만들어 마커가 경계로 안 쓰이던 문제; Codex R5 P1)
+#   (제목 헤딩 하나가 전체를 1섹션으로 만들어 마커가 경계로 안 쓰이던 문제; 외부리뷰 R5 P1)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (title) 제목+마커블록(제품 헤딩 없음) → 마커 경계 재분할"
 TITLEWB="$SCRATCH/wb-title.md"
@@ -280,9 +280,9 @@ PY
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (marker-free) 마커(제품명/제품유형) 전무 → 스코핑 안 함(fail-open 전체-WB)
 #   마커 없이 헤딩만으로는 '제품 헤딩'과 '섹션 헤딩'을 구분 못 함 → 단제품을 다제품 오판해 실증 섹션을 버리는
-#   회귀 방지(Codex R8 P2). 사용자 확정 fail-open: 모호하면 전체-WB. 신뢰 스코핑은 마커 있을 때만.
+#   회귀 방지(외부리뷰 R8 P2). 사용자 확정 fail-open: 모호하면 전체-WB. 신뢰 스코핑은 마커 있을 때만.
 # ═══════════════════════════════════════════════════════════════════════════════════════════
-# ── (flat-type-name) 헤딩 없는 플랫 WB, 제품유형으로 분할되나 선택 블록에 제품명 → 제품명 후보로 매칭 (Codex R20a) ──
+# ── (flat-type-name) 헤딩 없는 플랫 WB, 제품유형으로 분할되나 선택 블록에 제품명 → 제품명 후보로 매칭 (외부리뷰 R20a) ──
 echo "# (flat-type-name) 플랫 제품유형 분할 + 제품명 후보 매칭"
 FTNWB="$SCRATCH/wb-flattypename.md"
 printf '# 워킹백워드 — 플랫\n\n제품유형: 색조화장품\n제품명: 제품 알파\n여드름 인체적용시험 결과 보유 n=30 완료\n\n제품유형: 화장품\n미백 인체적용시험 결과 보유 n=20 완료\n' > "$FTNWB"
@@ -293,7 +293,7 @@ ev = json.load(open(sys.argv[1]))["evidence_on_file"]; summ = " ".join(e.get("su
 sys.exit(0 if "여드름" in summ and "미백" not in summ and len(ev) == 1 else 1)
 PY
 
-# ── (flat-preamble-leak) 첫 제품의 제품명 앞 인증이 뒤 제품에 유출 안 됨 (Codex R20b: 폴백 preamble 제거) ──
+# ── (flat-preamble-leak) 첫 제품의 제품명 앞 인증이 뒤 제품에 유출 안 됨 (외부리뷰 R20b: 폴백 preamble 제거) ──
 echo "# (flat-preamble-leak) 첫 제품 메타가 뒤 제품에 유출 안 됨"
 FPLWB="$SCRATCH/wb-flatpre.md"
 printf '# 워킹백워드 — 플랫 인증\n\n더마테스트 보유\n제품명: 제품 알파\n여드름 인체적용시험 결과 보유 n=30 완료\n제품명: 제품 베타\n미백 인체적용시험 결과 보유 n=20 완료\n' > "$FPLWB"
@@ -337,7 +337,7 @@ PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (section-headings) 마커 없는 '단제품 + 섹션 헤딩'(## 제품명 + ## 보유 실증 자료) → 전체-WB(실증 유실 없음)
-#   (헤딩-only 스코핑이면 실증 섹션을 버려 오늘보다 나빠짐; Codex R8 P2 회귀 가드)
+#   (헤딩-only 스코핑이면 실증 섹션을 버려 오늘보다 나빠짐; 외부리뷰 R8 P2 회귀 가드)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (section-headings) 단제품+섹션헤딩 → 전체-WB(실증 보존)"
 SECWB="$SCRATCH/wb-section.md"
@@ -363,7 +363,7 @@ PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (nested) 제품명이 ### 하위섹션에 중첩 — 형제 ### 근거/성분(같은 제품)이 스팬에 보존
-#   (마커 하위레벨에서 스팬이 조기 종료하면 같은 제품 근거 유실; Codex R6 P2. marker_mode=다음 마커섹션 경계)
+#   (마커 하위레벨에서 스팬이 조기 종료하면 같은 제품 근거 유실; 외부리뷰 R6 P2. marker_mode=다음 마커섹션 경계)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (nested) 제품명 ### 중첩 → 형제 근거/성분 보존"
 NESTWB="$SCRATCH/wb-nested.md"
@@ -406,7 +406,7 @@ PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (placeholder) 기본 placeholder '제품'(번들 이름 없을 때) = 미선언 취급 → 전체-WB no-op
-#   (ingest-bundle 이 블랭크; 안 하면 '## 제품 개요' 헤딩에 오매칭돼 근거 유실; Codex R6 P2)
+#   (ingest-bundle 이 블랭크; 안 하면 '## 제품 개요' 헤딩에 오매칭돼 근거 유실; 외부리뷰 R6 P2)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (placeholder) 기본 '제품' → 미선언 취급(전체-WB)"
 PHWB="$SCRATCH/wb-ph.md"
@@ -439,7 +439,7 @@ check "(placeholder) ingest-bundle 가 '제품' placeholder 를 블랭크 처리
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (meta-order) 제품유형이 제품명 '앞'에 오는 배치 — 각 제품이 자기 유형을 갖고 타제품 유형 미혼입
-#   (마커 위치 split 은 앞선 유형을 이전 청크/서두로 흘려 타제품 유형 오추출; Codex R7 P1)
+#   (마커 위치 split 은 앞선 유형을 이전 청크/서두로 흘려 타제품 유형 오추출; 외부리뷰 R7 P1)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (meta-order) 제품유형→제품명 순서(제목+평문 마커블록)"
 METAWB="$SCRATCH/wb-metaorder.md"
@@ -468,7 +468,7 @@ PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (nested-meta) 헤딩과 중첩 마커 사이 메타 — 제품 tier(상위 헤딩)로 앵커링해 자기 유형 보존
-#   (## A + 제품유형 + ### 기본정보 제품명; 베타 선택 시 알파 유형이 서두로 새던 문제; Codex R7 P1)
+#   (## A + 제품유형 + ### 기본정보 제품명; 베타 선택 시 알파 유형이 서두로 새던 문제; 외부리뷰 R7 P1)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (nested-meta) 헤딩~중첩마커 사이 메타 → tier 앵커링"
 NMWB="$SCRATCH/wb-nestmeta.md"
@@ -499,7 +499,7 @@ sys.exit(0 if "미백" in summ and "여드름" not in summ and len(ev) == 1 else
 PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
-# (token) 토큰-경계 부분일치 — 공백 구분 단어면 매칭, 임의 부분문자열이면 fail-open (Codex R9 P2)
+# (token) 토큰-경계 부분일치 — 공백 구분 단어면 매칭, 임의 부분문자열이면 fail-open (외부리뷰 R9 P2)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (token) 공백-구분 단어 매칭 · 임의 부분문자열 거부"
 # (a) '릴리프'(공백 구분 단어) → '이지덤 뷰티 릴리프' 매칭(MULTI 헤딩 정체성).
@@ -534,7 +534,7 @@ sys.exit(0 if scoped == t and audit is not None and status == "unscoped" else 1)
 PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
-# (label) '이전 제품명:' 등 비-제품 라벨은 마커로 안 침 — 단제품을 다제품 오판 안 함 (Codex R10 P2, 앵커링)
+# (label) '이전 제품명:' 등 비-제품 라벨은 마커로 안 침 — 단제품을 다제품 오판 안 함 (외부리뷰 R10 P2, 앵커링)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (label) '이전 제품명:' 라벨 = 마커 아님(앵커링)"
 LABELWB="$SCRATCH/wb-label.md"
@@ -562,7 +562,7 @@ sys.exit(0 if scoped == t and status is None else 1)
 PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
-# (category) 카테고리 그룹핑(## 라인 > ### 제품) — 카테고리가 아니라 '깊은 실제 제품' 레벨로 스코핑 (Codex R10 P2)
+# (category) 카테고리 그룹핑(## 라인 > ### 제품) — 카테고리가 아니라 '깊은 실제 제품' 레벨로 스코핑 (외부리뷰 R10 P2)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (category) 카테고리>제품 그룹핑 → 깊은 제품 레벨 스코핑"
 CATWB="$SCRATCH/wb-category.md"
@@ -589,7 +589,7 @@ ev = json.load(open(sys.argv[1]))["evidence_on_file"]
 summ = " ".join(e.get("summary", "") for e in ev)
 sys.exit(0 if "여드름" in summ and "진정" not in summ and "미백" not in summ and len(ev) == 1 else 1)
 PY
-# 혼합 계층(단제품 2개 + 다제품 카테고리) — 깊은 tier 의 제품 선택 시 얕은 tier 에서 멈추지 않음(Codex R17 P2).
+# 혼합 계층(단제품 2개 + 다제품 카테고리) — 깊은 tier 의 제품 선택 시 얕은 tier 에서 멈추지 않음(외부리뷰 R17 P2).
 MIXCATWB="$SCRATCH/wb-mixcat.md"
 cat > "$MIXCATWB" <<'MD'
 # 워킹백워드 — 혼합 계층
@@ -623,7 +623,7 @@ ev = json.load(open(sys.argv[1]))["evidence_on_file"]; summ = " ".join(e.get("su
 sys.exit(0 if "미백" in summ and "보습" not in summ and "여드름" not in summ and len(ev) == 1 else 1)
 PY
 
-# 중첩 제품의 '조상 카테고리 리드-인'(제품유형·인증) 보존 + 형제 카테고리/제품 제외(Codex R19 P2).
+# 중첩 제품의 '조상 카테고리 리드-인'(제품유형·인증) 보존 + 형제 카테고리/제품 제외(외부리뷰 R19 P2).
 CATLEADWB="$SCRATCH/wb-catlead.md"
 cat > "$CATLEADWB" <<'MD'
 # 워킹백워드 — 카테고리 리드-인
@@ -653,7 +653,7 @@ ok = ok and "여드름" in summ and "미백" not in summ and "발진" not in sum
 sys.exit(0 if ok else 1)
 PY
 
-# 뒷 카테고리(세럼 라인) 제품 '감마' 선택 → 앞 카테고리(패치 라인) 메타가 preamble 로 새면 안 됨(Codex R11 P2).
+# 뒷 카테고리(세럼 라인) 제품 '감마' 선택 → 앞 카테고리(패치 라인) 메타가 preamble 로 새면 안 됨(외부리뷰 R11 P2).
 HARNESS_DOMAIN=cosmetic python3 "$INGEST" claim-basis "$CATWB" "$SCRATCH/cb-cat2.json" "제품 감마" 2>/dev/null
 python3 - "$SCRATCH/cb-cat2.json" <<'PY' && pass "(category-late) 뒷 카테고리 '감마' → 미백만 · 앞 카테고리(여드름·진정) 유입 0" || fail "(category-late) 앞 카테고리 메타가 preamble 로 유입"
 import sys, json
@@ -663,7 +663,7 @@ sys.exit(0 if "미백" in summ and "여드름" not in summ and "진정" not in s
 PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
-# (longest-prefix) 형제가 접두사 공유(우루사 / 우루사 플러스) + 선언 접미사 → 최장 접두사가 유일 식별 (Codex R12 P2)
+# (longest-prefix) 형제가 접두사 공유(우루사 / 우루사 플러스) + 선언 접미사 → 최장 접두사가 유일 식별 (외부리뷰 R12 P2)
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (longest-prefix) 최장 접두사 우선(모호 폴백 아님)"
 LPWB="$SCRATCH/wb-longestprefix.md"
@@ -688,7 +688,7 @@ f = ingest._extract_product_facts(wb, "우루사 플러스 100정")
 names = " ".join(i["name"] for i in f["key_ingredients"])
 sys.exit(0 if "타우린" in names and "우르소데옥시콜산" not in names else 1)
 PY
-# 역방향(Codex R13): 선언이 짧고(우루사 플러스) 형제가 '우루사'(짧은 접두사)·'우루사 플러스 100정'(긴 SKU)이면
+# 역방향(외부리뷰 R13): 선언이 짧고(우루사 플러스) 형제가 '우루사'(짧은 접두사)·'우루사 플러스 100정'(긴 SKU)이면
 #   토큰 최다 매칭인 긴 SKU 를 골라야(짧은 '우루사' 오선택 금지).
 LP2WB="$SCRATCH/wb-longestprefix2.md"
 cat > "$LP2WB" <<'MD'
@@ -713,7 +713,7 @@ names = " ".join(i["name"] for i in f["key_ingredients"])
 sys.exit(0 if "타우린" in names and "우르소데옥시콜산" not in names else 1)
 PY
 
-# ── (shared-section) 제품 앞 공유 섹션(## 공통 안내, 마커 없음)의 공유 인증/성분은 스코프에 보존 (Codex R18b) ──
+# ── (shared-section) 제품 앞 공유 섹션(## 공통 안내, 마커 없음)의 공유 인증/성분은 스코프에 보존 (외부리뷰 R18b) ──
 echo "# (shared-section) 제품 앞 공유 섹션 보존"
 SHWB="$SCRATCH/wb-shared.md"
 cat > "$SHWB" <<'MD'
@@ -739,7 +739,7 @@ summ = " ".join(e.get("summary","") for e in d["evidence_on_file"])
 sys.exit(0 if "더마테스트" in d["certifications"] and "여드름" in summ and "미백" not in summ else 1)
 PY
 
-# ── (hybrid) 상위 헤딩 제품 + flat 마커블록 카테고리 혼합; flat 블록 제품 선택 시 tier 에서 안 멈춤 (Codex R18a) ──
+# ── (hybrid) 상위 헤딩 제품 + flat 마커블록 카테고리 혼합; flat 블록 제품 선택 시 tier 에서 안 멈춤 (외부리뷰 R18a) ──
 echo "# (hybrid) 헤딩 제품 + flat 마커블록 혼합"
 HYBWB="$SCRATCH/wb-hybrid.md"
 cat > "$HYBWB" <<'MD'
@@ -782,7 +782,7 @@ PY
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # (span) 제품 스팬 전체 보존 — 중첩 ### 하위섹션 + 제품명/제품유형 인접이 같은 제품에 귀속
-#   (Codex P2: 단일 슬라이스만 반환하면 같은 제품의 근거/성분을 버려 under-extraction — '오늘보다 나빠짐')
+#   (외부리뷰 P2: 단일 슬라이스만 반환하면 같은 제품의 근거/성분을 버려 under-extraction — '오늘보다 나빠짐')
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 echo "# (span) 매칭 제품의 중첩 하위섹션·인접 유형마커 = 같은 제품 스팬(버려지지 않음)"
 SPANWB="$SCRATCH/wb-span.md"
@@ -903,7 +903,7 @@ sys.exit(0 if "acnes" not in summ and "여드름" not in summ and len(ev) == 1 e
 PY
 
 # ── (wire-newrun-first) new-run(--domain --format, 이름 미지정) 먼저 → state.name='제품' placeholder →
-#    ingest-bundle 이 번들 product.json 실제 이름으로 폴백해 스코핑(Codex R12 P1: 그냥 블랭크하면 오염 잔존) ──
+#    ingest-bundle 이 번들 product.json 실제 이름으로 폴백해 스코핑(외부리뷰 R12 P1: 그냥 블랭크하면 오염 잔존) ──
 echo "# (wire-newrun-first) new-run 선행(placeholder) → 번들 이름 폴백 스코핑"
 rm -rf "$ROOT/runs/ci-mpx-nr"
 ( cd "$ROOT" && bash scripts/new-run.sh ci-mpx-nr --domain 화장품 --format 여러장 ) >/dev/null 2>&1   # --name 없음 → state.name='제품'

@@ -169,7 +169,7 @@ describe.skipIf(SKIP)("인수 시나리오 ③: 브리지 회수 → [상태 다
 
       // 재요청이 **실행되어 run 을 전진**시켰음을 증명한다 — enqueue·activeRuns=0 만으론 부족하다(워커는 실패도
       //   outcome 으로 바꿔 drain 이 resolve 되고 activeRuns 가 0 이 되므로, 재생성이 Failure 로 끝나도 위 단언은 통과한다).
-      //   그 단계 생성 차례를 벗어났고(전이 성공) 실패 카드가 없어야 재요청이 진짜 성공한 것이다(Codex S3 리뷰 P2).
+      //   그 단계 생성 차례를 벗어났고(전이 성공) 실패 카드가 없어야 재요청이 진짜 성공한 것이다(외부리뷰 S3 P2).
       const naAfter = await readNextAction(RID);
       expect(isGenerateTurn(naAfter, stage)).toBe(false); // 그 단계 생성 차례를 벗어남 = 재생성 전이 성공
       expect(chat.renders().some((r) => r.presentation.type === "Failure")).toBe(false); // 실패로 끝나지 않았다

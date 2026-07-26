@@ -352,7 +352,7 @@ import sys, json, os
 d = json.load(open(os.path.join(sys.argv[1], "00-ingest/evidence-documents.json")))["documents"][0]
 sys.exit(0 if d.get("reflect") is True and d.get("kind") == "general" and d.get("spec_status") == "pending" and d.get("claim") == "여드름 피부 사용 적합" else 1)
 PY
-# (p2) test_report 는 pending 경로 없음 — 결손이면 hard-fail 유지(효능 실증 재료 지어내기 금지). 공백-only 도 strip 후 결손(Codex P2).
+# (p2) test_report 는 pending 경로 없음 — 결손이면 hard-fail 유지(효능 실증 재료 지어내기 금지). 공백-only 도 strip 후 결손(외부리뷰 P2).
 printf '{"report.pdf":{"reflect":true,"grade":"인체적용시험","claim":"  ","verdict_text":"적합","test_report":{"institution":" ","sample_size":10,"duration":"1주"}}}' > "$PP/index.json"
 evdocs_bad ci-ev-p "$PP"; RC=$?; check "(p2) 공백-only claim/institution(kind=test_report) → fail-closed(pending 아님·strip 후 결손)" "[ $RC -ne 0 ]"
 
@@ -459,11 +459,11 @@ mk_reflect_run ci-ev-w "$SCRATCH/evw"
 chk_refl ci-ev-w; RC=$?; check "(w) reflect:true 인데 반영 블록 0 → 게이트 차단(exit 1)" "[ $RC -ne 0 ]"
 mk_plan_cite ci-ev-w
 chk_refl ci-ev-w; RC=$?; check "(w) doc-01 인용 반영 블록 추가 → 게이트 통과(exit 0)" "[ $RC -eq 0 ]"
-# (w2) 빈 target_text claim(각주 없음) = 실질 반영 아님 → 차단(Codex P2)
+# (w2) 빈 target_text claim(각주 없음) = 실질 반영 아님 → 차단(외부리뷰 P2)
 WP="$ROOT/runs/ci-ev-w/03-storyboard/plan"; rm -f "$WP"/*.json
 printf '{"order":9,"type":"clinicalEvidence","claims":[{"claim_strength":"none","target_text":"","evidence_ref":"doc-01"}]}' > "$WP/09-clin.json"
 chk_refl ci-ev-w; RC=$?; check "(w2) 빈 target_text claim(각주 없음) → 반영 불인정(차단)" "[ $RC -ne 0 ]"
-# (w3) 부분문자열 오탐 방지: 각주 'doc-010' 은 doc-01 을 만족시키지 않음(Codex P3)
+# (w3) 부분문자열 오탐 방지: 각주 'doc-010' 은 doc-01 을 만족시키지 않음(외부리뷰 P3)
 printf '{"order":9,"type":"clinicalEvidence","claims":[],"footnotes":[{"id":"f1","text":"doc-010 인용"}]}' > "$WP/09-clin.json"
 chk_refl ci-ev-w; RC=$?; check "(w3) 각주 doc-010 은 doc-01 반영 아님(정확 토큰 매칭)" "[ $RC -ne 0 ]"
 # (w4) 각주 정확 인용(doc-01)은 반영 인정
@@ -471,7 +471,7 @@ printf '{"order":9,"type":"clinicalEvidence","claims":[],"footnotes":[{"id":"f1"
 chk_refl ci-ev-w; RC=$?; check "(w4) 각주 doc-01 정확 인용 → 반영 인정(통과)" "[ $RC -eq 0 ]"
 chk_refl ci-ev-q; RC=$?; check "(w) 첨부-전용(reflect:false) 런 → 게이트 통과" "[ $RC -eq 0 ]"
 chk_refl ci-ev-t; RC=$?; check "(w) no-evidence 런 → 게이트 통과(no-op)" "[ $RC -eq 0 ]"
-# (w5) 선택 스토리라인 밖(스테일/미선택) plan 블록의 인용은 반영 아님(Codex P2 — 선택 산출물만)
+# (w5) 선택 스토리라인 밖(스테일/미선택) plan 블록의 인용은 반영 아님(외부리뷰 P2 — 선택 산출물만)
 mk_reflect_run ci-ev-w5 "$SCRATCH/evw5"
 W5="$ROOT/runs/ci-ev-w5"; mkdir -p "$W5/03-storyboard/outline/options/A" "$W5/03-storyboard/plan"
 printf '{"selected":"A"}' > "$W5/03-storyboard/outline/decision.json"
@@ -481,7 +481,7 @@ printf '{"order":5,"type":"problem","claims":[{"claim_strength":"none","target_t
 chk_refl ci-ev-w5; RC=$?; check "(w5) 선택 스토리라인 밖 스테일 블록 인용 → 반영 불인정(차단)" "[ $RC -ne 0 ]"
 printf '{"order":9,"type":"clinicalEvidence","claims":[{"claim_strength":"none","target_text":"여드름 피부 사용에 적합","evidence_ref":"doc-01"}]}' > "$W5/03-storyboard/plan/09-clin.json"
 chk_refl ci-ev-w5; RC=$?; check "(w5) 선택 스토리라인 블록(order=9) 인용 → 반영 인정(통과)" "[ $RC -eq 0 ]"
-# (w6) plan 에 반영 블록이 있어도 선택 키비주얼 HTML 에서 누락되면 반영 아님(Codex P1 — 최종 산출물 확인)
+# (w6) plan 에 반영 블록이 있어도 선택 키비주얼 HTML 에서 누락되면 반영 아님(외부리뷰 P1 — 최종 산출물 확인)
 mk_reflect_run ci-ev-w6 "$SCRATCH/evw6"; mk_plan_cite ci-ev-w6   # plan: 09-clinicalEvidence 가 doc-01 인용
 W6="$ROOT/runs/ci-ev-w6"; mkdir -p "$W6/04-keyvisual/options/A"
 printf '{"selected":"A"}' > "$W6/04-keyvisual/decision.json"
@@ -491,7 +491,7 @@ printf '<section data-block="clinicalEvidence">여드름 피부 사용에 적합
 chk_refl ci-ev-w6; RC=$?; check "(w6) 선택 HTML 섹션에 doc-01 인용 + 판정 카피 존재 → 반영 인정(통과)" "[ $RC -eq 0 ]"
 printf '<section data-block="clinicalEvidence">여드름 피부 사용에 적합 doc-010</section>' > "$W6/04-keyvisual/options/A/index.html"
 chk_refl ci-ev-w6; RC=$?; check "(w6b) 섹션이 doc-010(다른 토큰) 인용(내용 있음) → doc-01 반영 아님(정확 토큰)" "[ $RC -ne 0 ]"
-# (w7) 판정 카피가 반영 블록 밖(hero)에 있고 반영 블록(clinicalEvidence)은 빈 섹션 → 반영 아님(Codex P1 섹션 결박)
+# (w7) 판정 카피가 반영 블록 밖(hero)에 있고 반영 블록(clinicalEvidence)은 빈 섹션 → 반영 아님(외부리뷰 P1 섹션 결박)
 printf '<section data-block="hero">여드름 피부 사용에 적합</section><section data-block="clinicalEvidence"></section>' > "$W6/04-keyvisual/options/A/index.html"
 chk_refl ci-ev-w6; RC=$?; check "(w7) 판정 카피가 반영 블록 밖·반영 블록 빈 섹션 → 반영 불인정(차단)" "[ $RC -ne 0 ]"
 
@@ -655,7 +655,7 @@ cb_ti_cp "$EER/00-ingest/claim-basis.json" -40.9; RC=$?
 check "(ee) claim-basis doc-01-t01.change_pct 자동기입 = -40.9" "[ $RC -eq 0 ]"
 
 # (ff) 비정수 선언(-40.6) vs series 도출(-40.9): |선언−round(도출)|=0.4<0.5 지만 선언이 '정수 아님' →
-#   정규화 금지·진짜 모순으로 fail-closed(Codex W1: 정밀 선언의 실제 오차를 '정수표기 허용'으로 숨기지 않음).
+#   정규화 금지·진짜 모순으로 fail-closed(외부리뷰 W1: 정밀 선언의 실제 오차를 '정수표기 허용'으로 숨기지 않음).
 echo "# (ff) 비정수 선언 근사 → 정규화 안 함, fail-closed"
 rm -rf "$ROOT/runs/ci-ev-ff"
 FF="$SCRATCH/evff"; rm -rf "$FF"; mkdir -p "$FF"; printf '%%PDF-1.4\nsuit\n' > "$FF/suit.pdf"
@@ -668,7 +668,7 @@ echo "$OUT_FF" | grep -q -- "-40.9"; RC=$?
 check "(ff) 에러 메시지에 도출값(-40.9) 노출" "[ $RC -eq 0 ]"
 
 # (gg) 정밀 2소수 선언(-59.86) vs before/after 도출(-59.9): round(-59.86,1)=-59.9 근사일치 → 인입 성공 +
-#   도출값(-59.9)으로 '정규화'(원문 보존 아님). Codex 10R: 하류 주입(build_context)·검증(numbers_consistent) 일관성 위해 정규화.
+#   도출값(-59.9)으로 '정규화'(원문 보존 아님). 외부리뷰 10R: 하류 주입(build_context)·검증(numbers_consistent) 일관성 위해 정규화.
 echo "# (gg) 정밀 2소수 선언 근사일치 → 도출값 정규화·인입 성공"
 rm -rf "$ROOT/runs/ci-ev-gg"
 GG="$SCRATCH/evgg"; rm -rf "$GG"; mkdir -p "$GG"; printf '%%PDF-1.4\nsuit\n' > "$GG/suit.pdf"
@@ -684,7 +684,7 @@ cb_ti_cp "$GGR/00-ingest/claim-basis.json" -59.9; RC=$?
 check "(gg) claim-basis doc-01-t01.change_pct = -59.9(승격 상속)" "[ $RC -eq 0 ]"
 
 # (hh) .5 타이 관행 반올림: before=100 after=59.5 도출 -40.5, 선언 정수 -41(관행 -40.5→-41) → 정규화 수용.
-#   파이썬 round(-40.5)=−40(banker's)이라 예전이면 거부했을 케이스 — round-half-away 로 관행 표기 수용(Codex 5R).
+#   파이썬 round(-40.5)=−40(banker's)이라 예전이면 거부했을 케이스 — round-half-away 로 관행 표기 수용(외부리뷰 5R).
 echo "# (hh) .5 타이 정수 선언 → 관행 반올림 수용"
 rm -rf "$ROOT/runs/ci-ev-hh"
 HH="$SCRATCH/evhh"; rm -rf "$HH"; mkdir -p "$HH"; printf '%%PDF-1.4\nsuit\n' > "$HH/suit.pdf"

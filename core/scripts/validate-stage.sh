@@ -43,7 +43,7 @@ case "$PHASE" in
     if [ "$SB_SUB" = "plan" ]; then
       # M3: tone 서브스테이지 제거 — 기획안은 스토리라인(outline) 확정만 선행(tone/decision.json 불필요).
       SEL="$("$PY" "$LIB" jget "$RDIR/03-storyboard/outline/decision.json" selected 2>/dev/null || echo A)"
-      # 코덱스 4R Medium: 선택 스토리라인 자체를 **필수 target**으로(삭제/손상·selected 가 비실재 option 이면 fail-closed).
+      # 외부리뷰 4R Medium: 선택 스토리라인 자체를 **필수 target**으로(삭제/손상·selected 가 비실재 option 이면 fail-closed).
       #   이게 존재해야 아래 plan 블록 목록 도출이 신뢰된다(없으면 plan 커버리지가 '0블록=통과'로 오판될 수 있음).
       #   P0-ⓠ: 전역 아트디렉션(art-direction.json)도 plan 단계 필수 산출물(블록 톤 상속의 단일 출처).
       TARGETS=("03-storyboard/outline/decision.json" "03-storyboard/outline/options/$SEL/storyline.json" "03-storyboard/art-direction.json")
@@ -94,7 +94,7 @@ if [ "${#TARGETS[@]}" -gt 0 ]; then
   done
 fi
 
-# 추천 정합성: recommendation.ranked 가 실재 옵션 id 의 부분집합이어야 한다(Codex #8).
+# 추천 정합성: recommendation.ranked 가 실재 옵션 id 의 부분집합이어야 한다(외부리뷰 #8).
 rec_check() {
   local rec="$1" optdir="$2"
   [ -f "$rec" ] && [ -d "$optdir" ] || return 0
@@ -104,7 +104,7 @@ rec_check() {
 
 # 이슈3a(최소 3안): 다안 페이즈는 '유효 옵션' ≥3 + recommendation.ranked 의 '서로 다른 유효 옵션' ≥3 이어야 한다(2안 약함 차단).
 #   프롬프트·스키마·게이트 3중 강제 중 '게이트' 축. 옵션 개수 자체를 제약하는 결정적 fail-closed.
-#   ★ 유효 옵션 = '표지 파일($3)을 실제로 가진 디렉터리'만(빈 phantom 디렉터리 우회 차단, Codex 3a HIGH). ranked 는 중복 제거 후 유효 옵션 교집합 ≥3(["A","A","A"] 우회 차단).
+#   ★ 유효 옵션 = '표지 파일($3)을 실제로 가진 디렉터리'만(빈 phantom 디렉터리 우회 차단, 외부리뷰 3a HIGH). ranked 는 중복 제거 후 유효 옵션 교집합 ≥3(["A","A","A"] 우회 차단).
 min3_check() {
   local optdir="$1" rec="$2" marker="$3"
   local valid_opts
@@ -142,12 +142,12 @@ case "$PHASE" in
   00g-guideline)
     # 크롤 참조 노트: 적어도 하나의 참조(flow_refs/composition_notes/notes)가 있어야 한다(빈 no-op 차단).
     "$PY" "$VS" guideline-refnotes-nonempty "$RDIR" >/dev/null 2>&1 || { err '크롤 참조 노트(reference-notes)가 비어있음(flow_refs/composition_notes/notes 중 ≥1 필요)'; fail=1; }
-    # fail-closed(Codex P1 HIGH): 참조 노트 자유텍스트에 효능·절대·속효어(한/영 + 우회) 금지 — why_violations deny-list 재사용.
+    # fail-closed(외부리뷰 P1 HIGH): 참조 노트 자유텍스트에 효능·절대·속효어(한/영 + 우회) 금지 — why_violations deny-list 재사용.
     #   룰엔진 단독 경로가 한국어 banned 만 잡는 갭(예: 'whitening effect', 'No.1 anti-aging')을 결정적으로 봉인.
     "$PY" "$VS" guideline-refnotes-deny "$RDIR" >/dev/null 2>&1 || { err '크롤 참조 노트에 효능·절대·속효 표현(한/영) 감지 — 시각·구조 어휘만 허용(법=룰셋 우선, fail-closed)'; fail=1; }
     # fail-closed: why_good[].grounded_in 은 실재 signals 키 또는 voc_themes/structure/block_sequence/pacing 만 인용
     "$PY" "$VS" guideline-whygood-grounded "$RDIR" >/dev/null 2>&1 || { err 'example-analysis why_good.grounded_in 에 비실재 키(fail-closed 위반)'; fail=1; }
-    # M2(G3): 감각 reference_images fail-closed (코덱스 M2 리뷰 HIGH 3건 반영) —
+    # M2(G3): 감각 reference_images fail-closed (외부리뷰 M2 HIGH 3건 반영) —
     #   ⓐ 모든 example-analysis 에 reference_images 비어있지 않음(무조건; self-report detail_image_count 의존 제거 → 우회 차단)
     #   ⓑ composition_tags/mood_tags 는 화이트리스트(ALLOWED_*) 어휘만(효능·절대어 0) + why 는 deny-list(효능/절대) 무관 + 자기 태그 인용(grounded)
     #   ⓒ id 는 '<example_id>#NN' 형식 + 전(全) 사례 관통 전역 유일(M6 조인 모호성 차단)
@@ -165,7 +165,7 @@ case "$PHASE" in
     rec_check "$RDIR/03-storyboard/outline/recommendation.json" "$RDIR/03-storyboard/outline/options"
     # 이슈3a: 스토리라인(outline) 다안만 ≥3 강제(plan 은 단안 — 제외).
     [ "$(storyboard_substage "$RID")" = "outline" ] && min3_check "$RDIR/03-storyboard/outline/options" "$RDIR/03-storyboard/outline/recommendation.json" "storyline.json"
-    # M3 fail-closed(코덱스 M3 HIGH): tone 흡수 후 기획안(plan) 모든 블록은 visual.concept(구도/무드/참조)를
+    # M3 fail-closed(외부리뷰 M3 HIGH): tone 흡수 후 기획안(plan) 모든 블록은 visual.concept(구도/무드/참조)를
     #   가져야 한다 — 스키마상 concept 는 optional 이라 실 LLM 이 빼면 구도/무드/참조가 사라져도 통과하므로 여기서 강제.
     if [ "$(storyboard_substage "$RID")" = "plan" ]; then
       "$PY" "$VS" plan-visual-concept "$RDIR" >/dev/null 2>&1 || { err '기획안 블록에 visual.concept(구도/무드 + reference.own_asset_path) 누락(M3 tone 흡수 fail-closed)'; fail=1; }

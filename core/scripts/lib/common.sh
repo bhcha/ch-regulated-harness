@@ -212,12 +212,12 @@ resolve_domain() {
 # 기존 도메인의 규제 '데이터'(룰셋/가이드/엔트리)는 전적으로 packs 소유 → core 코드 무수정으로 교체·갱신.
 # ⚠️ 단, '새 도메인 타입' 자체를 추가하려면(예: medical_device) 레지스트리 조립(여기·load_domain_registry)은 자동 인식하나,
 #    진입 게이트는 통제 동결이라 함께 추가해야 한다: new-run.sh normalize_domain + state.schema.json regulatory_domain enum
-#    (phase enum 과 동일한 'core-base 동결 + 검증된 확장' 철학 — 단계4 enum 완화 작업과 함께. 코덱스 단계3 Medium).
+#    (phase enum 과 동일한 'core-base 동결 + 검증된 확장' 철학 — 단계4 enum 완화 작업과 함께. 외부리뷰 단계3 Medium).
 # kcia_engine.load_domain_registry 와 동일 의미.
-# ★ 단일 출처: bash 로 검증을 재구현하지 않고 Python load_domain_registry(검증된 레지스트리)를 질의한다(코덱스 단계3 R4·R5).
+# ★ 단일 출처: bash 로 검증을 재구현하지 않고 Python load_domain_registry(검증된 레지스트리)를 질의한다(외부리뷰 단계3 R4·R5).
 #   손상 팩(status enum 밖·domain≠디렉터리·비-dict·미파싱)은 Python 에서 incomplete·status=""·ruleset_path=None 로 정규화돼 반환 →
 #   autopass 게이트/critic 컨텍스트가 stale/malformed 값으로 우회되지 않는다(빈 status → 상위 active 기본 → 엔진 fail-closed).
-#   heredoc(임시파일 필요 — read-only tmp 환경서 실패) 대신 -c 사용(이식성, 코덱스 R5 Medium).
+#   heredoc(임시파일 필요 — read-only tmp 환경서 실패) 대신 -c 사용(이식성, 외부리뷰 R5 Medium).
 _reg_query() {  # $1=domain $2=field → 검증 레지스트리 값(없으면 빈문자열)
   "$PY" -c 'import sys, os
 sys.path.insert(0, os.path.join(os.environ["HARNESS_ROOT"], "scripts", "lib"))
@@ -320,12 +320,10 @@ PYEOF
 # 실 LLM 비대화 실행 디스패처 (1급 경로). 오프라인/stub 에서는 호출되지 않는다.
 #   비대화(headless)에서 모델이 산출물 파일을 직접 쓰려면 권한 플래그가 필요하다:
 #     claude -p : --permission-mode acceptEdits (파일 쓰기 자동 수락)
-#     codex exec: --skip-git-repo-check --sandbox workspace-write (git 미사용·작업영역 쓰기·비대화). codex 0.141+ 는 -a/--ask-for-approval 제거됨(있으면 'unexpected argument -a' 오류).
-#   환경변수로 재정의 가능: HARNESS_CLAUDE_FLAGS / HARNESS_CODEX_FLAGS.
+#   환경변수로 재정의 가능: HARNESS_CLAUDE_FLAGS.
 HARNESS_CLAUDE_FLAGS="${HARNESS_CLAUDE_FLAGS:---permission-mode acceptEdits}"
-HARNESS_CODEX_FLAGS="${HARNESS_CODEX_FLAGS:---skip-git-repo-check --sandbox workspace-write}"
 # ── 생성 watchdog 설정 (행/좀비 방지) ──
-#   문제: claude -p / codex exec 가 산출물을 다 쓰고도 종료하지 않으면(좀비/행) 포그라운드 대기가 무한 →
+#   문제: claude -p 가 산출물을 다 쓰고도 종료하지 않으면(좀비/행) 포그라운드 대기가 무한 →
 #         마무리 전이가 멈춰 "오래 걸린다"고 체감(실측: 생성 18:52 시작, 19:12 산출물 완성 후에도 미종료).
 #   해법(3중): ⓐ 하드 상한(GEN_TIMEOUT) ⓑ 출력 완료감지(watch 파일 존재+유효 → 더 안 기다림) ⓒ 미종료 자식 트리 종료.
 #   이식성: timeout/gtimeout 비의존(맥 기본 부재) — 순수 bash 백그라운드+주기 점검. 루프 제어는 state.json 외부(여기), state 미작성.
@@ -334,7 +332,7 @@ HARNESS_GEN_POLL="${HARNESS_GEN_POLL:-5}"             # 상태 점검 간격(초
 HARNESS_GEN_HEARTBEAT="${HARNESS_GEN_HEARTBEAT:-30}"  # 진행 하트비트 출력 간격(초). 0=끄기(체감 정체 완화·정기 상태표시).
 
 # 프로세스 그룹/트리 종료(포터블): 생성 자식은 spawn_session.py(os.setsid)로 띄워 그룹 리더(pgid==pid)다 →
-#   `kill -- -pid` 로 **그룹 전체**(claude/codex 가 띄운 node 등 손자·재부모화 포함)를 회수한다.
+#   `kill -- -pid` 로 **그룹 전체**(claude 가 띄운 node 등 손자·재부모화 포함)를 회수한다.
 #   추가로 pgrep -P 재귀를 폴백으로 둔다(setsid 실패·비-그룹 자식 대비). 둘 다 best-effort(2>/dev/null·||true).
 kill_proc_tree() {
   local pid="$1" sig="${2:-TERM}" c
@@ -380,7 +378,6 @@ run_llm() {
   local -a cmd
   case "$cli" in
     claude) cmd=("$PY" "$launcher" claude -p $HARNESS_CLAUDE_FLAGS "$prompt") ;;
-    codex)  cmd=("$PY" "$launcher" codex exec $HARNESS_CODEX_FLAGS "$prompt") ;;
     *) die "run_llm: 알 수 없는 CLI '$cli'";;
   esac
   # 개선1(출력 캡처): 생성 stdout/stderr 를 버리지 않고 per-attempt 로그로 보존(왜 실패했는지 추적).
@@ -395,7 +392,7 @@ run_llm() {
       # 자식 자연 종료 → 종료코드 수거. 산출물이 완성됐으면 비0 종료라도 성공으로 본다(완료 우선).
       wait "$pid" 2>/dev/null && rc=0 || rc=$?
       local _done=1; { [ "${#watch[@]}" -gt 0 ] && gen_outputs_ready "${watch[@]}"; } || _done=0
-      # H6(Codex 재검토): 리더가 죽어도 워커/손자가 그룹에 남아 lock 해제 후 파일을 계속 쓸 수 있다 → 그룹 best-effort 회수.
+      # H6(외부 재검토): 리더가 죽어도 워커/손자가 그룹에 남아 lock 해제 후 파일을 계속 쓸 수 있다 → 그룹 best-effort 회수.
       _reap_exited "$pid"
       [ "$_done" = 1 ] && return 0
       return "$rc"
@@ -420,19 +417,20 @@ run_llm() {
 }
 
 # in-session 생성 엔진 감지 (HARNESS_GEN_MODE=insession 전용).
-#   '누가 생성했나'를 스크립트가 박는 단일 출처다. 이 토큰이 kcia-check 자가심의 가드의 생명줄이다:
-#   토큰이 패밀리(claude/codex)여야 substring 가드가 '동일 패밀리 크리틱'과 충돌해 self-grading 을 막는다.
-#   stub/빈값으로 새면 가드가 무력화되므로(Snorkel 패러독스 재유입), 신뢰 CLI 주입 마커로만 판정하고 미상이면 빈 문자열 반환 → 호출부 fail-closed.
+#   '누가 생성했나'를 스크립트가 박는 단일 출처다. 이 토큰이 kcia-check 의 stub/실엔진 판정 생명줄이다:
+#   토큰이 실엔진(claude)이어야 '세션 안 실 생성'과 'CI stub 생성'을 kcia-check 가 구분할 수 있다.
+#   stub/빈값으로 새면 판정이 무력화되므로, 신뢰 CLI 주입 마커로만 판정하고 미상이면 빈 문자열 반환 → 호출부 fail-closed.
 #   신뢰 근거: Claude Code 는 모든 Bash 서브프로세스에 CLAUDECODE/CLAUDE_CODE_* 를 주입한다(실측 2026-06-21).
-#   ⚠️ CODEX_COMPANION_* 는 'Claude Code 안의 codex 플러그인'이 설정하는 값 → Codex 인터랙티브로 오탐 금지(제외).
-#   Codex 인터랙티브 마커는 부록-A 실증 후 추가(WS-4). 그전까지 in-session 은 Claude 전용.
+#   ⚠️ CODEX_COMPANION_* 는 'Claude Code 안의 codex 플러그인'이 설정하는 값 → 다른 CLI 세션으로 오탐 금지(제외).
+#   생성 엔진은 claude|stub 단일화됐다 → in-session 은 Claude 전용이다(다른 CLI 마커는 아래 fail-closed 로 거부).
 detect_insession_engine() {
-  # 활성 Codex 세션 마커가 보이면(중첩/모호) Claude-only 정책상 fail-closed (Codex 리뷰 CRITICAL #2).
-  #   codex exec 는 CODEX_THREAD_ID 등을 세팅한다 → CLAUDECODE 가 동시에 보여도 'claude' 로 오분류하면
-  #   Codex self-review 우회가 된다(생성=codex 인데 토큰=claude → codex critic 이 substring 가드 통과).
-  #   단 CODEX_COMPANION_* 는 'Claude Code 안의 codex 플러그인'이 설정하는 값 → 그건 Claude 세션이므로 제외.
+  # ★ 유지 가드(제거 금지): 다른 CLI 의 활성 세션 마커가 보이면(중첩/모호) Claude-only 정책상 fail-closed.
+  #   생성 엔진은 claude|stub 단일이지만, 다른 CLI 세션이 Claude 세션 '안에서' 떠 CLAUDECODE 를 상속하는
+  #   중첩 케이스가 실재한다 → 그때 'claude' 로 오분류하면 실제 생성 주체가 아닌 엔진 토큰이
+  #   state.json history(generate:insession:<stage>:claude)에 박혀 provenance 가 위조된다. 그래서 모호하면 거부한다.
+  #   단 CODEX_COMPANION_* 는 'Claude Code 안의 플러그인'이 설정하는 값 → 그건 Claude 세션이므로 제외.
   #   deny-by-default: CODEX_ 중 '설치/설정용'(COMPANION 플러그인·HOME·패키지 매니저)만 양성으로 제외하고,
-  #   그 외(THREAD_ID·SANDBOX·SESSION 등 활성 세션 마커)면 차단. safe 방향 유지하되 알려진 양성 env 오탐만 제거(Codex 2차 MINOR).
+  #   그 외(THREAD_ID·SANDBOX·SESSION 등 활성 세션 마커)면 차단. 회귀 잠금 = tests/test-insession-genmode.sh (11).
   local _codex_active
   _codex_active="$(env | grep -E '^CODEX_' | grep -vE '^CODEX_(COMPANION|HOME|MANAGED_BY_NPM|BIN|CONFIG|NPM|VERSION)' | head -1 || true)"
   [ -z "$_codex_active" ] || { echo ""; return 1; }
@@ -581,7 +579,7 @@ archive_multi_round() {  # $1=phase_dir  $2=iter  $rest...=active 산출물(상�
   for item in "$@"; do [ -e "$pdir/$item" ] && any=1; done
   [ "$any" = "1" ] || return 0
   # 멱등: 이 iter 라운드가 이미 보존됐으면 '덮어쓰지 않는다' — 최초 거절 스냅샷 보존(재생성 중간 실패 후 재시도가
-  #   기존 감사본을 partial active 로 교체하지 못하게; Codex 단계5 Medium). 동일 iter 재진입 = 이미 보존됨.
+  #   기존 감사본을 partial active 로 교체하지 못하게; 외부리뷰 단계5 Medium). 동일 iter 재진입 = 이미 보존됨.
   if [ -d "$rnd" ]; then info "  - 라운드 이미 보존됨(중복 아카이브 생략): ${rnd#"$HARNESS_ROOT"/}"; return 0; fi
   mkdir -p "$rnd"
   local cp_ok=1
@@ -610,7 +608,7 @@ storyboard_substage() {
   if [ -f "$ov" ] && [ "$(jget "$ov" verdict 2>/dev/null || true)" = "pass" ]; then echo "plan"; else echo "outline"; fi
 }
 
-# M4(C2·코덱스 HIGH): 03-storyboard 에서 substage 커서 필드가 부재(레거시/직접 seed)면 lock 안에서 1회 재구성·기록.
+# M4(C2·외부리뷰 HIGH): 03-storyboard 에서 substage 커서 필드가 부재(레거시/직접 seed)면 lock 안에서 1회 재구성·기록.
 #   verdict_path 를 읽는 kcia-check/gate/validate 가 'verdict 작성 후 재파생'으로 outline→plan flip 하지 않게(R3) —
 #   review 진행 중엔 필드만 신뢰. NEW run 은 advance-phase 가 03 진입 시 이미 기록하므로 이 함수는 no-op.
 ensure_storyboard_substage() {
@@ -722,6 +720,6 @@ print("incomplete" if d.get("incomplete") is True else "complete")' "$mf"
 #   run-stage 키비주얼 완료판정(preflight 면제·멱등 재진입)이 이 단일 술어를 쓴다(기존 engine!=stub 로직 보존 + incomplete 강화).
 image_manifest_complete() { [ "$(_image_manifest_class "$1")" = "complete" ]; }
 
-# P-1/Codex W1c: '실엔진 부분(incomplete) 매니페스트'인가 — 성공(0) = class=="incomplete".
+# P-1/외부리뷰 W1c: '실엔진 부분(incomplete) 매니페스트'인가 — 성공(0) = class=="incomplete".
 #   run-stage 가 이걸로 이미지 생성 미완결을 fail-closed 판정(부분 성공이 validate·advance 로 새지 않게). stub/오프라인은 항상 실패(1) → 골든 불변.
 image_manifest_incomplete() { [ "$(_image_manifest_class "$1")" = "incomplete" ]; }

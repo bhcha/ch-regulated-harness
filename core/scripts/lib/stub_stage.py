@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """stub_stage.py — 결정적 단계 생성기 (오프라인/CI 경로).
 
-실 LLM 경로(claude -p / codex exec)와 '동일한 산출물 계약'을 만족하는 결정적 출력.
+실 LLM 경로(세션 내 claude 생성)와 '동일한 산출물 계약'을 만족하는 결정적 출력.
 실입력(voc.json, claim-basis.json)에 근거를 두며, 환각 방지 규칙을 코드로 내장한다:
  - 근거 없는 효능을 컨셉 주축/카피로 쓰지 않는다(emotional/factual 만).
  - claim_strength superlative/efficacy/speed 는 실재 evidence_ref + footnote 가 있을 때만.
@@ -225,7 +225,7 @@ def gen_concept_reco(rdir):
     voc, _ = ingest(rdir)
     top = top_keywords(voc)
     out = os.path.join(rdir, "02-concept")
-    # 실제 존재하는 옵션만 ranked 에 (render/select 와 정합 — Codex #8)
+    # 실제 존재하는 옵션만 ranked 에 (render/select 와 정합 — 외부리뷰 #8)
     odir = os.path.join(out, "options")
     existing = sorted(os.listdir(odir)) if os.path.isdir(odir) else []
     if _is_cosmetic():
@@ -557,7 +557,7 @@ _GENERAL_FALLBACK_ORDER = ["ingredientTech", "brandBanner", "rtbSummary", "socia
 
 def _general_target_block(kind, present_types):
     """일반 참조 문서 반영 블록 결정: 매핑 블록이 스토리라인에 있으면 그것, 없으면 폴백(존재하는 첫 적합 블록,
-    그것도 없으면 hero 를 제외한 첫 블록, 최후엔 첫 블록). 매핑 블록 부재로 반영이 통째로 누락되는 것 차단(Codex)."""
+    그것도 없으면 hero 를 제외한 첫 블록, 최후엔 첫 블록). 매핑 블록 부재로 반영이 통째로 누락되는 것 차단(외부리뷰)."""
     mapped = _GENERAL_REFLECT_BLOCK.get(kind or "general", "brandBanner")
     if mapped in present_types:
         return mapped
@@ -694,7 +694,7 @@ def _plan_block(blk, top, cb, evdocs=None):
                                "evidence_ref": ev["id"], "footnote_id": "fn-1"})
                 footnotes.append({"id": "fn-1", "text": "인체적용시험 결과. 개인차가 있을 수 있습니다."})
     elif typ == "beforeAfter":
-        # Codex FIX 3b: beforeAfter 는 인체적용시험 수치 대비 블록 → 수치 차트(graph)로 렌더한다.
+        # 외부리뷰 FIX 3b: beforeAfter 는 인체적용시험 수치 대비 블록 → 수치 차트(graph)로 렌더한다.
         #   기존엔 default photo 로 떨어져 validate_storyboard 수치차트 가드와 충돌. graph 로 명시.
         #   골든-안전: 실증 미등록 골든 런엔 beforeAfter 블록 자체가 없다(evidence-gated 제외, stub_stage 8행).
         headline = "사용 전후 비교(절제 표현)"; visual_kind = "graph"
@@ -763,7 +763,7 @@ def gen_keyvisual(rdir):
 
 
 # 이슈3a: 키비주얼 옵션 A/B/C 가 '실제로 구별되는' 디자인 변주(레이아웃 밀도·헤드라인·accent 처리)를 갖도록 결정적 분기.
-#   동일 HTML 3장이 게이트를 통과하던 hollow-ness 차단(Codex 3a HIGH). 실 LLM 은 prompts/keyvisual.md 가 3안 디자인을 지시.
+#   동일 HTML 3장이 게이트를 통과하던 hollow-ness 차단(외부리뷰 3a HIGH). 실 LLM 은 prompts/keyvisual.md 가 3안 디자인을 지시.
 _KV_VARIANT = {
     "A": {"pad": "40px 24px", "hl": "32px", "accent_deco": "color:%s;" % ACCENT_DEFAULT, "note": "기본 레이아웃"},
     "B": {"pad": "28px 20px", "hl": "30px", "accent_deco": "color:%s;border-bottom:2px solid %s;" % (ACCENT_DEFAULT, ACCENT_DEFAULT), "note": "조밀 레이아웃(밀도↑)"},
@@ -1004,7 +1004,7 @@ def gen_intake(rdir):
     if wb_srcs:
         conv_dir = os.path.join(out, "converted")
         os.makedirs(conv_dir, exist_ok=True)
-        # ★ Codex W4-R6: 워킹백워드가 여러 문서면 '전부' 결합한다(첫 파일만 쓰면 나머지 기획문서의 사실이 유실).
+        # ★ 외부리뷰 W4-R6: 워킹백워드가 여러 문서면 '전부' 결합한다(첫 파일만 쓰면 나머지 기획문서의 사실이 유실).
         parts = []
         for _w in wb_srcs:
             try:

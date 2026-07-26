@@ -189,7 +189,7 @@ async function uploadImageOptions(
   for (const opt of p.options) {
     const files: FileUpload[] = [];
     // imagePaths 는 keyvisual-reader 가 realpath 로 심링크를 해소해 kvDir 하위 실파일만 vetting 한 것이다
-    //   (임의 로컬 파일 업로드 차단 — Codex P2 HIGH). 여기선 그 검증된 경로만 읽는다.
+    //   (임의 로컬 파일 업로드 차단 — 외부리뷰 P2 HIGH). 여기선 그 검증된 경로만 읽는다.
     for (const path of opt.imagePaths) {
       try {
         files.push({ data: await readFile(path), filename: basename(path) });

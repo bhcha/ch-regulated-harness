@@ -29,7 +29,7 @@ RID="_fixture_build"
 #   심링크 제거·decouple). 다른 번들로 재생성하려면 --bundle(또는 TEST_BUNDLE) 지정(docs/reference/deployment.md).
 BUNDLE="${ARG_BUNDLE:-${TEST_BUNDLE:-$ROOT/tests/fixtures/bundle-cosmetic}}"
 # WB 는 테스트 픽스처(cosmetic 샘플)로 고정 — 운영 WB(중립 템플릿)와 분리(lib.sh 와 동일).
-#   이게 없으면 재생성 시 템플릿으로 fixtures/*-in 이 만들어져 핸드오프 계약이 비게 된다(Codex 리뷰 medium).
+#   이게 없으면 재생성 시 템플릿으로 fixtures/*-in 이 만들어져 핸드오프 계약이 비게 된다(외부리뷰 medium).
 export HARNESS_CLI=stub HARNESS_OFFLINE=1 HARNESS_DOMAIN="$DOMAIN" HARNESS_FORMAT=multipage_bm
 export HARNESS_WB="${ARG_WB:-${HARNESS_WB:-$PACKS_DIR/cosmetic/golden/working-backwards.md}}"
 # 사례 corpus 격리(재현성): 로컬 inputs/examples/<도메인> 존재 시 ingest 가 00g 로 라우팅해 핸드오프 직행이
@@ -44,7 +44,7 @@ snap() {  # snap <boundary> <expected_phase> — '도달한 경계'만 run-dir �
   cur="$(python3 scripts/lib/harness.py jget "runs/$RID/state.json" phase)"
   if [ "$want" != "$cur" ]; then
     # 조기 종료(escalate 등)로 그 경계에 도달하지 못함 → 스냅 생략(3-경계 시퀀스 하드코딩 금지).
-    #   이전 재생성에서 남은 stale 스냅샷은 제거(멱등: 이번 런에서 미도달인 경계가 옛 파일로 커밋/테스트에 새면 안 됨, Codex P2).
+    #   이전 재생성에서 남은 stale 스냅샷은 제거(멱등: 이번 런에서 미도달인 경계가 옛 파일로 커밋/테스트에 새면 안 됨, 외부리뷰 P2).
     rm -rf "$SNAP_ROOT/$b-in"
     echo "  ⊘ $SNAP_ROOT/$b-in 생략 (phase=$cur ≠ 기대 $want — 조기 종료/미도달; stale 제거)"
     return 0

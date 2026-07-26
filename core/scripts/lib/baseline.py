@@ -101,7 +101,7 @@ def cmd_verify(run_dir, manifest_path):
             changed.append(rel)
     extra = sorted(set(cur) - set(golden))   # 골든에 없던 신규 산출물(경고: 마이그레이션이 새 경로를 만들었나?)
     if extra:
-        # 신규 파일은 회귀로 단정하지 않는다(의도된 추가일 수 있음) — 단 반드시 가시화(눈으로 확인, 코덱스 medium).
+        # 신규 파일은 회귀로 단정하지 않는다(의도된 추가일 수 있음) — 단 반드시 가시화(눈으로 확인, 외부리뷰 medium).
         sys.stderr.write("[verify] 주의: 골든에 없던 신규 산출물 %d(의도 확인 필요):\n  %s\n" % (len(extra), "\n  ".join(extra)))
     if not changed and not missing:
         print("[verify] OK — 골든 %d 항목 의미 바이트 동일(미변경 경로 보존)%s." % (

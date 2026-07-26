@@ -8,7 +8,7 @@ echo "## DRUG-GOLDEN — 의약품 5축 + 필수기재 + 전문/일반 하드스
 
 # ── (A) scan_text 축 검출 골든 (golden_runner; drug_misperception·consumer_deception·substantiation_required) ──
 #   누수#1(consumer_deception severity 하드코딩)이 검출/severity 를 바꾸면 여기서 잡힌다(golden_runner 는 axis + severity≥기대 검사).
-#   (주의) 누수#4(subst_ref)는 _vio() 가 ref 를 출력에 안 넣어 verdict 로는 관측 불가 → (D)에서 Engine.subst_ref attribute 로 직접 동결(코덱스 단계2-pre High).
+#   (주의) 누수#4(subst_ref)는 _vio() 가 ref 를 출력에 안 넣어 verdict 로는 관측 불가 → (D)에서 Engine.subst_ref attribute 로 직접 동결(외부리뷰 단계2-pre High).
 GR="$(python3 "$ROOT/scripts/lib/golden_runner.py" "$PACKS_DIR/drug/golden/kcia-golden-set.json" --json 2>/dev/null)"
 check "(A) drug 골든셋 게이트 통과(검출≥0.8·오탐≤0.15·balance·라벨품질)" \
   "echo '$GR' | python3 -c 'import sys,json;sys.exit(0 if json.load(sys.stdin)[\"gate_pass\"] else 1)'"
@@ -78,7 +78,7 @@ gen_mi = mi_rules(v_gen)
 print("MI_GENERIC_NAME_FLAGGED=%d" % int(any("제품명" in r for r in gen_mi)))
 print("MI_GENERIC_OTHER_OK=%d" % int(sum(1 for r in gen_mi if "제품명" not in r) == 0))
 
-# (B·코덱스 단계2 R2 High/Medium) 정확 제품명 매칭의 경계성 — 다른 4항목 공통 푸터(_REST) 위에 제품명 영역만 변형.
+# (B·외부리뷰 단계2 R2 High/Medium) 정확 제품명 매칭의 경계성 — 다른 4항목 공통 푸터(_REST) 위에 제품명 영역만 변형.
 _REST = ("<p>부작용이 있을 수 있으니 첨부된 사용상의 주의사항을 잘 읽고 의사·약사와 상의하십시오.</p>"
          "<footer>광고심의필 : 1234-5678-901234 | 제조판매원 대웅제약 | [광고] 원고료 경제적 이해관계 표시</footer>")
 # High(부분문자열 fail-open): 면허명 '우루사정'이 더 긴 토큰 '우루사정플러스'에만 있음 → 독립 노출 아님 → product-name-full flag.
@@ -91,7 +91,7 @@ split_mi = mi_rules(evaluate("drug-mi-split", mkrun("drug-mi-split", page_split)
 print("MI_SPLIT_NAME_OK=%d" % int(not any("제품명" in r for r in split_mi)))
 print("MI_SPLIT_TOTAL=%d" % len(split_mi))
 
-# (B·코덱스 단계2 3R High) 충실 렌더 경계 — gather 일괄 공백결합 fail-open 차단(노드/ZWJ/전각으로 경계 split).
+# (B·외부리뷰 단계2 3R High) 충실 렌더 경계 — gather 일괄 공백결합 fail-open 차단(노드/ZWJ/전각으로 경계 split).
 #   prefix split: '<h1>신<span>우루사정</span></h1>' → 충실렌더 '신우루사정'(인라인 연결) → 면허명 '우루사정' 묻힘 → flag.
 page_pre = "<html><body><h1>신<span>우루사정</span></h1>" + _REST + "</body></html>"
 pre_mi = mi_rules(evaluate("drug-mi-pre", mkrun("drug-mi-pre", page_pre), None, "drug-golden"))
@@ -113,7 +113,7 @@ page_fwok = "<html><body><h1>ＥＺｄｅｗ</h1>" + _REST + "</body></html>"
 fwok_mi = mi_rules(evaluate("drug-mi-fwok", mkrun("drug-mi-fwok", page_fwok, {"name": "EZdew"}), None, "drug-golden"))
 print("MI_R3_FULLWIDTH_OK=%d" % int(not any("제품명" in r for r in fwok_mi)))
 
-# (B·코덱스 단계2 4R High) 더 깊은 fail-open — CSS 생성콘텐츠 글루 / 비가시 카테고리 / 비라틴 경계.
+# (B·외부리뷰 단계2 4R High) 더 깊은 fail-open — CSS 생성콘텐츠 글루 / 비가시 카테고리 / 비라틴 경계.
 H = "<html><head><style>%s</style></head><body><h1%s>우루사정</h1>" + _REST + "</body></html>"
 #   High1: CSS ::after/::before 단어콘텐츠·attr() → 화면상 더 긴 토큰('우루사정플러스') → 정적검증 불가 fail-closed flag.
 print("MI_R4_CSS_AFTER=%d"  % name_flagged("drug-mi-css-a", H % ('h1::after{content:"플러스"}', "")))
@@ -130,7 +130,7 @@ for tag, ch in [("CGJ", "\u034f"), ("ALM", "\u061c"), ("MVS", "\u180e"), ("VS16"
 print("MI_R4_CJK_SUFFIX=%d"   % name_flagged("drug-mi-cjk", "<html><body><h1>우루사정丸</h1>" + _REST + "</body></html>"))
 print("MI_R4_GREEK_SUFFIX=%d" % name_flagged("drug-mi-grk", "<html><body><h1>EZdewα</h1>" + _REST + "</body></html>", name="EZdew"))
 
-# (B·코덱스 단계2 5R) CSS 글루 default-deny(추가 텍스트생성 경로) · 블록횡단 합성 차단 · decode 크래시.
+# (B·외부리뷰 단계2 5R) CSS 글루 default-deny(추가 텍스트생성 경로) · 블록횡단 합성 차단 · decode 크래시.
 #   High1: var()/open-quote/counters()/따옴표안 ';'/env() 등 무한한 CSS 텍스트생성 → 열거 대신 default-deny(무해 아니면 글루 위험 flag).
 for tag, css in [("VAR", 'h1::after{content:var(--x)}'), ("OPENQUOTE", 'h1::before{content:open-quote}'),
                  ("COUNTERS", 'h1::after{content:counters(c,".")}'), ("SEMICOLON", 'h1::after{content:"플;러스"}'),
@@ -146,7 +146,7 @@ print("MI_R5_LETTERSPACE_OK=%d" % (1 - name_flagged("drug-mi-lsp", "<html><body>
 #   Medium: CSS escape 범위초과(\\110000)에도 엔진 안 죽음(verdict 생성 완료) — 위반 리스트가 list 면 통과.
 print("MI_R5_DECODE_NOCRASH=%d" % int(isinstance(evaluate("drug-mi-decode", mkrun("drug-mi-decode", '<html><head><style>h1::after{content:"\\110000"}</style></head><body><h1>우루사정</h1>' + _REST + "</body></html>"), None, "drug-golden").get("violations"), list)))
 
-# (B·코덱스 단계2 6R High1) 가시 노출만 인정 — 숨김/비렌더 DOM(title/template/hidden/display:none/aria-hidden/noscript)으로 충족되던 fail-open 차단.
+# (B·외부리뷰 단계2 6R High1) 가시 노출만 인정 — 숨김/비렌더 DOM(title/template/hidden/display:none/aria-hidden/noscript)으로 충족되던 fail-open 차단.
 #   필수기재는 '가시 노출' 기준. 제품명이 본문에 안 보이고 비렌더 영역에만 있으면 누락 flag.
 _BODY_NONAME = "<body><h2>제품 소개</h2>" + _REST + "</body></html>"
 print("MI_R6_HIDDEN_TITLE=%d"   % name_flagged("drug-mi-h-title", "<html><head><title>우루사정</title></head>" + _BODY_NONAME))
@@ -160,7 +160,7 @@ print("MI_R6_VISIBLE_OK=%d"     % (1 - name_flagged("drug-mi-v-ok", "<html><head
 print("MI_R6_HIDDEN_SIBLING_OK=%d" % (1 - name_flagged("drug-mi-v-sib", "<html><body><h1>우루사정</h1><div hidden>플러스</div>" + _REST + "</body></html>")))
 print("MI_R6_INNER_HIDDEN_OK=%d"   % (1 - name_flagged("drug-mi-v-inhid", "<html><body><h1>우루사<span hidden>XXX</span>정</h1>" + _REST + "</body></html>")))
 
-# (B·코덱스 단계2 7R Medium 일부) 인라인 판정 가능한 추가 비노출(datalist · open 없는 dialog/details · visibility:collapse · opacity:0).
+# (B·외부리뷰 단계2 7R Medium 일부) 인라인 판정 가능한 추가 비노출(datalist · open 없는 dialog/details · visibility:collapse · opacity:0).
 #   (computed-CSS/class 의존 sr-only·clip·off-screen·font-size:0·color:transparent 은 정적 한계로 수용 잔여 — _is_hidden 주석 명시.)
 _NN = "<h2>제품 소개</h2>" + _REST + "</body></html>"
 print("MI_R7_DATALIST=%d"   % name_flagged("drug-mi-7dl", "<html><body><datalist><option>우루사정</option></datalist>" + _NN))
@@ -199,11 +199,11 @@ _subst_drug = Engine(load_ruleset("drug"), {}, set()).subst_ref or ""
 print("SUBST_REF_DRUG_YAKSA=%d" % int("약사법" in _subst_drug))
 print("SUBST_REF_DRUG_NOT_COSMETIC=%d" % int("화장품법" not in _subst_drug))
 
-# (E) 단계3 팩 로더 fail-closed (코덱스 단계3 R2·R3 High/Medium) — 손상/누락/변형 domain.json 이 cosmetic 으로 조용히 폴백되면 의약품 오심의.
+# (E) 단계3 팩 로더 fail-closed (외부리뷰 단계3 R2·R3 High/Medium) — 손상/누락/변형 domain.json 이 cosmetic 으로 조용히 폴백되면 의약품 오심의.
 #   유효 팩 = JSON 파싱 + status(문자열) + domain==디렉터리명. 변형은 전부 미완(axes 0·incomplete) fail-closed. (2부 1단계) default→cosmetic 메커니즘 폐지 → reg default=None.
 import kcia_engine as _k
 _orig = _k.load_json
-_DRUG_DJ = os.path.join(_k.PACKS_DIR, "drug", "domain.json")   # 정확 경로(quasi_drug/domain.json 오매칭 금지 — 코덱스 R3 Low)
+_DRUG_DJ = os.path.join(_k.PACKS_DIR, "drug", "domain.json")   # 정확 경로(quasi_drug/domain.json 오매칭 금지 — 외부리뷰 R3 Low)
 def _inject(payload):
     # payload: Exception(파싱실패) 또는 dict(반환값). drug/domain.json 만 가로채고 나머지는 원본.
     def f(p):
@@ -227,14 +227,14 @@ print("PACK_FC_NO_DOMAIN=%d"   % _drug_failclosed({"label": "의약품", "status
 print("PACK_FC_DOMAIN_MISMATCH=%d" % _drug_failclosed({"domain": "cosmetic", "status": "active"}))   # domain≠디렉터리
 print("PACK_FC_NO_STATUS=%d"   % _drug_failclosed({"domain": "drug", "label": "x"}))             # status 없음
 print("PACK_FC_DEFAULT_HIJACK=%d" % _drug_failclosed({"label": "의약품", "status": "active", "default": True}))  # default 탈취 시도
-# (코덱스 R5) status enum 검증: 오타/공백/대소문자 = 유효 아님 → fail-closed(autopass 우회 차단).
+# (외부리뷰 R5) status enum 검증: 오타/공백/대소문자 = 유효 아님 → fail-closed(autopass 우회 차단).
 print("PACK_FC_STATUS_TRAILSPACE=%d" % _drug_failclosed({"domain": "drug", "status": "active "}))   # 'active ' 공백
 print("PACK_FC_STATUS_UPPER=%d"  % _drug_failclosed({"domain": "drug", "status": "ACTIVE"}))         # 대소문자
 print("PACK_FC_STATUS_UNKNOWN=%d" % _drug_failclosed({"domain": "drug", "status": "foo"}))           # 미정의 enum
-# (코덱스 R5) domain.json 최상위 타입: 객체(dict) 아니면 손상(pair-list 배열의 dict 승격 차단).
+# (외부리뷰 R5) domain.json 최상위 타입: 객체(dict) 아니면 손상(pair-list 배열의 dict 승격 차단).
 print("PACK_FC_ARRAY_TYPE=%d"    % _drug_failclosed([["domain", "drug"], ["status", "tbd"]]))        # pair-list 배열
 print("PACK_FC_NONDICT=%d"       % _drug_failclosed("drug"))                                          # 비-dict(문자열)
-# (코덱스 R6) status 가 배열/객체 → 'x in set' TypeError 로 레지스트리 전체 크래시 금지(나쁜 팩 1개는 자신만 fail-closed, 타 도메인 유지).
+# (외부리뷰 R6) status 가 배열/객체 → 'x in set' TypeError 로 레지스트리 전체 크래시 금지(나쁜 팩 1개는 자신만 fail-closed, 타 도메인 유지).
 print("PACK_FC_STATUS_ARRAY=%d"  % _drug_failclosed({"domain": "drug", "status": ["active"]}))        # status 배열
 print("PACK_FC_STATUS_OBJECT=%d" % _drug_failclosed({"domain": "drug", "status": {"v": "active"}}))   # status 객체
 # 정상 회귀: drug=7축, 명시 미등록 도메인 fail-closed, domain=None → fail-closed(2부 1단계: cosmetic 폴백 폐지).
@@ -256,36 +256,36 @@ check "(B) 필수기재 완비 페이지 → MI 위반 0"    "[ \"${MI_OK_COUNT:
 # 누수#3 수정 완료: signals 외부화({product_name} 토큰)로 정확한 제품명(state.product.name)도 검사한다.
 #   누락 페이지가 정확 제품명('우루사정')을 안 담으면 검출 → _mi_sig 하드코딩 시절 누락이던 product-name-full 이 이제 커버됨.
 check "(B·누수#3) 정확한 제품명 누락 검출(signals {product_name} 외부화로 커버)" "[ \"${MI_MISS_PRODUCT_NAME:-9}\" = '1' ]"
-# (B·fail-closed 코덱스 단계2 High) 일반 플레이스홀더('제품') 제품명 → 정확한 제품명 미충족(다른 4항목은 충족이라 product-name-full 만 flag)
+# (B·fail-closed 외부리뷰 단계2 High) 일반 플레이스홀더('제품') 제품명 → 정확한 제품명 미충족(다른 4항목은 충족이라 product-name-full 만 flag)
 check "(B·fail-closed) 일반 제품명('제품') → 정확한 제품명 필수기재 미충족 flag" "[ \"${MI_GENERIC_NAME_FLAGGED:-0}\" = '1' ]"
 check "(B·fail-closed) 일반 제품명 케이스 — 다른 4항목은 충족(product-name-full 만 누락)" "[ \"${MI_GENERIC_OTHER_OK:-0}\" = '1' ]"
-# (B·코덱스 R2 High) 부분문자열 fail-open 차단: '우루사정'이 '우루사정플러스'에만 묻히면 → 미충족 flag
+# (B·외부리뷰 R2 High) 부분문자열 fail-open 차단: '우루사정'이 '우루사정플러스'에만 묻히면 → 미충족 flag
 check "(B·R2 High) 부분문자열 fail-open 차단(우루사정 ⊄ 우루사정플러스 → 제품명 누락 flag)" "[ \"${MI_SUBSTR_NAME_FLAGGED:-0}\" = '1' ]"
-# (B·코덱스 R2 Medium) 마크업/공백 분할 정상 페이지는 통과: '우루사<span>정</span>' → 충족(필수기재 0)
+# (B·외부리뷰 R2 Medium) 마크업/공백 분할 정상 페이지는 통과: '우루사<span>정</span>' → 충족(필수기재 0)
 check "(B·R2 Medium) 마크업 분할 제품명 정상 충족(우루사<span>정</span> → 제품명 flag 없음)" "[ \"${MI_SPLIT_NAME_OK:-0}\" = '1' ]"
 check "(B·R2 Medium) 마크업 분할 정상 페이지 → 필수기재 위반 0(4항목+제품명 전부 충족)" "[ \"${MI_SPLIT_TOTAL:-9}\" = '0' ]"
-# (B·코덱스 3R High) 충실 렌더 경계 — 노드/ZWJ/전각 경계 split fail-open 차단(gather 일괄 공백결합 우회)
+# (B·외부리뷰 3R High) 충실 렌더 경계 — 노드/ZWJ/전각 경계 split fail-open 차단(gather 일괄 공백결합 우회)
 check "(B·3R High) prefix 노드 split fail-open 차단(신<span>우루사정 → 신우루사정 → flag)" "[ \"${MI_R3_PREFIX_FLAGGED:-0}\" = '1' ]"
 check "(B·3R High) suffix 노드 split fail-open 차단(우루사정|플러스 → 우루사정플러스 → flag)" "[ \"${MI_R3_SUFFIX_FLAGGED:-0}\" = '1' ]"
 check "(B·3R High) zero-width(ZWJ) 우회 차단(우루사정<ZWJ>플러스 → flag)" "[ \"${MI_R3_ZWJ_FLAGGED:-0}\" = '1' ]"
 check "(B·3R High) 전각 우회 차단(ＥＺｄｅｗＰｌｕｓ ⊃ EZdew → NFKC → flag)" "[ \"${MI_R3_FULLWIDTH_FLAGGED:-0}\" = '1' ]"
 check "(B·3R Medium) 전각 정상 제품명 충족(ＥＺｄｅｗ=EZdew → flag 없음, false-positive 아님)" "[ \"${MI_R3_FULLWIDTH_OK:-0}\" = '1' ]"
-# (B·코덱스 4R High1) CSS ::before/::after 생성콘텐츠 글루 — 정적검증 불가 → fail-closed flag
+# (B·외부리뷰 4R High1) CSS ::before/::after 생성콘텐츠 글루 — 정적검증 불가 → fail-closed flag
 check "(B·4R High1) CSS ::after 단어콘텐츠 글루 차단(content:플러스 → flag)" "[ \"${MI_R4_CSS_AFTER:-0}\" = '1' ]"
 check "(B·4R High1) CSS ::before 단어콘텐츠 글루 차단(content:신 → flag)" "[ \"${MI_R4_CSS_BEFORE:-0}\" = '1' ]"
 check "(B·4R High1) CSS content:attr() 동적콘텐츠 글루 차단 → flag" "[ \"${MI_R4_CSS_ATTR:-0}\" = '1' ]"
 check "(B·4R High1) 외부 styles.css ::after 글루 차단 → flag" "[ \"${MI_R4_CSS_EXTCSS:-0}\" = '1' ]"
 check "(B·4R Medium) ::after 기호/아이콘 content는 무위험 → 충족(false-positive 아님)" "[ \"${MI_R4_CSS_SYMBOL_OK:-0}\" = '1' ]"
-# (B·코덱스 4R High2) 비가시 카테고리(Cf/VS/CGJ) 제거 → 경계우회 차단
+# (B·외부리뷰 4R High2) 비가시 카테고리(Cf/VS/CGJ) 제거 → 경계우회 차단
 check "(B·4R High2) CGJ(U+034F) 우회 차단 → flag" "[ \"${MI_R4_INVIS_CGJ:-0}\" = '1' ]"
 check "(B·4R High2) Arabic letter mark(U+061C) 우회 차단 → flag" "[ \"${MI_R4_INVIS_ALM:-0}\" = '1' ]"
 check "(B·4R High2) Mongolian vowel sep(U+180E) 우회 차단 → flag" "[ \"${MI_R4_INVIS_MVS:-0}\" = '1' ]"
 check "(B·4R High2) variation selector VS16(U+FE0F) 우회 차단 → flag" "[ \"${MI_R4_INVIS_VS16:-0}\" = '1' ]"
 check "(B·4R High2) variation selector VS17(U+E0100) 우회 차단 → flag" "[ \"${MI_R4_INVIS_VS17:-0}\" = '1' ]"
-# (B·코덱스 4R High3) 비라틴 경계(유니코드 카테고리 L*/N*/M*) — 비라틴 suffix 도 토큰 연속
+# (B·외부리뷰 4R High3) 비라틴 경계(유니코드 카테고리 L*/N*/M*) — 비라틴 suffix 도 토큰 연속
 check "(B·4R High3) CJK suffix(우루사정丸) 경계우회 차단 → flag" "[ \"${MI_R4_CJK_SUFFIX:-0}\" = '1' ]"
 check "(B·4R High3) Greek suffix(EZdewα) 경계우회 차단 → flag" "[ \"${MI_R4_GREEK_SUFFIX:-0}\" = '1' ]"
-# (B·코덱스 5R High1) CSS 글루 default-deny — 무한한 텍스트생성 경로를 열거 대신 보수적 차단
+# (B·외부리뷰 5R High1) CSS 글루 default-deny — 무한한 텍스트생성 경로를 열거 대신 보수적 차단
 check "(B·5R High1) CSS content:var() 글루 차단 → flag" "[ \"${MI_R5_GLUE_VAR:-0}\" = '1' ]"
 check "(B·5R High1) CSS open-quote 글루 차단 → flag" "[ \"${MI_R5_GLUE_OPENQUOTE:-0}\" = '1' ]"
 check "(B·5R High1) CSS counters() 글루 차단 → flag" "[ \"${MI_R5_GLUE_COUNTERS:-0}\" = '1' ]"
@@ -293,12 +293,12 @@ check "(B·5R High1) CSS 따옴표안 세미콜론(플;러스) 파싱 → flag" 
 check "(B·5R High1) CSS content:env() 글루 차단 → flag" "[ \"${MI_R5_GLUE_ENV:-0}\" = '1' ]"
 check "(B·5R Medium) CSS content:none 무해 → 충족(false-positive 아님)" "[ \"${MI_R5_GLUE_NONE_OK:-0}\" = '1' ]"
 check "(B·5R Medium) CSS PUA 아이콘 content 무해 → 충족(false-positive 아님)" "[ \"${MI_R5_GLUE_PUA_OK:-0}\" = '1' ]"
-# (B·코덱스 5R High2) 블록횡단 글자 합성 차단(\\n 블록경계)
+# (B·외부리뷰 5R High2) 블록횡단 글자 합성 차단(\\n 블록경계)
 check "(B·5R High2) 블록횡단 흩뿌림(우/루/사/정 별도 블록) 합성 차단 → flag" "[ \"${MI_R5_BLOCK_SCATTER:-0}\" = '1' ]"
 check "(B·5R Medium) 같은 블록 letter-spacing(우 루 사 정) 충족(false-positive 아님)" "[ \"${MI_R5_LETTERSPACE_OK:-0}\" = '1' ]"
-# (B·코덱스 5R Medium) CSS escape 범위초과(\\110000) 엔진 크래시 방지
+# (B·외부리뷰 5R Medium) CSS escape 범위초과(\\110000) 엔진 크래시 방지
 check "(B·5R Medium) CSS escape 범위초과 → ValueError 크래시 없음(verdict 생성)" "[ \"${MI_R5_DECODE_NOCRASH:-0}\" = '1' ]"
-# (B·코덱스 6R High1) 가시 노출만 인정 — 숨김/비렌더 DOM 으로 충족되던 fail-open 차단
+# (B·외부리뷰 6R High1) 가시 노출만 인정 — 숨김/비렌더 DOM 으로 충족되던 fail-open 차단
 check "(B·6R High1) <title> 만(본문 미노출) → 가시 미충족 flag" "[ \"${MI_R6_HIDDEN_TITLE:-0}\" = '1' ]"
 check "(B·6R High1) <template> 안 제품명 → 비렌더 미충족 flag" "[ \"${MI_R6_HIDDEN_TEMPLATE:-0}\" = '1' ]"
 check "(B·6R High1) hidden 속성 → 미충족 flag" "[ \"${MI_R6_HIDDEN_ATTR:-0}\" = '1' ]"
@@ -308,7 +308,7 @@ check "(B·6R High1) noscript 안 → 미충족 flag" "[ \"${MI_R6_HIDDEN_NOSCRI
 check "(B·6R Medium) title+body 둘 다 노출 → 충족(false-positive 아님)" "[ \"${MI_R6_VISIBLE_OK:-0}\" = '1' ]"
 check "(B·6R Medium) 숨김 형제는 무관(이름 가시) → 충족" "[ \"${MI_R6_HIDDEN_SIBLING_OK:-0}\" = '1' ]"
 check "(B·6R Medium) 이름 내부 숨김 span 제거→연결 → 충족" "[ \"${MI_R6_INNER_HIDDEN_OK:-0}\" = '1' ]"
-# (B·코덱스 7R Medium) 인라인 판정 가능한 추가 비노출 폐쇄
+# (B·외부리뷰 7R Medium) 인라인 판정 가능한 추가 비노출 폐쇄
 check "(B·7R) <datalist> 안 → 비노출 미충족 flag" "[ \"${MI_R7_DATALIST:-0}\" = '1' ]"
 check "(B·7R) open 없는 <dialog> → 비표시 미충족 flag" "[ \"${MI_R7_DIALOG:-0}\" = '1' ]"
 check "(B·7R) open 없는 <details> 본문 → 비표시 미충족 flag" "[ \"${MI_R7_DETAILS:-0}\" = '1' ]"
@@ -328,7 +328,7 @@ check "(C) 전문의약품×전문가매체 → 하드스톱 면제" "[ \"${RX_P
 check "(D·누수#4) drug substantiation ref = 약사법 인용" "[ \"${SUBST_REF_DRUG_YAKSA:-0}\" = '1' ]"
 check "(D·누수#4) drug substantiation ref ≠ 화장품법 폴백" "[ \"${SUBST_REF_DRUG_NOT_COSMETIC:-0}\" = '1' ]"
 
-# (E) 단계3 팩 로더 fail-closed (코덱스 단계3 R2·R3 High/Medium) — 손상 domain.json 변형 전수 → cosmetic 오폴백 차단(2부 1단계: default 메커니즘 자체 폐지)
+# (E) 단계3 팩 로더 fail-closed (외부리뷰 단계3 R2·R3 High/Medium) — 손상 domain.json 변형 전수 → cosmetic 오폴백 차단(2부 1단계: default 메커니즘 자체 폐지)
 check "(E·3R) 파싱 실패 domain.json → fail-closed(미완·default 메커니즘 폐지)" "[ \"${PACK_FC_PARSE_EXC:-0}\" = '1' ]"
 check "(E·3R) domain 키 없음 → fail-closed(R3 Medium)" "[ \"${PACK_FC_NO_DOMAIN:-0}\" = '1' ]"
 check "(E·3R) domain≠디렉터리명 → fail-closed" "[ \"${PACK_FC_DOMAIN_MISMATCH:-0}\" = '1' ]"
@@ -337,7 +337,7 @@ check "(E·3R) default:true 탈취 시도 → default 메커니즘 폐지(무시
 check "(E·3R) 정상 drug = 7축(회귀 없음)" "[ \"${PACK_DRUG_NORMAL_7AXES:-0}\" = '1' ]"
 check "(E·3R) 명시 미등록 도메인 → cosmetic 폴백 금지(fail-closed)" "[ \"${PACK_UNREG_FAILCLOSED:-0}\" = '1' ]"
 check "(E·3R) domain=None → fail-closed(cosmetic 폴백 폐지)" "[ \"${PACK_NONE_FAILCLOSED:-0}\" = '1' ]"
-# (E·5R) status enum + dict 타입 검증 (코덱스 단계3 R5 High)
+# (E·5R) status enum + dict 타입 검증 (외부리뷰 단계3 R5 High)
 check "(E·5R) status 'active '(공백) → fail-closed" "[ \"${PACK_FC_STATUS_TRAILSPACE:-0}\" = '1' ]"
 check "(E·5R) status 'ACTIVE'(대소문자) → fail-closed" "[ \"${PACK_FC_STATUS_UPPER:-0}\" = '1' ]"
 check "(E·5R) status 'foo'(미정의 enum) → fail-closed" "[ \"${PACK_FC_STATUS_UNKNOWN:-0}\" = '1' ]"
@@ -347,7 +347,7 @@ check "(E·5R) domain.json 비-dict(문자열) → fail-closed" "[ \"${PACK_FC_N
 check "(E·6R) status 배열 → fail-closed(레지스트리 크래시 없음)" "[ \"${PACK_FC_STATUS_ARRAY:-0}\" = '1' ]"
 check "(E·6R) status 객체 → fail-closed(레지스트리 크래시 없음)" "[ \"${PACK_FC_STATUS_OBJECT:-0}\" = '1' ]"
 
-# (F) 단계3 shell autopass 게이트 (코덱스 단계3 R4 High/Low) — domain_field 가 Python 검증 레지스트리를 질의(단일 출처).
+# (F) 단계3 shell autopass 게이트 (외부리뷰 단계3 R4 High/Low) — domain_field 가 Python 검증 레지스트리를 질의(단일 출처).
 #   손상/변형 domain.json → status 빈값(autopass 우회 차단; kcia-check 가 active 기본→엔진 fail-closed). 유효 tbd 만 autopass.
 _FTMP="$(mktemp -d "${TMPDIR:-/tmp}/packfield.XXXXXX")"
 mkdir -p "$_FTMP/drug" "$_FTMP/quasi_drug" "$_FTMP/cosmetic"

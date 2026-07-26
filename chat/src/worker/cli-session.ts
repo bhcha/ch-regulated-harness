@@ -38,7 +38,7 @@
  *   `ENABLE_CLAUDEAI_MCP_SERVERS=false` 로 **결정적 도구 표면 계약을 복원**한다.
  *   ⚠ 이건 **게이트 우회 증명이 아니다**(과장 금지): MCP 도구도 제 몫의 승인이 필요하므로 헤드리스에선 어차피
  *     fail-closed 다. 여기서 되찾는 건 '무엇이 붙어 있는지 우리가 안다'는 **결정성**이지 뚫린 구멍을 막는 게 아니다.
- *   ⚠ **정정(Codex W2-R2)**: 앞선 주석은 "`core/.claude/settings.local.json` 의 `{"enabledMcpjsonServers": []}` 가
+ *   ⚠ **정정(외부리뷰 W2-R2)**: 앞선 주석은 "`core/.claude/settings.local.json` 의 `{"enabledMcpjsonServers": []}` 가
  *     오늘 `.mcp.json` 을 억누르는 유일한 것이라, 설정소스 핀만 넣으면 MCP 가 오히려 열린다"고 적었는데 **틀렸다**.
  *     ① `enabledMcpjsonServers` 는 **거부 목록이 아니라 승인 목록**이라 빈 배열이 무언가를 억제하는 게 아니다
  *        (명시 거부는 `disabledMcpjsonServers`). ② 2.1.212 의 프로젝트 MCP 로더는 `projectSettings` 가 선택되지
@@ -263,7 +263,7 @@ export interface WorkerSettings {
 /**
  * 격리 `CLAUDE_CONFIG_DIR/settings.json` 내용 — **경계 안쪽에서 파내는 예외**만 담는다(부록A-7 2번).
  *
- * ⚠ **이 deny 는 '보조 방어'가 아니라 하중을 받는다**(Codex W2-R2 정정): `--permission-mode acceptEdits` 라
+ * ⚠ **이 deny 는 '보조 방어'가 아니라 하중을 받는다**(외부리뷰 W2-R2 정정): `--permission-mode acceptEdits` 라
  *   **cwd 안 쓰기는 자동 승인**되는데 cwd(`runs/<rid>`) 안에 `state.json` 이 있다. 즉 아래 ①을 빼면 세션이
  *   state 를 직접 쓰는 걸 막는 게 **아무것도 없다**. 읽기 경계(cwd)·실행 경계(allow 규칙 부재)와 달리 이건
  *   구조가 아니라 **규칙 문자열이 실제로 매칭돼야** 성립한다 → 아래 ⚠(글롭 철자 미실측)가 그래서 중요하다.

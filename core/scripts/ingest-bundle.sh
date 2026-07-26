@@ -37,7 +37,7 @@ if [ -z "${HARNESS_LOCK_HELD:-}" ]; then acquire_lock "$RID"; export HARNESS_LOC
 # 규제도메인을 ingest.py 서브프로세스에 주입(도메인별 추출 프로파일 선택; cosmetic=모듈 기본값).
 HARNESS_DOMAIN="$(resolve_domain "$(state_file "$RID")")"; export HARNESS_DOMAIN   # DRY: common.sh resolve_domain
 # 도메인-aware 자산/프로파일 seam(67행 등)이 빈 도메인이면 packs//samples/... 로 조용히 실패한다 →
-#   미선언/레거시 state 는 명시 fail-closed(정상 new-run 은 도메인 필수라 도달 불가; Codex Low#6).
+#   미선언/레거시 state 는 명시 fail-closed(정상 new-run 은 도메인 필수라 도달 불가; 외부리뷰 Low#6).
 [ -n "$HARNESS_DOMAIN" ] || die "규제 도메인이 선언되지 않았습니다(state.product.regulatory_domain 없음) — new-run.sh 로 도메인을 선언하세요(fail-closed)."
 # M-2: 선언 제품명(state.product.name)을 읽어 claim-basis·voc 추출에 전달 — 다제품 WB 를 그 제품 섹션으로
 #   스코핑(타제품 근거·유형 혼입 차단). 스크립트만 state 를 읽는다(AGENTS 절대규칙 1). 비었으면(레거시) 폴백.
@@ -45,8 +45,8 @@ DECL_NAME="$(jget "$(state_file "$RID")" product.name 2>/dev/null || true)"
 [ "$DECL_NAME" = "null" ] && DECL_NAME=""
 # new-run.sh 기본 placeholder('제품')는 '미선언'이지만, `new-run --domain --format`(이름 미지정)을 먼저 돌린 뒤
 #   ingest 하는 흔한 경로에서는 state 가 이미 존재해 위 번들-이름 주입(20~32행)이 스킵된다. 이때 번들 product.json
-#   에 실제 이름이 있으면 그걸로 폴백해야 다제품 스코핑이 동작한다(Codex R12 P1: 그냥 블랭크하면 오염 잔존).
-#   번들에도 이름이 없으면(또 placeholder) 블랭크 → fail-open 전체-WB(Codex R6 P2: '## 제품 개요' 오매칭 방지).
+#   에 실제 이름이 있으면 그걸로 폴백해야 다제품 스코핑이 동작한다(외부리뷰 R12 P1: 그냥 블랭크하면 오염 잔존).
+#   번들에도 이름이 없으면(또 placeholder) 블랭크 → fail-open 전체-WB(외부리뷰 R6 P2: '## 제품 개요' 오매칭 방지).
 if [ "$DECL_NAME" = "제품" ]; then
   DECL_NAME=""
   [ -f "${BUNDLE_SRC:-}/product.json" ] && DECL_NAME="$("$PY" -c "import json,sys;print((json.load(open(sys.argv[1])).get('name') or '').strip())" "$BUNDLE_SRC/product.json" 2>/dev/null || true)"

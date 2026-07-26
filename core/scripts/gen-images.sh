@@ -9,7 +9,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/common.sh"
 
 RID="${1:-}"; require_run "$RID"
 RDIR="$(run_dir "$RID")"
-# 가드: 기획안 심의·승인 후(=04-keyvisual 진입)에만 생성 — 미심의 컨셉/픽셀 레퍼런스의 외부 전송 차단(Codex #7).
+# 가드: 기획안 심의·승인 후(=04-keyvisual 진입)에만 생성 — 미심의 컨셉/픽셀 레퍼런스의 외부 전송 차단(외부리뷰 #7).
 CUR_PHASE="$(jget "$(state_file "$RID")" phase)"
 case "$CUR_PHASE" in
   04-keyvisual|done) ;;

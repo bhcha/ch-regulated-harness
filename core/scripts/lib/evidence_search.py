@@ -11,7 +11,7 @@ storyboard-outline 에서 실증 트리거(claim)를 **스크립트가 직접 �
     stub_stage._detect_triggers(rdir) 로 스스로 트리거를 감지한다. 에이전트가 트리거가 있는데 query.json 을
     빠뜨려도 스크립트가 (재)작성·검색하므로 실검색을 조용히 건너뛸 수 없다(규제상 fail-closed).
   · 항상 재검색(mock 신뢰 안 함·stale 제거): 기존 results.json 의 engine:"openalex" 마커를 신뢰해 스킵하지 않는다 —
-    스키마가 provenance 를 증명 못 해 insession 에이전트가 그 마커를 위조하면 mock 근거 우회가 된다(Codex 규제 지적).
+    스키마가 provenance 를 증명 못 해 insession 에이전트가 그 마커를 위조하면 mock 근거 우회가 된다(외부리뷰 규제 지적).
     run-stage.sh 가 '생성이 일어난 시점'(NEED_GENERATE!=0 또는 insession)에만 이 헬퍼를 호출하고, 여기서 매번 실검색으로
     덮어써 에이전트 mock 을 신뢰하지 않는다. 재개/no-op 은 run-stage 가드가 호출을 막아 안정적이고, claim 이 바뀌면
     항상 현재 claim 으로 재검색하므로 옛-claim stale 논문도 자연히 제거된다. claim 이 None(무-트리거)면 빈 sources 로 정리.
@@ -70,7 +70,7 @@ def main(argv):
         return 0
 
     # ── 트리거 있음: 실 OpenAlex 검색을 '항상' 수행해 sources 를 스크립트-측 결과로 덮어쓴다 ──
-    #   ★ 규제 안전(Codex): 기존 results.json 의 engine:"openalex" 마커를 신뢰해 스킵하지 않는다 — 스키마가
+    #   ★ 규제 안전(외부리뷰): 기존 results.json 의 engine:"openalex" 마커를 신뢰해 스킵하지 않는다 — 스키마가
     #     provenance 를 증명하지 못하므로 insession 에이전트가 그 마커를 위조해 mock 근거를 심으면 우회가 된다.
     #     run-stage.sh 가 '생성이 일어난 시점'(NEED_GENERATE!=0 또는 insession)에만 이 헬퍼를 호출하고, 여기서
     #     매번 실검색으로 덮어써 에이전트 mock 을 신뢰하지 않는다(재개/no-op 은 run-stage 가드가 호출을 막아 안정).

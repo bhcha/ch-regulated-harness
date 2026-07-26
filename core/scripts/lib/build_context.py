@@ -110,7 +110,7 @@ def _pack_learned_deny(dom, stage):
             data = json.load(f)
     except Exception:
         return []
-    if not isinstance(data, dict):   # top-level 비-dict([]·"x"·null) 방어 — 파괴 대신 no-op(Codex High)
+    if not isinstance(data, dict):   # top-level 비-dict([]·"x"·null) 방어 — 파괴 대신 no-op(외부리뷰 High)
         return []
     ents = data.get("entries")
     if not isinstance(ents, list):   # entries 비-list(예 1) → TypeError 방어
@@ -208,7 +208,7 @@ def _emit_evidence_docs(evman, claim_basis):
             pass
         for d in (m.get("documents") or []):
             # 미확정(spec_status:pending) 시험성적서는 EVIDENCE_DOCS 로 방출 안 함 — 00e 승인 전 blank/부분 의무가
-            #   확정 근거처럼 노출되는 것 차단(REFERENCE_DOCS 와 동형·Codex 3R-3). 승인 후 pending 해소되면 정상 방출.
+            #   확정 근거처럼 노출되는 것 차단(REFERENCE_DOCS 와 동형·외부리뷰 3R-3). 승인 후 pending 해소되면 정상 방출.
             if not (isinstance(d, dict) and d.get("reflect") is True) or d.get("spec_status") == "pending":
                 continue
             k = d.get("kind") or ("test_report" if d.get("test_report") is not None else "general")
@@ -511,7 +511,7 @@ def build_context(rid, stage):
     if _ls_nonempty(rdir + "/03-storyboard/plan"):
         print("IMAGE_MANIFEST(블록별 생성 이미지 — 키비주얼 <img src> 우선 참조; 자사 생성물 allowlist):")
         if os.path.isfile(rdir + "/04-keyvisual/image-manifest.json"):
-            # ★ 실제 매니페스트가 권위(정확한 경로·확장자) — image_engine 이 키비주얼 생성 '전' 선행 실행되므로 보통 존재(Codex HIGH: 예측 확장자 불일치 차단).
+            # ★ 실제 매니페스트가 권위(정확한 경로·확장자) — image_engine 이 키비주얼 생성 '전' 선행 실행되므로 보통 존재(외부리뷰 HIGH: 예측 확장자 불일치 차단).
             _emit_image_manifest(rdir + "/04-keyvisual/image-manifest.json")
         else:
             # 매니페스트 부재(예: in-session emit-context — 아직 image_engine 미실행) → 결정적 예측 경로(전이 시 '동일 엔진'으로 생성되어 일치).
@@ -534,7 +534,7 @@ def build_context(rid, stage):
         print("REFERENCE_IMAGES: %s/00g-guideline/examples/ (example-analysis.json[].reference_images 메타 SSoT; plan reference_image_id 로 조인 — 디자인 src 아님)" % rdir)
     # M3: TONE_DECISION 라벨 제거(tone 서브스테이지 흡수). 구도/무드/참조는 기획안 visual.concept 에 직접 산출.
     # 현업 보완(거절/refine)의 자유텍스트를 프롬프트에 '인라인'한다(generic 한 줄 신호가 아니라 실제 내용).
-    #   stub 생성기는 feedback 을 무시하므로 이 인라인은 실엔진(claude -p/codex) 재생성에만 반영된다.
+    #   stub 생성기는 feedback 을 무시하므로 이 인라인은 실엔진(claude) 재생성에만 반영된다.
     # 옛 셸: `_fb="$rdir/$(jget "$(state_file "$rid")" phase)/feedback.json"` — 무가드 jget(2>/dev/null 없음).
     #   jget 은 state.json 부재/손상(load_json 예외) 또는 phase 키 없음(cmd_jget sys.exit(1))에 rc1 → 평문 할당이
     #   rc1 → set -e 로 build_context 중단. 위 resolve_domain/deliverable_format 은 `2>/dev/null || true` 라 관대해

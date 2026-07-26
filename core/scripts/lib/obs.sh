@@ -3,7 +3,7 @@
 #   목적: 하네스가 생성·심의 서브프로세스와 '파일'로만 소통하며 그들의 진단(stderr)·소요시간을 버리던 문제 처방.
 #   - 측정 로그(개선0): runs/<id>/.logs/timing.jsonl (append-only). 언제 시작·종료·얼마 걸렸나 + 결과.
 #   - 출력 캡처(개선1): runs/<id>/.logs/<tag>.log 로 stdout/stderr 보존. 실패 시 에러에 tail 첨부.
-# 신뢰등급(Codex 리뷰): .logs 는 '진단용(비신뢰)' 로그다. 보통 스크립트가 쓰지만, critic 은 작업영역 쓰기 권한이라 .logs 를
+# 신뢰등급(외부리뷰): .logs 는 '진단용(비신뢰)' 로그다. 보통 스크립트가 쓰지만, critic 은 작업영역 쓰기 권한이라 .logs 를
 #   변조할 수도 있다 → verdict 경로로는 들어가지 않으므로(merge 는 scratch 만 읽음) 안전 영향은 없으나 '감사 신뢰 로그'는 아니다.
 #   best-effort — 관측 실패가 본 파이프라인을 막지 않는다. .logs 는 *.json 이 아니므로(jsonl/log) kcia _manifest(*.json 글롭)·validate_all_artifacts 와 충돌 없음.
 #   골든 제외: baseline.py SKIP_PREFIX 에 '.logs' 포함(휘발성 타임스탬프 비결정 — 골든 바이트 불변).
@@ -61,9 +61,9 @@ obs_provenance() {
   local gitsha; gitsha="$(git -C "$HARNESS_ROOT" rev-parse --short HEAD 2>/dev/null || printf '')"
   # effective 유효값은 '셸 변수'(common.sh:325·332 등이 export 아닌 셸 var 로 기본값 설정 — HARNESS_GEN_TIMEOUT=600·
   #   HARNESS_CLAUDE_FLAGS=--permission-mode acceptEdits · KCIA_CRITIC_TIMEOUT=600[obs.sh:76])에서 읽어 인자로 넘긴다.
-  #   python 이 os.environ 만 보면 미-export 기본값이 빈 값으로 기록돼 감사 기록이 오해된다(Codex P3).
+  #   python 이 os.environ 만 보면 미-export 기본값이 빈 값으로 기록돼 감사 기록이 오해된다(외부리뷰 P3).
   # ⚠ CLI/GEN_MODE/IMAGE_CLI 같은 '사용-시점 해석' 노브는 여기 넣지 않는다 — 자동선택 런에선 env 가 비어 오해를 준다.
-  #   해석된 생성 표면은 상위 필드 engine(해석된 엔진 라벨)·gen_source(stub|insession|subprocess)가 정확히 담는다(Codex P3).
+  #   해석된 생성 표면은 상위 필드 engine(해석된 엔진 라벨)·gen_source(stub|insession|subprocess)가 정확히 담는다(외부리뷰 P3).
   "$PY" - "$ld/provenance.jsonl" "$HARNESS_ROOT" "$step" "$engine" "$gen_source" "$gitsha" \
     "${HARNESS_GEN_TIMEOUT:-}" "${KCIA_CRITIC_TIMEOUT:-}" "${HARNESS_CLAUDE_FLAGS:-}" \
     "${HARNESS_OFFLINE:-}" "${HARNESS_MODEL:-}" <<'PYEOF' 2>/dev/null || true
@@ -135,7 +135,7 @@ obs_watch_pid() {
   while :; do
     if ! kill -0 "$pid" 2>/dev/null; then
       wait "$pid" 2>/dev/null && rc=0 || rc=$?
-      # (Codex MEDIUM) 자연종료 후에도 잔여 자식(reparent/detach)을 best-effort 회수 — run_llm 자연종료 경로와 동일.
+      # (외부리뷰 MEDIUM) 자연종료 후에도 잔여 자식(reparent/detach)을 best-effort 회수 — run_llm 자연종료 경로와 동일.
       _reap_exited "$pid"
       return "$rc"
     fi

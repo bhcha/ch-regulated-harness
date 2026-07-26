@@ -12,7 +12,7 @@ import sys, os, json, glob, re, html
 
 _DOC_TOKEN_RE = re.compile(r"doc-\d+")   # 정확 토큰 매칭(부분문자열 금지: doc-10 ≠ doc-100)
 # data-block 섹션 시작 태그 오프셋 추출(내용 슬라이싱용). 렌더는 flat section stack(render.py)이므로
-#   블록 N 의 내용 = 이 시작부터 '다음 블록 시작'까지 → 판정 카피가 '그 블록 안'에 있는지 확인(Codex P1).
+#   블록 N 의 내용 = 이 시작부터 '다음 블록 시작'까지 → 판정 카피가 '그 블록 안'에 있는지 확인(외부리뷰 P1).
 _SECTION_RE = re.compile(r'<[a-zA-Z][^>]*\bdata-block\s*=\s*["\']([^"\']+)["\']', re.I)
 # <style>/<script>/주석 안의 data-block(예: CSS 선택자 [data-block="cta"]{})은 태그가 아니므로 섹션 경계에서
 #   제외한다(공백으로 치환해 오프셋 보존 — 잘못된 경계 슬라이스 방지). check_html_blocks 의 style/script skip 과 동형.
@@ -35,7 +35,7 @@ def _load(p):
 def _selected_html_text(rdir):
     """선택된 키비주얼 HTML(최종 산출물)의 원문 문자열. 선택 HTML 이 아직 없으면 None
     (→ 반영 판정을 plan-only 로 폴백; 렌더 전 게이트 호출·테스트 픽스처). 반영 '내용'(판정 카피/doc-id)이
-    실제 최종 산출물에 들어있는지 확인하는 근거 — 블록 type 만 있는 빈/일반 섹션의 거짓 통과 차단(Codex P1)."""
+    실제 최종 산출물에 들어있는지 확인하는 근거 — 블록 type 만 있는 빈/일반 섹션의 거짓 통과 차단(외부리뷰 P1)."""
     dec = _load(os.path.join(rdir, "04-keyvisual/decision.json")) or {}
     sel = dec.get("selected")
     if not sel:
@@ -53,7 +53,7 @@ def _selected_html_text(rdir):
 def _selected_html_sections(rdir):
     """선택 키비주얼 HTML → [(block_type, section_text)]. flat section stack 가정: 각 data-block 시작부터
     '다음 data-block 시작'까지를 그 블록의 내용으로 슬라이스 → 판정 카피/doc-id 가 '그 반영 블록 안'에
-    있는지 확인(빈/일반 섹션 + 다른 섹션에 텍스트가 있는 거짓 통과 차단 — Codex P1). 선택 HTML 없으면 None."""
+    있는지 확인(빈/일반 섹션 + 다른 섹션에 텍스트가 있는 거짓 통과 차단 — 외부리뷰 P1). 선택 HTML 없으면 None."""
     html = _selected_html_text(rdir)
     if html is None:
         return None
@@ -67,7 +67,7 @@ def _selected_html_sections(rdir):
 
 
 def _selected_block_keys(rdir):
-    """선택된 스토리라인의 (order,type) 집합 — 스테일/미선택 plan 블록을 반영 판정에서 배제(Codex P2).
+    """선택된 스토리라인의 (order,type) 집합 — 스테일/미선택 plan 블록을 반영 판정에서 배제(외부리뷰 P2).
     선택 결정/스토리라인이 없으면 None(전체 plan 허용 — back-compat·테스트 픽스처)."""
     dec = _load(os.path.join(rdir, "03-storyboard/outline/decision.json")) or {}
     sel = dec.get("selected")
@@ -93,7 +93,7 @@ def _evdocs_by_id(rdir):
 def reflected_map(rdir, need):
     """{doc-id: [반영 블록 라벨]} — need(doc-NN) 각각이 최종 산출물의 어느 블록에 반영됐는지(단일 출처).
     반영된 doc 은 라벨 리스트가 비어있지 않다(미반영은 []). 게이트(_reflected_ids)와 export(reflected_in) 공용.
-    plan 블록은 '선택된 스토리라인'의 블록으로 한정한다(스테일/미선택 블록 배제 — Codex P2).
+    plan 블록은 '선택된 스토리라인'의 블록으로 한정한다(스테일/미선택 블록 배제 — 외부리뷰 P2).
     내용 프로브 = test_report: doc-id+판정 카피(target_text) / 일반 참조: doc-id+reflection_points 원문."""
     need = list(need)
     out = {d: [] for d in need}
@@ -110,25 +110,25 @@ def reflected_map(rdir, need):
                 continue
             order, typ = b.get("order"), b.get("type")
             if allowed is not None and (order, typ) not in allowed:
-                continue   # 스테일/미선택 plan 블록은 반영으로 세지 않음(선택 산출물만 — Codex P2)
+                continue   # 스테일/미선택 plan 블록은 반영으로 세지 않음(선택 산출물만 — 외부리뷰 P2)
             label = ("%02d-%s" % (order, typ)) if isinstance(order, int) else str(typ)
             cited = {}   # {doc: {content_probes}} — 그 블록 섹션 안에서 확인할 내용(판정 카피/doc-id)
             for c in (b.get("claims") or []):
                 if not isinstance(c, dict):
                     continue
                 # 반영 인정 = doc-NN 을 근거로 인용 + 실제 판정 카피(target_text) 존재. 빈 target_text 는
-                #   validate_storyboard 의 판정문 결박도 건너뛰므로(실질 반영 아님) 인정하지 않는다(Codex P2).
+                #   validate_storyboard 의 판정문 결박도 건너뛰므로(실질 반영 아님) 인정하지 않는다(외부리뷰 P2).
                 ref, tt = c.get("evidence_ref"), (c.get("target_text") or "").strip()
                 if ref in need_set and tt:
                     cited.setdefault(ref, set()).add(tt)   # 내용 프로브 = 판정 카피(target_text). doc-id 는 인용 표식일 뿐 내용 아님.
             for fn in (b.get("footnotes") or []):
                 if not isinstance(fn, dict):
                     continue
-                # 각주 텍스트의 doc-\d+ 토큰을 '정확히' 매칭(부분문자열 금지 — Codex P3).
+                # 각주 텍스트의 doc-\d+ 토큰을 '정확히' 매칭(부분문자열 금지 — 외부리뷰 P3).
                 for tok in _DOC_TOKEN_RE.findall(fn.get("text") or ""):
                     if tok in need_set:
                         probes = cited.setdefault(tok, set())
-                        # 내용 프로브(doc-id 는 표식일 뿐 내용 아님 — 내용이 살아남아야 반영 인정, Codex):
+                        # 내용 프로브(doc-id 는 표식일 뿐 내용 아님 — 내용이 살아남아야 반영 인정, 외부리뷰):
                         #   test_report=verdict_text 원문 · 일반 참조=reflection_points 원문.
                         _d = docs_by_id.get(tok, {})
                         _vt = (_d.get("verdict_text") or "").strip()
@@ -140,11 +140,11 @@ def reflected_map(rdir, need):
             for did, probes in cited.items():
                 per_doc[did].append((label, typ, probes))
         # 최종 선택 키비주얼 HTML 의 '그 반영 블록 섹션 안'에 (a)doc-id 인용[추적성]과 (b)내용 프로브[생존]가
-        #   '둘 다' 들어있어야 반영 인정한다 — 빈/일반 섹션·doc-id만·내용만의 거짓 통과 전부 차단(Codex).
+        #   '둘 다' 들어있어야 반영 인정한다 — 빈/일반 섹션·doc-id만·내용만의 거짓 통과 전부 차단(외부리뷰).
         #   선택 HTML 이 아직 없으면(렌더 전 게이트 호출·테스트) plan-only 폴백.
         sections = _selected_html_sections(rdir)
         # 섹션 텍스트는 HTML 엔티티 디코드 후 매칭(카피에 &/< 있으면 렌더 시 &amp;/&lt; 로 이스케이프됨 →
-        #   raw 매칭 false-negative 차단, Codex). doc-id 는 '정확 토큰' 매칭(doc-01 ⊂ doc-010 오탐 차단).
+        #   raw 매칭 false-negative 차단, 외부리뷰). doc-id 는 '정확 토큰' 매칭(doc-01 ⊂ doc-010 오탐 차단).
         sec_tok = None
         if sections is not None:
             sec_tok = []
@@ -177,7 +177,7 @@ def reflected_map(rdir, need):
             if did not in toks:
                 continue
             # plan 경로와 동일: doc-id(추적성) + 내용(판정문/반영 포인트 원문) '둘 다' HTML 에 있어야 반영 인정
-            #   (doc-id 만으로 통과하던 planless 폴백 강화 — Codex).
+            #   (doc-id 만으로 통과하던 planless 폴백 강화 — 외부리뷰).
             d = docs_by_id.get(did, {})
             _probes = [(d.get("verdict_text") or "").strip()] + [p for p in (d.get("reflection_points") or []) if p]
             if any(p and p in dec_html for p in _probes):

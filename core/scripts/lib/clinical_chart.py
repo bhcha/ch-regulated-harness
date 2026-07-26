@@ -35,7 +35,7 @@ def derive_chart(ev):
     metric = str(ev.get("metric") or "").strip() or None   # FIX JJ: metric/unit 결박용
     unit = str(ev.get("unit") or "").strip() or None
 
-    # ⚠ Codex FIX II: series 가 ≥2 포인트면 'series 가 소스'(모든 포인트·순서·시점 라벨). 중간 포인트 누락 차단.
+    # ⚠ 외부리뷰 FIX II: series 가 ≥2 포인트면 'series 가 소스'(모든 포인트·순서·시점 라벨). 중간 포인트 누락 차단.
     #   before/after 가 함께 있으면 series 첫=before·끝=after 교차검증(불일치 → None). series 없을 때만 before/after.
     if len(series_vals) >= 2:
         if series_vals[0] == 0:
@@ -73,8 +73,8 @@ def derive_chart(ev):
     }
 
 
-# ── 숫자 토큰 ↔ 도출값 정합 판정(단일 출처) — chart 콜아웃 검증과 claim 수치 검증이 함께 호출(Codex FIX EE) ──
-#   토큰 분류(Codex FIX MM, 정밀):
+# ── 숫자 토큰 ↔ 도출값 정합 판정(단일 출처) — chart 콜아웃 검증과 claim 수치 검증이 함께 호출(외부리뷰 FIX EE) ──
+#   토큰 분류(외부리뷰 FIX MM, 정밀):
 #     ① 끝점-범위("A에서 B로", "A→B", "A->B", "A~B") → A·B 는 원시 VALUE(allowed_values 멤버).
 #     ② 명시 변화맥락(명시 +/- 부호, 'N% 감소/증가/개선', '감소율/증가율/개선율/변화율 N%') → CHANGE(signed_change_pct).
 #     ③ 그 외 '%' 숫자: unit=='%' 면 원시 VALUE 또는 변화율 크기(둘 중 하나 일치) · unit!='%' 면 변화율 크기.
@@ -97,7 +97,7 @@ _PVAL_EN_MARKERS = ("p-value", "pvalue", "p value")  # 영문 p값 표기(T3, �
 
 
 def _is_pvalue_context(before_seg):
-    """⚠ Codex FIX RR(+T3 확장): 숫자 토큰 바로 앞이 p값 마커면 True — p값은 측정값도 변화율도 아니므로
+    """⚠ 외부리뷰 FIX RR(+T3 확장): 숫자 토큰 바로 앞이 p값 마커면 True — p값은 측정값도 변화율도 아니므로
     정합 검사·n_matched 에서 제외한다.
     인식 마커(비교연산자·공백을 먼저 제거한 뒤 판정):
       · 한국어: p값 / 유의확률 / 유의수준 (+ 뒤 조사 은·는·이·가 1자 허용, T3)
@@ -112,7 +112,7 @@ def _is_pvalue_context(before_seg):
     low = s.lower()
     for m in _PVAL_EN_MARKERS:                          # p-value·pvalue·p value(T3)
         if low.endswith(m):
-            j = len(low) - len(m)                       # ⚠ 좌경계 검사(Codex T3-HIGH#1·LOW 하드닝): 마커 앞이
+            j = len(low) - len(m)                       # ⚠ 좌경계 검사(외부리뷰 T3-HIGH#1·LOW 하드닝): 마커 앞이
             if j == 0 or not (low[j - 1].isalnum() or low[j - 1] == "_"):  # 영문·숫자·_ 면 거부('top value'·'5p value'·'_p value')
                 return True
     if s and s[-1] in ("p", "P") and (len(s) == 1 or not s[-2].isalpha()):
@@ -121,7 +121,7 @@ def _is_pvalue_context(before_seg):
 
 
 def metric_matches_claim(metric, text, aliases=None):
-    """⚠ Codex FIX QQ: 차트/claim 의 지표명 결박 단일 출처(validate·kcia 공통). 정확 부분문자열 OR '량' 접미 stem.
+    """⚠ 외부리뷰 FIX QQ: 차트/claim 의 지표명 결박 단일 출처(validate·kcia 공통). 정확 부분문자열 OR '량' 접미 stem.
     - metric(예 '수분량')이 text 에 그대로 있거나, 그 stem(접미 '량' 제거 → '수분')이 text 에 있으면 True.
     - aliases(룰셋 clinical_metrics 등)가 주어지면, '같은 stem 을 공유하는' alias(또는 그 stem)도 인정.
     퍼지 매칭 아님 — 유한·결정적 정규화(접미 '량' stem)만. 서로 다른 측정명(stem 상이)은 매칭 안 됨."""
@@ -161,7 +161,7 @@ def numbers_consistent(text, derived):
     def _in_allowed(x):
         return any(abs(x - v) <= _NUM_EPS for v in allowed)
 
-    # ① 끝점-범위: "A에서 B로" 는 A=도출 첫값, B=도출 끝값 '순서까지' 일치해야 함(Codex FIX NN — 역순 거부).
+    # ① 끝점-범위: "A에서 B로" 는 A=도출 첫값, B=도출 끝값 '순서까지' 일치해야 함(외부리뷰 FIX NN — 역순 거부).
     #   범위에 방향어(감소/…→음수, 증가/…→양수)가 동반되면 sign(signed_change_pct)와 '반드시' 일치해야 함.
     vals = derived.get("values") or []
     first_v = abs(vals[0]) if vals else None
@@ -193,8 +193,8 @@ def numbers_consistent(text, derived):
         before_ch = text[max(0, m.start() - 2):m.start()]
         ctx = text[m.end():m.end() + _CTX_WIN]               # 토큰 뒤 근접 문맥
         before_wide = text[max(0, m.start() - 6):m.start()]  # 토큰 앞 근접 문맥(rate 단어)
-        # ⚠ Codex FIX RR(+T3): p값(p<0.05·p≤0.025·유의확률·p-value < 0.05 …) 숫자는 측정/변화 아님 → 스킵(n_matched 미증가).
-        #   윈도우=12(Codex T3-HIGH#2): 띄어쓴 영문 'p-value < ' 같은 10자 마커가 8자에 잘려 미인식되던 문제 해소.
+        # ⚠ 외부리뷰 FIX RR(+T3): p값(p<0.05·p≤0.025·유의확률·p-value < 0.05 …) 숫자는 측정/변화 아님 → 스킵(n_matched 미증가).
+        #   윈도우=12(외부리뷰 T3-HIGH#2): 띄어쓴 영문 'p-value < ' 같은 10자 마커가 8자에 잘려 미인식되던 문제 해소.
         if _is_pvalue_context(text[max(0, m.start() - 12):m.start()]):
             continue
         # 비-측정 맥락(n=52·52명·4주 등)은 검사 면제.
@@ -243,7 +243,7 @@ def numbers_consistent(text, derived):
                 return (False, n_matched)
             n_matched += 1
 
-    # ⚠ Codex FIX PP: 숫자 토큰 수와 무관하게, '단독' 방향어(감소/…→음수, 증가/…→양수)는 sign(scp)와 일치해야 한다.
+    # ⚠ 외부리뷰 FIX PP: 숫자 토큰 수와 무관하게, '단독' 방향어(감소/…→음수, 증가/…→양수)는 sign(scp)와 일치해야 한다.
     #   끝점-범위가 소비한 방향어(FIX NN 이 이미 검증)는 제외하기 위해 범위 주변 창을 covered 로 본다.
     #   → "수분 감소 확인"(숫자 0개)도 evidence 방향에 결박. ('개선' 은 모호 → 제약 없음.)
     if scp is not None:

@@ -329,7 +329,7 @@ describe("wireInteractionHandlers(인터랙션 배선 · S-7)", () => {
 
   it("★ 채널형 스코프(slack:C…) → 자식 합성 id(slack:C…:<ts>) 클릭은 스코프 안(논리 접두) · 콜론 경계라 다른 채널 오매치 없음", async () => {
     // Slack 은 채널형 스레드에 게시된 카드의 버튼 액션을 자식 합성 id(slack:C…:<message_ts>)로 실어 보낸다 —
-    //   엄격 일치는 그 실 사람 클릭을 전부 조용히 버려 개입 경로가 무음 차단된다(Codex W2R2 P1). 논리 접두 판정 잠금.
+    //   엄격 일치는 그 실 사람 클릭을 전부 조용히 버려 개입 경로가 무음 차단된다(외부리뷰 W2R2 P1). 논리 접두 판정 잠금.
     const { chat, h } = makeFakeChat();
     const { gw, calls } = makeRecordingGw();
     wireInteractionHandlers(chat, gw, { threadScope: "slack:C1" });

@@ -11,8 +11,8 @@ RID=ci-oplang
 cleanup() { rm -rf "$ROOT/runs/$RID" "$ROOT/runs/${RID}-qd"; }
 trap cleanup EXIT
 
-# 현업 화면 금지 토큰(개선계획 단계1 검증 목록 + Codex 보강). auto 는 흔한 영단어라 단어경계로만.
-#   iteration 은 'iteration 1/3'·'iteration=1/3' 둘 다, engine=/domain= 내부 변수노출도 포함(Codex MEDIUM).
+# 현업 화면 금지 토큰(개선계획 단계1 검증 목록 + 외부리뷰 보강). auto 는 흔한 영단어라 단어경계로만.
+#   iteration 은 'iteration 1/3'·'iteration=1/3' 둘 다, engine=/domain= 내부 변수노출도 포함(외부리뷰 MEDIUM).
 FORBIDDEN='human-verify|hard-stop|pairwise top-1|scope=|게이트=|상태=|iteration[ =/][0-9]|\bescalated\b|verdict=|violations=|engine=|domain=|\bauto\b'
 
 assert_no_forbidden() {  # <라벨> <검사텍스트>

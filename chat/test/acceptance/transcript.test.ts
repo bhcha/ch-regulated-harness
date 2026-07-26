@@ -99,7 +99,7 @@ describe("Transcript 직렬화", () => {
     expect(before.includes("mutated")).toBe(false);
   });
 
-  it("entries 게터 불변 — 반환된 엔트리(화면·발화)를 변형해도 toJSONL 은 바뀌지 않는다 (Codex S2 P2 락)", () => {
+  it("entries 게터 불변 — 반환된 엔트리(화면·발화)를 변형해도 toJSONL 은 바뀌지 않는다 (외부리뷰 S2 P2 락)", () => {
     const t = new Transcript();
     t.append(mention("t1"), [ingestScreen("r1")], fakeNa());
     const before = t.toJSONL();

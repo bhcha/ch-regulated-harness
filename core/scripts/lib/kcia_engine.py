@@ -33,10 +33,10 @@ class _HTMLText(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.texts = []
-        self.hook_texts = []       # heading(h1~h6) 텍스트/속성 = 키비주얼 훅 → P-3 zero_voc 면제 절대 제외(Codex W1c b·8R)
+        self.hook_texts = []       # heading(h1~h6) 텍스트/속성 = 키비주얼 훅 → P-3 zero_voc 면제 절대 제외(외부리뷰 W1c b·8R)
         # 문단(블록경계) 집계 — 인라인 마크업(<p>여드름성 피부 <strong>사용에 적합…</strong></p>)으로 쪼개진 노드를
         #   블록 경계 단위로 묶는다. P-3 키비주얼 면제는 이 '문단 집계'에 require_full 을 적용해야 인라인 분할 본문을
-        #   놓치지 않는다(Codex 9R). paragraphs = [(nodes:list[str], is_heading:bool)].
+        #   놓치지 않는다(외부리뷰 9R). paragraphs = [(nodes:list[str], is_heading:bool)].
         self.paragraphs = []
         self._para = []
         self._skip = 0
@@ -49,7 +49,7 @@ class _HTMLText(HTMLParser):
 
     def _collect_attrs(self, attrs):
         # 노출 속성 + data-*(CSS content:attr(data-*) 로 화면 노출 가능) → 전부 scan(fail-closed).
-        #   heading(h1~h6) 안(자신의 속성 포함)에서 노출되는 속성 텍스트는 hook 으로도 기록 → P-3 면제 제외(Codex 8R).
+        #   heading(h1~h6) 안(자신의 속성 포함)에서 노출되는 속성 텍스트는 hook 으로도 기록 → P-3 면제 제외(외부리뷰 8R).
         for k, v in attrs:
             if (k in self._ATTRS or k.startswith("data-")) and v and v.strip():
                 s = v.strip()
@@ -60,7 +60,7 @@ class _HTMLText(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag in _BLOCK_TAGS:      # 블록 시작 = 문단 경계(직전 문단 flush)
             self._flush_para()
-        # ★ heading 깊이를 '속성 수집 전에' 올린다 — h1 자신의 aria-label/title/alt/data-* 속성도 hook 으로 잡기 위해(Codex 8R).
+        # ★ heading 깊이를 '속성 수집 전에' 올린다 — h1 자신의 aria-label/title/alt/data-* 속성도 hook 으로 잡기 위해(외부리뷰 8R).
         if tag in self._HEADINGS:
             self._heading += 1
         self._collect_attrs(attrs)
@@ -104,7 +104,7 @@ _BLOCK_TAGS = {"div", "p", "br", "hr", "li", "ul", "ol", "tr", "td", "th", "tabl
                "thead", "tbody", "tfoot", "colgroup", "optgroup", "output"}
 
 
-# 텍스트 미렌더 서브트리(화면 비노출) — 제품명 '가시 노출' 검사에서 제외(코덱스 단계2 6R H1).
+# 텍스트 미렌더 서브트리(화면 비노출) — 제품명 '가시 노출' 검사에서 제외(외부리뷰 단계2 6R H1).
 #   head/title/meta = 본문 아님(<title>제품A정</title> 만으로 충족되던 fail-open), template/noscript = 비활성, style/script = 코드.
 _SKIP_SUBTREE_TAGS = {"style", "script", "head", "title", "template", "noscript", "datalist"}
 # void 요소(종료태그 없음) — 스택에 push 하지 않는다(미닫힘으로 스택 깨짐 방지).
@@ -115,11 +115,11 @@ class _RenderedText(HTMLParser):
     """실제 화면 렌더에 가까운 '가시' 텍스트 복원 — 인라인 노드는 공백 없이 '연결', 블록 경계(div/p/h*/br/li/td…)에는 줄바꿈('\\n').
     gather/_HTMLText 는 모든 텍스트 노드를 일괄 공백결합해서 '제품A<span>정</span>'(=제품A정)와
     '<span>제품A정</span><span>플러스</span>'(=제품A정플러스)를 구분 못 한다 → 필수기재 제품명 검사에서
-    내부 split fail-positive 와 경계 split fail-open 이 동시에 발생(코덱스 단계2 3R). 충실 렌더는 둘을 구분한다.
+    내부 split fail-positive 와 경계 split fail-open 이 동시에 발생(외부리뷰 단계2 3R). 충실 렌더는 둘을 구분한다.
     블록 경계는 인라인 공백과 구분되는 '\\n' 로 — 이름 매처가 블록을 넘나들며 흩어진 글자를 합성('<h1>우</h1><p>루</p>')하는
-    fail-open 차단(코덱스 5R). handle_data 는 HTML 흐름처럼 공백런을 1칸으로 축약(인라인 공백 신호만 보존, 노출 텍스트만; 속성 제외).
+    fail-open 차단(외부리뷰 5R). handle_data 는 HTML 흐름처럼 공백런을 1칸으로 축약(인라인 공백 신호만 보존, 노출 텍스트만; 속성 제외).
     ★ 미렌더/숨김(head/title/template/noscript · hidden · aria-hidden=true · display:none · visibility:hidden) 서브트리는 수집 제외 —
-    필수기재는 '가시 노출' 기준. <title> 등 비노출 텍스트로 제품명 충족되던 fail-open 차단(코덱스 6R H1).
+    필수기재는 '가시 노출' 기준. <title> 등 비노출 텍스트로 제품명 충족되던 fail-open 차단(외부리뷰 6R H1).
     (주의: gather/_HTMLText 는 금지어 스캔용이라 숨김 텍스트도 수집한다 — fail-closed. 여긴 제품명 '노출' 검사라 가시만.)"""
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -129,7 +129,7 @@ class _RenderedText(HTMLParser):
 
     @staticmethod
     def _is_hidden(tag, attrs):
-        # 인라인 마크업으로 판정 가능한 비노출. (코덱스 7R Medium 일부 폐쇄; class/계산CSS 의존 sr-only·clip·off-screen·
+        # 인라인 마크업으로 판정 가능한 비노출. (외부리뷰 7R Medium 일부 폐쇄; class/계산CSS 의존 sr-only·clip·off-screen·
         #   font-size:0·color:transparent 은 정적 추출 한계로 수용 잔여 — fail-closed 아닌 fail-open 측이나 의도적 조작 필요.)
         d = {(k or "").lower(): (v or "") for k, v in attrs}
         if "hidden" in d:
@@ -137,7 +137,7 @@ class _RenderedText(HTMLParser):
         if d.get("aria-hidden", "").strip().lower() == "true":
             return True
         if tag in ("dialog", "details") and "open" not in d:
-            return True   # open 없는 dialog/details = 화면 비표시(본문) — 템플릿서 우연 발생 가능(코덱스 7R)
+            return True   # open 없는 dialog/details = 화면 비표시(본문) — 템플릿서 우연 발생 가능(외부리뷰 7R)
         st = re.sub(r"\s+", "", d.get("style", "")).lower()
         if "display:none" in st or "visibility:hidden" in st or "visibility:collapse" in st:
             return True
@@ -183,7 +183,7 @@ class _RenderedText(HTMLParser):
 
 def _decode_css_escapes(s):
     """CSS unicode escape(\\BBF8 등)를 실제 문자로 디코드 — '\\BBF8\\BC31'(효능어) 우회 차단.
-    범위초과(>0x10FFFF) 코드포인트는 chr() 가 ValueError 라 엔진이 죽는다(코덱스 단계2 5R Medium) → 빈문자로 무시(fail-safe)."""
+    범위초과(>0x10FFFF) 코드포인트는 chr() 가 ValueError 라 엔진이 죽는다(외부리뷰 단계2 5R Medium) → 빈문자로 무시(fail-safe)."""
     def _rep(m):
         try:
             cp = int(m.group(1), 16)
@@ -210,7 +210,7 @@ def _css_content_literals(text):
 
 
 # 허용 도메인 status enum(레지스트리 게이트) — active=실심의, tbd/ready-only=의도된 placeholder-autopass.
-#   이 집합 밖 값(오타·공백·대소문자·미정의)은 '손상'으로 fail-closed(코덱스 단계3 R5: autopass 우회 차단). 새 status 는 통제 추가.
+#   이 집합 밖 값(오타·공백·대소문자·미정의)은 '손상'으로 fail-closed(외부리뷰 단계3 R5: autopass 우회 차단). 새 status 는 통제 추가.
 _VALID_STATUS = {"active", "tbd", "ready-only"}
 
 
@@ -234,7 +234,7 @@ def _load_learned_deny(domain, stage):
     if not isinstance(data, dict):
         return []
     ents = data.get("entries")
-    if not isinstance(ents, list):    # entries 비-list(예 1) → TypeError 방어(Codex High)
+    if not isinstance(ents, list):    # entries 비-list(예 1) → TypeError 방어(외부리뷰 High)
         return []
     out = []
     for e in ents:
@@ -265,11 +265,11 @@ def load_domain_registry():
             except Exception:
                 raw = None
             e = dict(raw) if isinstance(raw, dict) else {}
-            # 유효 팩 = JSON '객체'(dict) + status ∈ 허용 enum + domain==디렉터리명. 하나라도 어긋나면 '손상'(코덱스 단계3 R2/R3/R5 High·Medium):
+            # 유효 팩 = JSON '객체'(dict) + status ∈ 허용 enum + domain==디렉터리명. 하나라도 어긋나면 '손상'(외부리뷰 단계3 R2/R3/R5 High·Medium):
             #   ① dict 강제(pair-list 배열의 dict 승격 차단) ② status enum(문자열 'foo'·'active '(공백)·'ACTIVE' 등 미정의값 → 손상; 오타 autopass 차단)
             #   ③ 디렉터리명을 도메인 id 로 신뢰(파일 내 domain 키 위조/누락 무력화). 손상 → incomplete·ruleset_path=None·default 무시·status="" → 상위 fail-closed(cosmetic 오폴백·autopass 금지).
             dom = name
-            #   status 는 반드시 str 후 enum 검사(코덱스 단계3 R6 Medium: 배열/객체 status 가 'x in set' 에서 TypeError →
+            #   status 는 반드시 str 후 enum 검사(외부리뷰 단계3 R6 Medium: 배열/객체 status 가 'x in set' 에서 TypeError →
             #   레지스트리 전체 크래시. isinstance(str) 단락으로 차단 — 나쁜 팩 하나는 자신만 incomplete, 타 도메인 로드 유지).
             broken = not (isinstance(raw, dict) and isinstance(e.get("status"), str)
                           and e.get("status") in _VALID_STATUS and e.get("domain") == name)
@@ -278,7 +278,7 @@ def load_domain_registry():
             e["ruleset_path"] = (rp if (os.path.exists(rp) and not broken) else None)
             if broken:
                 e["incomplete"] = True
-                e["status"] = ""   # 손상 팩 status 무효화(문자열 'tbd' 라도) → 비active·비autopass. shell domain_field 가 이 값을 읽어 active 기본→엔진 fail-closed(코덱스 단계3 R4).
+                e["status"] = ""   # 손상 팩 status 무효화(문자열 'tbd' 라도) → 비active·비autopass. shell domain_field 가 이 값을 읽어 active 기본→엔진 fail-closed(외부리뷰 단계3 R4).
             domains[dom] = e
     # packs/ 단일 SSoT — 레거시 레지스트리(regulatory-domains.json)·default→cosmetic 폴백 폐지(2부 1단계).
     #   빈/미등록 레지스트리는 default=None → 상위(load_ruleset·new-run·kcia-check)가 fail-closed 로 처리.
@@ -288,7 +288,7 @@ def load_domain_registry():
 def load_ruleset(domain=None):
     """규제도메인 → ruleset.json 로드(packs/<도메인>/ruleset.json; 레지스트리 조립).
     등록됐으나 파일 부재/손상 → 빈(미완) 룰셋(상위 fail-closed).
-    ★ '명시 요청' 도메인이 레지스트리에 없으면(팩 손상/누락) cosmetic 으로 조용히 폴백 금지 → 미완 룰셋 fail-closed(코덱스 단계3 R2 High).
+    ★ '명시 요청' 도메인이 레지스트리에 없으면(팩 손상/누락) cosmetic 으로 조용히 폴백 금지 → 미완 룰셋 fail-closed(외부리뷰 단계3 R2 High).
     (2부 1단계) domain 미지정(None)도 더는 cosmetic 레거시로 폴백하지 않는다 → fail-closed(미등록·미완 룰셋)."""
     reg = load_domain_registry()
     dom = domain or reg.get("default")   # default 는 이제 항상 None(default→cosmetic 메커니즘 폐지)
@@ -311,7 +311,7 @@ def load_ruleset(domain=None):
 FUNC_EFFICACY = {}          # → axes.lexicon.functional_efficacy
 STRONG = {"superlative", "efficacy", "speed"}   # 도메인-중립 claim 강도(어휘 아님, 잔류)
 # scan_text 의 substantiation_required '트리거' 위반 rule 문자열(단일 출처).
-#   ⚠ check_claim 의 무결성 위반(가짜/누락 근거·각주 부재 등)은 rule 이 달라 차트 억제에서 제외된다(Codex FIX A).
+#   ⚠ check_claim 의 무결성 위반(가짜/누락 근거·각주 부재 등)은 rule 이 달라 차트 억제에서 제외된다(외부리뷰 FIX A).
 _SUBST_TRIGGER_RULE = "실증 필요 표현(근거 없으면 다운그레이드)"   # 도메인-중립 rule 문자열(잔류)
 CONDITION_TARGET = []       # → axes.lexicon.condition_target (추천 타겟 블록 질환/효능 금지어)
 PHARMA_AUTHORITY = []       # → axes.lexicon.pharma_authority (브랜드 배너 제약사 권위 금지어)
@@ -370,7 +370,7 @@ class Engine:
                               sev, "절대표현/기만 소지", core))
         # ② functional_misperception: 미승인 기능성 효능 표현
         #   general_allowed(브라이트닝/톤업/화사 등)는 FUNC_EFFICACY 에 없으므로 별도 veto 불필요.
-        #   '효능어 톤업' 처럼 허용어를 끼워 효능어를 세탁하지 못하도록 전역 veto 를 제거(Codex B3 #B).
+        #   '효능어 톤업' 처럼 허용어를 끼워 효능어를 세탁하지 못하도록 전역 veto 를 제거(외부리뷰 B3 #B).
         for key, phrases in self.func_efficacy.items():
             for ph in phrases:
                 if _match(text, ph) and self.func_status.get(key) != "approved":
@@ -431,7 +431,7 @@ class Engine:
             elif claim["footnote_id"] not in footnote_ids:
                 v.append(_vio(tgt, "substantiation_required", self.subst_ref, "high",
                               "대응 footnote 부재", claim["footnote_id"]))
-            # ⚠ Codex FIX KK: 강주장이 '정량 evidence'(derive_chart 가능)를 참조하면 그 문구의 수치/방향이
+            # ⚠ 외부리뷰 FIX KK: 강주장이 '정량 evidence'(derive_chart 가능)를 참조하면 그 문구의 수치/방향이
             #   근거 도출값과 정확히 일치해야 한다. 트리거 문구가 아니어도("수분 +99% 증가") 조작 수치를 잡는다.
             #   rule 은 _SUBST_TRIGGER_RULE 과 다르므로(차트 억제 필터가 절대 제거 못함) — 가짜 수치 통과 0.
             d = derive_chart(self.evidence_details.get(ref)) if ref in self.evidence_ids else None
@@ -451,13 +451,13 @@ class Engine:
           ④ duration: duration 필드(비어있지 않음)
         5번째 요소(individual_variation_disclaimer)는 근거 레코드가 아니라 블록 카피/각주에 산다 →
         여기서 검사하지 않고 호출부(_block_has_disclaimer)가 블록 레벨로 확인한다.
-        ⚠ 하드닝(Codex FIX 2): series 가 [{}] 처럼 숫자 value 없이 truthy 인 경우를 거부한다.
-        ⚠ 하드닝(Codex FIX J): '쌍(pair)'이므로 series 는 숫자 value 항목이 2개 이상이어야 한다(단일 포인트는 대비 아님)."""
+        ⚠ 하드닝(외부리뷰 FIX 2): series 가 [{}] 처럼 숫자 value 없이 truthy 인 경우를 거부한다.
+        ⚠ 하드닝(외부리뷰 FIX J): '쌍(pair)'이므로 series 는 숫자 value 항목이 2개 이상이어야 한다(단일 포인트는 대비 아님)."""
         detail = self.evidence_details.get(ev_id)
         if not detail:
             return False
         has_pair = _has_measured_pair(detail)   # before/after OR series>=2 (단일 출처)
-        # ⚠ Codex FIX P: 공백만(" ") institution/duration 은 미존재로 취급(strip 후 빈 문자열 거부).
+        # ⚠ 외부리뷰 FIX P: 공백만(" ") institution/duration 은 미존재로 취급(strip 후 빈 문자열 거부).
         has_institution = bool(str(detail.get("institution") or "").strip())
         has_n = _is_num(detail.get("sample_size"))
         has_duration = bool(str(detail.get("duration") or "").strip())
@@ -469,7 +469,7 @@ class Engine:
 
 def _has_measured_pair(detail):
     """측정 전/후 '쌍' 존재: (before AND after 숫자) OR (series 숫자 value 2개 이상). 정량/정성 판별 단일 출처
-    (_evidence_satisfies·_qualitative_cert_ok 공용 — series 정량이 정성 완화로 새는 것 차단, Codex FIX)."""
+    (_evidence_satisfies·_qualitative_cert_ok 공용 — series 정량이 정성 완화로 새는 것 차단, 외부리뷰 FIX)."""
     if not isinstance(detail, dict):
         return False
     series = detail.get("series")
@@ -521,7 +521,7 @@ def _block_has_disclaimer(b, disclaimer):
 
 
 def _block_shows_context(b, detail, cs):
-    """충족 블록은 시험 맥락(시험기관·n수·시험기간)을 '사람-가독 카피'에 노출해야 한다(Codex FIX E + ADK-가시성 설계).
+    """충족 블록은 시험 맥락(시험기관·n수·시험기간)을 '사람-가독 카피'에 노출해야 한다(외부리뷰 FIX E + ADK-가시성 설계).
     cs = 도메인 임상 표기 어휘(axes.clinical_substantiation, 호출부가 eng.clinical_subst 주입) — n수/피험자/시험기간 매칭.
     근거 레코드에만 있고 소비자-노출 카피(headline/subcopy/bodyText/footnotes[].text)에 안 보이면 소비자는
     실증 맥락을 못 보므로 그 트리거를 억제하지 않는다(미실증 주장 통과 방지).
@@ -535,12 +535,12 @@ def _block_shows_context(b, detail, cs):
         + list(b.get("bodyText") or [])
         + [(f.get("text") or "") for f in (b.get("footnotes") or [])]
     ) if t)
-    # ⚠ Codex FIX P: 공백만(" ") 인 institution/duration 은 미존재로 취급(strip 후 빈 문자열 거부).
+    # ⚠ 외부리뷰 FIX P: 공백만(" ") 인 institution/duration 은 미존재로 취급(strip 후 빈 문자열 거부).
     inst = str(detail.get("institution") or "").strip()
     dur = str(detail.get("duration") or "").strip()
     n = detail.get("sample_size")
     # ── institution: 라틴/영숫자 기관명은 'ASCII 단어경계'만(뒤 한글 조사 '에서' 등 허용) · 한글명은 부분문자열.
-    #   ⚠ Codex 9R(PART 4): \w 한글 포함 → "ABC Lab에서" 가 (?!\w) 로 거부되던 문제 → ASCII 경계로 한정.
+    #   ⚠ 외부리뷰 9R(PART 4): \w 한글 포함 → "ABC Lab에서" 가 (?!\w) 로 거부되던 문제 → ASCII 경계로 한정.
     if not inst:
         return False
     # B-2(Seam C): 법인 접미(㈜·(주)·주식회사)는 실증 맥락의 본질(기관 식별)이 아니므로 비교 전 양쪽에서 정규화(제거)
@@ -563,7 +563,7 @@ def _block_shows_context(b, detail, cs):
             or re.search(r"(%s)\s*%s\s*명?" % ("|".join(cs["subject_markers"]), ns), blob))
     if not n_ok:
         return False
-    # ── duration: 숫자+'해당 단위 별칭만'으로 매칭 — Codex FIX N. "4주" 는 "4개월" 에 매칭되면 안 된다.
+    # ── duration: 숫자+'해당 단위 별칭만'으로 매칭 — 외부리뷰 FIX N. "4주" 는 "4개월" 에 매칭되면 안 된다.
     if not dur:
         return False
     _DUR_ALIASES = cs["duration_aliases"]
@@ -615,7 +615,7 @@ def _qualitative_cert_ok(b, fn_ids, eng):
 def _block_scan_texts(b):
     """provenance 버킷 스캔 대상 = gather().add_block 이 스캔하는 블록 텍스트 fragment 전체와 '동일 범위'.
     headline/subcopy/bodyText[]/footnotes[].text/claims[].target_text + visual.concept 텍스트(개별 필드).
-    ⚠ Codex FIX D/G: gather 스코프와 어긋나면 차트 억제가 과소(트리거가 본문 밖 claim/각주/concept 에만 있을 때
+    ⚠ 외부리뷰 FIX D/G: gather 스코프와 어긋나면 차트 억제가 과소(트리거가 본문 밖 claim/각주/concept 에만 있을 때
       false-fail)되거나 과대해진다. concept 은 gather 가 '필드별 개별 텍스트'로 스캔하므로(조인 아님) 여기서도
       필드별로 담아 target_text 가 정확히 일치하게 한다. gather().add_block 과 함께 유지할 것."""
     out = [b.get("headline", ""), b.get("subcopy", "")]
@@ -635,8 +635,8 @@ def _block_scan_texts(b):
 
 def _claim_consistent_with_evidence(target_text, detail):
     """클레임이 '진짜 측정 주장'으로서 derive_chart(detail) 도출값과 정확히 일치할 때만 True(억제 자격).
-    ⚠ Codex FIX DD: 자격 필요조건 — ① detail.metric 이 target_text 에 포함, ② 측정 숫자가 하나 이상 일치.
-    ⚠ Codex FIX EE: 숫자 정합은 clinical_chart.numbers_consistent 단일 규칙으로(% = 변화율 부호 포함, 맨숫자 = 값) —
+    ⚠ 외부리뷰 FIX DD: 자격 필요조건 — ① detail.metric 이 target_text 에 포함, ② 측정 숫자가 하나 이상 일치.
+    ⚠ 외부리뷰 FIX EE: 숫자 정합은 clinical_chart.numbers_consistent 단일 규칙으로(% = 변화율 부호 포함, 맨숫자 = 값) —
       chart 콜아웃 검증과 '동일 출처'라 절대 갈라지지 않는다. ('수분 40% 개선'·'수분 +20% 개선'(근거 -20%) → 불일치 → 자격 없음.)
     숫자 없음/지표 미언급 = 측정 주장 아님 → 자격 없음(억제 안 함, 트리거 그대로 적발).
     detail 차트화 불가(None)면 결박 불가 → 자격 없음."""
@@ -645,7 +645,7 @@ def _claim_consistent_with_evidence(target_text, detail):
         return False
     text = target_text or ""
     metric = str((detail or {}).get("metric") or "").strip()
-    # ⚠ Codex FIX QQ: 정확 부분문자열이 아니라 metric_matches_claim(접미 '량' stem) 으로 — '수분량' vs '수분 개선' 인정.
+    # ⚠ 외부리뷰 FIX QQ: 정확 부분문자열이 아니라 metric_matches_claim(접미 '량' stem) 으로 — '수분량' vs '수분 개선' 인정.
     if not metric or not metric_matches_claim(metric, text):
         return False   # 지표명 미언급 → 측정 주장 아님(비-수치 효능 트리거는 그대로 적발)
     ok, n_matched = numbers_consistent(text, d)
@@ -669,7 +669,7 @@ def _match(text, needle):
 
 
 def _norm_visible(s):
-    """가시 텍스트 정규화 — NFKC(전각→반각 등 호환 통일) + 비가시 문자 제거. 전각/ZWJ/CGJ/VS 등 경계우회 차단(코덱스 단계2 3R·4R).
+    """가시 텍스트 정규화 — NFKC(전각→반각 등 호환 통일) + 비가시 문자 제거. 전각/ZWJ/CGJ/VS 등 경계우회 차단(외부리뷰 단계2 3R·4R).
     denylist 대신 유니코드 카테고리로 일반화: Cf(format: soft-hyphen·ALM·Mongol-sep·ZWSP/ZWNJ/ZWJ·WJ·BOM·bidi)·Cs·Co·
     제어문자(Cc, 탭/개행/CR 제외) + variation selector(U+FE00..FE0F·U+E0100..E01EF)·CGJ(U+034F)(Mn 이지만 비가시)."""
     out = []
@@ -688,7 +688,7 @@ def _norm_visible(s):
 
 def _is_continuation(ch):
     """토큰 '연속' 문자인가 — 글자(L*)·숫자(N*)·결합표시(M*)·연결구두점(Pc, 밑줄). 이 문자가 매치 경계에 인접하면
-    제품명이 더 긴 토큰의 일부('제품A정'⊂'제품A정플러스'·'제품A정丸'·'EZdewα') → '독립 노출' 아님. 비라틴 포함 모든 스크립트 일반화(코덱스 4R).
+    제품명이 더 긴 토큰의 일부('제품A정'⊂'제품A정플러스'·'제품A정丸'·'EZdewα') → '독립 노출' 아님. 비라틴 포함 모든 스크립트 일반화(외부리뷰 4R).
     공백·하이픈(Pd)·점(Po)·괄호 등은 연속 아님(경계). re 표준모듈은 \\p{L} 미지원이라 카테고리로 직접 판정."""
     if not ch:
         return False                       # 문자열 끝/시작 = 경계
@@ -703,9 +703,9 @@ def _name_present(page, name):
       • High 차단(부분문자열 fail-open): 매치 양끝이 '연속 문자'(글자/숫자/결합/밑줄, 전 스크립트)면 불충족 — 더 긴 토큰의 일부.
       • 전각/ZWJ/CGJ/VS 우회 차단: 양쪽 _norm_visible(NFKC+비가시 카테고리 제거).
       • 경계 잔여 오탐(면허명+단위 '타이레놀500'⊄'타이레놀500mg')은 fail-closed(안전) — 위험한 fail-open 쪽만 엄격.
-      • 블록횡단 합성 차단(코덱스 5R): 문자 사이 분리자는 '\\n'(블록경계) 불포함 + 갭 상한. '<h1>우</h1><p>루</p>…'='우\\n루…' 는 불일치.
+      • 블록횡단 합성 차단(외부리뷰 5R): 문자 사이 분리자는 '\\n'(블록경계) 불포함 + 갭 상한. '<h1>우</h1><p>루</p>…'='우\\n루…' 는 불일치.
       • 표준 re 는 \\p{L} 룩어라운드 불가 → finditer 로 후보 매치를 찾고 양끝 문자 카테고리로 경계 직접 판정.
-      • 정책(코덱스 6R Low, 의도): '제품A정 플러스'(공백분리)·'제품A정-플러스'(하이픈)는 면허명이 독립 토큰으로 노출된 것으로 보아 충족.
+      • 정책(외부리뷰 6R Low, 의도): '제품A정 플러스'(공백분리)·'제품A정-플러스'(하이픈)는 면허명이 독립 토큰으로 노출된 것으로 보아 충족.
         수식어구 분리까지 거부하지 않는다(과차단 회피). <pre> 보존문맥의 줄내 분할은 공백축약으로 충족될 수 있음(엣지, 안전영향 미미)."""
     page = _norm_visible(page)
     sig = re.sub(r"[\s*_`~]+", "", _norm_visible(name))   # 이름의 유의미 문자(공백/마크다운 제거)
@@ -729,8 +729,8 @@ def _name_present(page, name):
 #   (예: h1::after{content:"플러스"} + <h1>제품A정</h1> → 화면 '제품A정플러스'). 정적 추출로 위치를 알 수 없으므로
 #   글루 위험 존재 시 제품명 '독립 노출' 보장 불가 → fail-closed(누락 flag). 빈/기호/아이콘 content 만 무위험.
 #   CSS 텍스트 생성 경로는 무한(attr/counter(s)/var/env/open-close-quote/escape/문자열연결…)이라 열거 대신 **default-deny**:
-#   '명백히 무해'(빈·none·normal·기호/구두점만의 문자열 리터럴)가 아니면 전부 위험으로 본다(코덱스 단계2 5R).
-#   수용 잔여(코덱스 6R, 의도적 합의): 정규식 스캐너라 CSS 토크나이저가 아니다 — 의도적 난독화('::bef\\6fre', 'con/**/tent',
+#   '명백히 무해'(빈·none·normal·기호/구두점만의 문자열 리터럴)가 아니면 전부 위험으로 본다(외부리뷰 단계2 5R).
+#   수용 잔여(외부리뷰 6R, 의도적 합의): 정규식 스캐너라 CSS 토크나이저가 아니다 — 의도적 난독화('::bef\\6fre', 'con/**/tent',
 #     content 문자열 안 '{')는 미탐(Medium). 이 하네스의 '생성자'는 적대적 외부인이 아니라 자체 stub/LLM 이라 우연 발생 불가(악용가능성 낮음).
 #     또한 전역 글루감지라 페이지 어디든 단어 ::content(예: Material Icons 리거처)면 정상 제품명도 fail-closed(M2 운영 false-positive, 안전측).
 #     PUA 아이콘(FontAwesome '\\f001')은 통과. 완전 차단엔 CSS 파서 필요 — 안전망 비용 대비 과해 미도입.
@@ -791,8 +791,8 @@ def _has_gluing_generated_content(css):
 
 def _final_page_render(rdir, phase):
     """필수기재 제품명 검사용 — 선택안 최종 페이지의 (충실 렌더 텍스트, CSS 원문).
-    렌더 텍스트: 인라인 연결·블록 분리(노출 텍스트만) — gather 일괄 공백결합이 못 구분하는 실제 렌더 경계 복원(코덱스 3R).
-    CSS: 인라인 <style>(raw HTML) + styles.css — ::before/::after 생성콘텐츠 글루 위험 판정용(코덱스 4R)."""
+    렌더 텍스트: 인라인 연결·블록 분리(노출 텍스트만) — gather 일괄 공백결합이 못 구분하는 실제 렌더 경계 복원(외부리뷰 3R).
+    CSS: 인라인 <style>(raw HTML) + styles.css — ::before/::after 생성콘텐츠 글루 위험 판정용(외부리뷰 4R)."""
     odir = os.path.join(rdir, phase, "options")
     opt = None
     sel = os.path.join(rdir, phase, "decision.json")
@@ -864,19 +864,19 @@ def _selected_options(rdir, decision_rel, options_dir):
     return sorted(os.listdir(od)) if os.path.isdir(od) else []
 
 
-_VERDICT_MIN_CONTEXT = 4   # 판정문 부분문자열 면제 시, 효능어 제거 후 남아야 하는 최소 판정문 문맥(spaceless 자수) — bare 토큰 결박 우회 차단(Codex 11R)
+_VERDICT_MIN_CONTEXT = 4   # 판정문 부분문자열 면제 시, 효능어 제거 후 남아야 하는 최소 판정문 문맥(spaceless 자수) — bare 토큰 결박 우회 차단(외부리뷰 11R)
 
 
 def _verdict_exempt_ok(fragment, verdict_texts, zero_voc, require_full=False):
     """조각이 P-3(a안) zero_voc 면제 자격이 있는가 — 결박된 판정문과의 관계로 판정(단일 출처).
       · 조각 ⊆ 판정문   → 면제(순수 판정문 부분문자열 카피 — 판정문 어휘뿐이라 안전). ★ require_full=True 면 이 방향 불허.
       · 판정문 ⊆ 조각   → 판정문을 뺀 '나머지'에 zero_voc 효능어가 없을 때만 면제(본문 = 판정문 + 중립 맥락[기관·n·기간·
-        디스클레이머] 렌더). 나머지에 효능어가 붙으면(판정문 문단에 마케팅 효능어 끼워넣기) 면제 안 함 → 스머글링 차단(Codex 5R).
+        디스클레이머] 렌더). 나머지에 효능어가 붙으면(판정문 문단에 마케팅 효능어 끼워넣기) 면제 안 함 → 스머글링 차단(외부리뷰 5R).
     require_full(키비주얼 전용) = 04-keyvisual HTML 은 필드(헤드라인/본문) 구분이 불가·클래스명이 비결정적이라, '짧은
-      판정문 조각'(조각 ⊆ 판정문)을 eyebrow/sub/kicker 같은 prominent 훅에 넣어 컨셉 축으로 쓰는 우회(Codex 7R)를 막기 위해
+      판정문 조각'(조각 ⊆ 판정문)을 eyebrow/sub/kicker 같은 prominent 훅에 넣어 컨셉 축으로 쓰는 우회(외부리뷰 7R)를 막기 위해
       '판정문 ⊆ 조각'(판정문 전문 + 맥락으로 렌더된 본문)만 면제한다 — 클래스-독립 견고 신호. 스토리보드는 필드 분류라 False.
     verdict_texts = 결박 확인된 판정문 목록 · zero_voc = 리뷰0 효능어 목록.
-    ★ 겹침 판정은 공백 무시(_spaceless)로 한다 — 인라인 마크업 분할·소스 공백 차이로 판정문이 조각나도(Codex 9R) 견고."""
+    ★ 겹침 판정은 공백 무시(_spaceless)로 한다 — 인라인 마크업 분할·소스 공백 차이로 판정문이 조각나도(외부리뷰 9R) 견고."""
     zv = [z for z in (zero_voc or ()) if z]
     fsl = _spaceless(fragment)
     if not fsl:
@@ -886,7 +886,7 @@ def _verdict_exempt_ok(fragment, verdict_texts, zero_voc, require_full=False):
         if not vsl:
             continue
         if (not require_full) and fsl in vsl:
-            # ★ bare 효능어 우회 차단(Codex 11R): 조각이 판정문 부분문자열이라도, zero_voc 효능어를 뺀 '판정문 문맥'이
+            # ★ bare 효능어 우회 차단(외부리뷰 11R): 조각이 판정문 부분문자열이라도, zero_voc 효능어를 뺀 '판정문 문맥'이
             #   충분히(_VERDICT_MIN_CONTEXT 자↑) 남아야 면제한다 — target_text:"여드름" 처럼 효능어 토큰 하나만 결박해
             #   그 bare 효능어를 통과시키는 우회를 막는다. 실제 판정 카피(예 "여드름성 피부 사용에 적합")는 문맥이 충분해 통과.
             stripped = fsl
@@ -899,7 +899,7 @@ def _verdict_exempt_ok(fragment, verdict_texts, zero_voc, require_full=False):
         if vsl in fsl:
             remainder = fsl.replace(vsl, "")
             # ★ scan_text 와 '같은 정규화'(_match: spaceless + N placeholder)로 나머지의 효능어를 찾는다 —
-            #   raw 부분문자열 검사는 '여 드름'(공백)·마크다운 난독화를 놓쳐 면제가 새므로(Codex 6R) 불가.
+            #   raw 부분문자열 검사는 '여 드름'(공백)·마크다운 난독화를 놓쳐 면제가 새므로(외부리뷰 6R) 불가.
             if not any(_match(remainder, z) for z in zv):
                 return True
     return False
@@ -910,15 +910,15 @@ def gather(rdir, phase, substage, verdict_docs=None, bound_doc_ids=None, zero_vo
     exempt_texts = P-3(a안) zero_voc 면제 대상 = '시험성적서 판정문 원문을 결박하여 실은 카피'뿐. 결박·훅 규칙은 아래 참조.
       · verdict_docs {doc_id: verdict_text}(test_report) · bound_doc_ids = claim-basis 로 승격된 test_report doc_id(런-결박, 키비주얼용).
       · 03-storyboard: '블록에 evidence_ref→그 판정문 결박 claim(target_text ⊆ 판정문)이 있는' 경우에만 그 블록의 비-훅 조각
-        (본문·각주·claim target) 중 판정문과 겹치는(⊆ 또는 ⊇[본문+맥락 렌더]) 것을 면제 — 결박 없는 블록/카피는 면제 안 함(Codex W1c a).
-      · 04-keyvisual: claims 부재라 런-결박(bound_doc_ids) + heading(h1~h6)=훅 제외로, 비-heading 본문 중 판정문 겹침만 면제(Codex W1c b).
+        (본문·각주·claim target) 중 판정문과 겹치는(⊆ 또는 ⊇[본문+맥락 렌더]) 것을 면제 — 결박 없는 블록/카피는 면제 안 함(외부리뷰 W1c a).
+      · 04-keyvisual: claims 부재라 런-결박(bound_doc_ids) + heading(h1~h6)=훅 제외로, 비-heading 본문 중 판정문 겹침만 면제(외부리뷰 W1c b).
       · 훅(헤드라인·subcopy·콜아웃·concept 축·02-concept·키비주얼 heading)은 판정문 원문 반복이라도 결코 면제 안 함. 최종 exempt -= hook."""
     verdict_docs = verdict_docs or {}
     bound_doc_ids = set(bound_doc_ids or ())
     texts, claims = [], []
-    hook_texts = set()        # 훅·컨셉 주축 — 면제 절대 제외(누수 차단, Codex W1 finding2/W1c b)
+    hook_texts = set()        # 훅·컨셉 주축 — 면제 절대 제외(누수 차단, 외부리뷰 W1 finding2/W1c b)
     exempt = set()            # 결박 판정문 카피 면제 후보(아래에서 조건 충족분만 add; 반환 직전 hook·비결박 차감)
-    nonhook_unbound = set()   # '결박 없는' 블록의 비-훅 조각 — 같은 문자열이 결박 블록에도 있어도 면제에서 뺀다(블록-스코프 보수화, Codex 4R b)
+    nonhook_unbound = set()   # '결박 없는' 블록의 비-훅 조각 — 같은 문자열이 결박 블록에도 있어도 면제에서 뺀다(블록-스코프 보수화, 외부리뷰 4R b)
 
     def add_block(b):
         fn_ids = {f["id"] for f in b.get("footnotes", [])}
@@ -932,13 +932,13 @@ def gather(rdir, phase, substage, verdict_docs=None, bound_doc_ids=None, zero_vo
                 _hook(b[fld], fn_ids)
         for t in b.get("bodyText", []):        # 본문 = 판정문 렌더 자리(결박 시 면제 후보)
             _body(t, fn_ids)
-        for f in b.get("footnotes", []):       # 각주 본문도 HTML 에 노출 → scan (Codex 2차 A)
+        for f in b.get("footnotes", []):       # 각주 본문도 HTML 에 노출 → scan (외부리뷰 2차 A)
             if f.get("text"):
                 _body(f["text"], fn_ids)
         for c in b.get("claims", []):
             _body(c.get("target_text", ""), fn_ids)   # claim target(결박 시 면제 후보)
             claims.append((c, fn_ids))
-        # ⚠ Codex FIX HH: chart_data.callouts 는 소비자-노출 텍스트 → 전 축 스캔(금지어/효능 등). 경로/숫자 무관.
+        # ⚠ 외부리뷰 FIX HH: chart_data.callouts 는 소비자-노출 텍스트 → 전 축 스캔(금지어/효능 등). 경로/숫자 무관.
         for co in ((b.get("visual") or {}).get("chart_data") or {}).get("callouts", []):
             if co:
                 _hook(co, fn_ids)
@@ -958,7 +958,7 @@ def gather(rdir, phase, substage, verdict_docs=None, bound_doc_ids=None, zero_vo
             cref = con.get("reference") or {}
             if cref.get("direction"):
                 _hook(cref["direction"], None)
-        # P-3(a안 · Codex W1c a) 블록-결박 판정문 면제: 이 블록에 'evidence_ref→그 판정문 결박 claim(target_text ⊆ 판정문)'이
+        # P-3(a안 · 외부리뷰 W1c a) 블록-결박 판정문 면제: 이 블록에 'evidence_ref→그 판정문 결박 claim(target_text ⊆ 판정문)'이
         #   있을 때만, 그 블록의 비-훅 조각(본문·각주·claim target) 중 판정문과 겹치는 것을 면제. 결박 없으면 면제 없음.
         if verdict_docs:
             bvts = []
@@ -978,7 +978,7 @@ def gather(rdir, phase, substage, verdict_docs=None, bound_doc_ids=None, zero_vo
                     if f and _verdict_exempt_ok(f, bvts, zero_voc):
                         exempt.add(f)
             else:
-                # 결박 없는 블록의 비-훅 조각 — 같은 문자열이 다른(결박) 블록에도 있으면 면제에서 뺀다(누수 차단, Codex 4R b).
+                # 결박 없는 블록의 비-훅 조각 — 같은 문자열이 다른(결박) 블록에도 있으면 면제에서 뺀다(누수 차단, 외부리뷰 4R b).
                 nonhook_unbound.update(f for f in block_nonhook if f)
 
     if phase == "00g-guideline":
@@ -1051,24 +1051,24 @@ def gather(rdir, phase, substage, verdict_docs=None, bound_doc_ids=None, zero_vo
             if os.path.exists(html):
                 with open(html, encoding="utf-8") as f:
                     raw = f.read()
-                # text node + 노출 속성(alt/title/aria/...) 전부 수집(속성 효능표현 우회 차단, Codex 3차).
+                # text node + 노출 속성(alt/title/aria/...) 전부 수집(속성 효능표현 우회 차단, 외부리뷰 3차).
                 hp = _HTMLText()
                 try:
                     hp.feed(raw); hp.close()
                 except Exception:
                     hp.texts = re.findall(r">([^<>]+)<", raw)   # 파싱 실패 시 보수적 폴백
                 _kv_heads = set(s.strip() for s in getattr(hp, "hook_texts", []) if s and s.strip())
-                hook_texts |= _kv_heads       # heading(h1~h6) 텍스트/속성 = 훅 → 면제 절대 제외(Codex W1c b·8R)
+                hook_texts |= _kv_heads       # heading(h1~h6) 텍스트/속성 = 훅 → 면제 절대 제외(외부리뷰 W1c b·8R)
                 for s in hp.texts:
                     s = (s or "").strip()
                     if s:
                         texts.append((s, None))
                 # P-3(a안) 키비주얼 면제 — claims 부재라 런-결박(bound_doc_ids)로만 인정. 면제는 '문단(블록경계) 집계' 단위로
-                #   판정:비-heading 문단의 집계 텍스트가 require_full(판정문 전문+맥락, 짧은 훅 조각 제외 — Codex 7R)을 만족하면
-                #   그 문단의 '구성 노드 전부'를 면제한다 → 인라인 마크업으로 쪼개진 본문도 놓치지 않음(Codex 9R). heading 문단은 제외.
+                #   판정:비-heading 문단의 집계 텍스트가 require_full(판정문 전문+맥락, 짧은 훅 조각 제외 — 외부리뷰 7R)을 만족하면
+                #   그 문단의 '구성 노드 전부'를 면제한다 → 인라인 마크업으로 쪼개진 본문도 놓치지 않음(외부리뷰 9R). heading 문단은 제외.
                 _kv_vts = [verdict_docs[d] for d in bound_doc_ids if d in verdict_docs] if (bound_doc_ids and verdict_docs) else []
                 if _kv_vts:
-                    _kv_nonexempt = set()   # 면제 미자격 문단(짧은 훅 등)의 노드 — 같은 문자열이 면제 문단에도 있어도 차감(occurrence 누수 차단, Codex 12R; 스토리보드 nonhook_unbound 와 대칭)
+                    _kv_nonexempt = set()   # 면제 미자격 문단(짧은 훅 등)의 노드 — 같은 문자열이 면제 문단에도 있어도 차감(occurrence 누수 차단, 외부리뷰 12R; 스토리보드 nonhook_unbound 와 대칭)
                     for _nodes, _is_head in getattr(hp, "paragraphs", []):
                         if _is_head:
                             continue
@@ -1084,7 +1084,7 @@ def gather(rdir, phase, substage, verdict_docs=None, bound_doc_ids=None, zero_vo
                                 if _ns:
                                     _kv_nonexempt.add(_ns)
                     exempt -= _kv_nonexempt   # 짧은 훅 문단에도 등장한 문자열은 면제 취소(대칭 보수 closure)
-                # CSS content:"..." (인라인 <style> + 로컬 styles.css) 도 화면 노출 → scan(Codex 4차).
+                # CSS content:"..." (인라인 <style> + 로컬 styles.css) 도 화면 노출 → scan(외부리뷰 4차).
                 css = raw
                 cssf = os.path.join(odir, o, "styles.css")
                 if os.path.exists(cssf):
@@ -1099,7 +1099,7 @@ def evaluate(rid, rdir, out_path, engine_name):
     phase = st["phase"]
     # substage 판별은 단일 SSoT(harness.storyboard_substage): outline → plan (M3: 2-cycle, tone 흡수).
     substage = storyboard_substage(rdir) if phase == "03-storyboard" else None
-    # M4(C4·코덱스 HIGH): 다안 페이즈는 심의 시점에 '선택안(decision.selected)'이 반드시 있어야 한다(심의는 선택 뒤).
+    # M4(C4·외부리뷰 HIGH): 다안 페이즈는 심의 시점에 '선택안(decision.selected)'이 반드시 있어야 한다(심의는 선택 뒤).
     #   부재/손상 = 우회·손상 상태 → fail-closed escalate(전체옵션 폴백으로 거절안 false-fail / 무증거 pass 차단).
     #   storyboard-outline 도 다안(스토리라인 A/B)이므로 포함(outline decision 부재 시 무내용 pass+plan 전진 차단).
     #   (00g-guideline 은 단안=크롤 참조 노트로 전환되어 decision 이 없으므로 이 다안 체크에서 제외.)
@@ -1124,7 +1124,7 @@ def evaluate(rid, rdir, out_path, engine_name):
             if out_path:
                 atomic_write_json(out_path, verdict)
             return verdict
-    # 코덱스 HIGH(2R): 03-storyboard plan substage 인데 plan 산출물(plan/*.json)이 없으면 '무내용 pass' 금지 → fail-closed.
+    # 외부리뷰 HIGH(2R): 03-storyboard plan substage 인데 plan 산출물(plan/*.json)이 없으면 '무내용 pass' 금지 → fail-closed.
     #   legacy/직접 seed 가 outline-verdict=pass 만 갖고 plan 미생성 상태에서 plan 으로 재구성돼도 빈 plan 통과를 차단(R7 손상상태 fail-closed).
     if phase == "03-storyboard" and substage == "plan":
         _pdir = os.path.join(rdir, "03-storyboard", "plan")
@@ -1187,8 +1187,8 @@ def evaluate(rid, rdir, out_path, engine_name):
         voc_top = voc_data.get("top_phrases", {})
         zero_voc = [k for k, c in voc_kw.items() if c == 0 and k not in zero_voc_exclude]
 
-    # P-3(a안, 좁은 면제 · Codex W1/W1b/W1c) — 시험성적서 판정문(verdict_text) '결박 카피'만 zero_voc 억제에서 면제.
-    #   면제 계산은 gather 가 블록/페이즈 맥락으로 수행(결박 요구 — Codex W1c a) — 여기선 판정문 사전만 만들어 넘긴다:
+    # P-3(a안, 좁은 면제 · 외부리뷰 W1/W1b/W1c) — 시험성적서 판정문(verdict_text) '결박 카피'만 zero_voc 억제에서 면제.
+    #   면제 계산은 gather 가 블록/페이즈 맥락으로 수행(결박 요구 — 외부리뷰 W1c a) — 여기선 판정문 사전만 만들어 넘긴다:
     #     · verdict_docs = {doc_id: verdict_text}(test_report) — 03-storyboard 블록-결박(claim.evidence_ref) 확인용.
     #     · bound_doc_ids = claim-basis 로 '승격된' test_report doc_id(런-결박) — 04-keyvisual(claims 부재)에서만 사용.
     #   매니페스트 부재/판정문 없음 → gather 가 공집합 반환 = 기존 골든 바이트 불변. 원격 ADK 는 독립 심의 주체(격리 불변).
@@ -1260,14 +1260,14 @@ def evaluate(rid, rdir, out_path, engine_name):
         if _final_page_phase and phase == _final_page_phase:
             _page = " ".join(t for t, _ in texts)
             # 제품명 '독립 노출' 검사는 충실 렌더(_final_page_render)로 — gather 일괄 공백결합이 못 구분하는
-            #   인라인 split('제품A<span>정'=제품A정) vs 경계 split('제품A정<span>플러스'=제품A정플러스) 구분(코덱스 3R).
+            #   인라인 split('제품A<span>정'=제품A정) vs 경계 split('제품A정<span>플러스'=제품A정플러스) 구분(외부리뷰 3R).
             #   다른 4항목(키워드 매칭)은 기존 _page(spaceless _match) 그대로.
             #   가시 렌더 텍스트가 없으면(예: 제품명이 alt 속성에만) 필수기재(가시 노출) 미충족 → flag(fail-closed).
-            #   CSS ::before/::after 단어콘텐츠 글루 위험(코덱스 4R) 있으면 정적 검증 불가 → 제품명 fail-closed.
+            #   CSS ::before/::after 단어콘텐츠 글루 위험(외부리뷰 4R) 있으면 정적 검증 불가 → 제품명 fail-closed.
             _rendered, _css = _final_page_render(rdir, phase)
             _glue_risk = _has_gluing_generated_content(_css)
             _prod_name = ((st.get("product") or {}).get("name") or "").strip()   # '{product_name}' 토큰 해석용
-            _GENERIC_NAMES = {"", "제품"}   # new-run 기본 플레이스홀더 — '정확한 제품명' 아님(fail-closed 대상, 코덱스 단계2 High)
+            _GENERIC_NAMES = {"", "제품"}   # new-run 기본 플레이스홀더 — '정확한 제품명' 아님(fail-closed 대상, 외부리뷰 단계2 High)
             for _item in _mi.get("required", []):
                 # 누수#3 제거: 검사 신호를 룰셋 항목 signals 에서 읽는다(코드 하드코딩 제거 — 항목 추가 시 코드 무수정으로 검사).
                 #   signals 미정의(레거시 룰셋) 항목만 _MI_SIG_LEGACY 폴백. '{product_name}' 토큰 = 정확한 제품명(state.product.name).
@@ -1280,9 +1280,9 @@ def evaluate(rid, rdir, out_path, engine_name):
                 for s in _sig:
                     if s == "{product_name}":
                         # 정확한 제품명: state.product.name(일반 플레이스홀더 '제품'·빈값 제외)이 충실 렌더에 '독립 노출'돼야 충족.
-                        #   _name_present(_rendered): 인라인 split 복원(Medium) + 부분문자열/전각/ZWJ/CGJ/비라틴 fail-open 차단(High, 코덱스 3R·4R).
-                        #   _glue_risk(CSS 생성콘텐츠 글루) 시 정적 검증 불가 → 미충족(fail-closed, 코덱스 4R).
-                        #   일반 플레이스홀더/미선언이면 어떤 페이지로도 충족 불가 → 필수기재 누락(fail-closed, 코덱스 단계2 High).
+                        #   _name_present(_rendered): 인라인 split 복원(Medium) + 부분문자열/전각/ZWJ/CGJ/비라틴 fail-open 차단(High, 외부리뷰 3R·4R).
+                        #   _glue_risk(CSS 생성콘텐츠 글루) 시 정적 검증 불가 → 미충족(fail-closed, 외부리뷰 4R).
+                        #   일반 플레이스홀더/미선언이면 어떤 페이지로도 충족 불가 → 필수기재 누락(fail-closed, 외부리뷰 단계2 High).
                         if _prod_name not in _GENERIC_NAMES and not _glue_risk and _name_present(_rendered, _prod_name):
                             _satisfied = True
                             break
@@ -1309,8 +1309,8 @@ def evaluate(rid, rdir, out_path, engine_name):
     if phase == "03-storyboard" and substage == "plan":
         has_evidence = len(cb["evidence_on_file"]) > 0   # 실증 '파일' 등록 여부(기능성 승인 ref 아님)
         pdir = os.path.join(rdir, "03-storyboard/plan")
-        # 수치 차트 충족 '클레임' substantiation_required stale 트리거 억제 — 클레임-스코프 + 정확매칭(Codex FIX M).
-        #   ⚠ Codex FIX M(설계): 억제 단위는 '블록'이 아니라 '충족 클레임의 자기 target_text' 하나뿐이다.
+        # 수치 차트 충족 '클레임' substantiation_required stale 트리거 억제 — 클레임-스코프 + 정확매칭(외부리뷰 FIX M).
+        #   ⚠ 외부리뷰 FIX M(설계): 억제 단위는 '블록'이 아니라 '충족 클레임의 자기 target_text' 하나뿐이다.
         #     한 블록이 어떤 측정 클레임으로 충족되더라도, 그 블록의 무관한 다른 트리거(예: 헤드라인 '모공 축소 확인',
         #     concept, 다른 클레임)는 면제되지 않는다. → 측정 클레임 본인 문구만 통과, 나머지 미실증 주장은 그대로 적발.
         #   ① satisfied_texts = '완전 충족' 클레임 c 의 target_text 집합. 완전 충족 =
@@ -1321,7 +1321,7 @@ def evaluate(rid, rdir, out_path, engine_name):
         #      '없는' 문자열을 scan_text → (target_text, rule). (충족 클레임 자기 문구는 제외되어야 억제가 성립.)
         #   ④ suppressible = satisfied_pairs - unsatisfied_pairs. 전역 위반은 axis==substantiation_required AND
         #      rule==_SUBST_TRIGGER_RULE AND (target_text, rule)∈suppressible 일 때만 제거.
-        #   ⚠ Codex FIX A: 버킷은 scan_text(트리거) 위반만 담아 rule 이 항상 _SUBST_TRIGGER_RULE 이고, 억제 필터도
+        #   ⚠ 외부리뷰 FIX A: 버킷은 scan_text(트리거) 위반만 담아 rule 이 항상 _SUBST_TRIGGER_RULE 이고, 억제 필터도
         #     rule 을 명시 확인하므로 check_claim 무결성 위반(가짜/누락 근거·각주, 다른 rule)은 절대 억제되지 않는다.
         #   ⚠ 교차블록: satisfied_texts 에 없는 문자열(다른 블록 트리거 포함)은 모두 unsatisfied 로 빠져 억제 불가.
         #   절대 억제 금지 축: drug_misperception / functional_misperception / consumer_deception.
@@ -1330,7 +1330,7 @@ def evaluate(rid, rdir, out_path, engine_name):
             for fn in sorted(os.listdir(pdir)):
                 if fn.endswith(".json"):
                     _plan_blocks.append(load_json(os.path.join(pdir, fn)))
-        # ⚠ Codex FIX R: 충족 클레임 target_text 제외는 '블록별(per-block)'이어야 한다 — 전역 집합이면
+        # ⚠ 외부리뷰 FIX R: 충족 클레임 target_text 제외는 '블록별(per-block)'이어야 한다 — 전역 집합이면
         #   다른 블록(예: hero)의 '동일 문자열' 헤드라인이 unsatisfied 에서 제외돼 잘못 억제된다.
         #   per_block_sat[i] = i번째 블록 '자기' 의 완전 충족 클레임 target_text 집합.
         per_block_sat = []
@@ -1358,7 +1358,7 @@ def evaluate(rid, rdir, out_path, engine_name):
                         for c in b.get("claims", []):
                             ref = c.get("evidence_ref")
                             tt = c.get("target_text", "")
-                            # ⚠ Codex FIX W: 클레임 문구의 수치/방향이 evidence 와 일치(_claim_consistent_with_evidence)
+                            # ⚠ 외부리뷰 FIX W: 클레임 문구의 수치/방향이 evidence 와 일치(_claim_consistent_with_evidence)
                             #   할 때만 억제 대상에 넣는다 — 조작 수치("수분 99% 개선")는 충족 판정에서 제외 → 그대로 적발.
                             if (c.get("claim_strength") in STRONG
                                     and ref in eng.evidence_ids
@@ -1369,7 +1369,7 @@ def evaluate(rid, rdir, out_path, engine_name):
                                     and _claim_consistent_with_evidence(tt, eng.evidence_details.get(ref))):
                                 if tt:
                                     bsat.add(tt)
-                    # ⚠ Codex FIX OO: chart_data 보유 게이트 블록은 트리거 어휘와 무관하게 '5요소'를 HARD GATE 강제 —
+                    # ⚠ 외부리뷰 FIX OO: chart_data 보유 게이트 블록은 트리거 어휘와 무관하게 '5요소'를 HARD GATE 강제 —
                     #   측정 레코드(기관·n·기간·측정쌍) + 카피 노출(기관·n·기간) + 개인차 디스클레이머. 누락 시 distinct
                     #   rule(억제 불가) 위반. (정량 지표처럼 트리거 아닌 metric 차트도 디스클레이머/맥락 없이 렌더 못 함.)
                     _cd = (b.get("visual") or {}).get("chart_data")
@@ -1385,14 +1385,14 @@ def evaluate(rid, rdir, out_path, engine_name):
                             violations.append(_vio("[%s]" % btype, "substantiation_required", "정량 차트 필수요소",
                                               "high",
                                               "정량 차트 필수요소(시험기관·n수·기간·개인차 디스클레이머) 누락", btype))
-            # 추천 타겟: 질환·고민 명사로 타겟팅 금지(의약품/기능성 오인, Codex coverage #5)
+            # 추천 타겟: 질환·고민 명사로 타겟팅 금지(의약품/기능성 오인, 외부리뷰 coverage #5)
             if btype == "targetAudience":
                 btext = " ".join([b.get("headline", ""), b.get("subcopy", "")] + (b.get("bodyText") or []) + [_concept_text(b)])
                 for term in condition_target:
                     if _match(btext, term):
                         violations.append(_vio(term, "drug_misperception", "추천 타겟 질환·고민 타겟팅",
                                           "high", "질환/효능 고민으로 타겟팅 — 의약품/기능성 오인 소지", term))
-            # 브랜드 배너: 제약사 등 전문성을 효능 권위로 쓰는 표현 금지(의약품 오인, Codex coverage #6)
+            # 브랜드 배너: 제약사 등 전문성을 효능 권위로 쓰는 표현 금지(의약품 오인, 외부리뷰 coverage #6)
             if btype == "brandBanner":
                 btext = " ".join([b.get("headline", ""), b.get("subcopy", "")] + (b.get("bodyText") or []) + [_concept_text(b)])
                 for term in pharma_authority:

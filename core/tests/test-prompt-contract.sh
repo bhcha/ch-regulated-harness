@@ -29,7 +29,7 @@ done
 #   단방향(Inputs ⊆ KNOWN)만으론 build_context 에 라벨을 추가하고 keyvisual.md 동기화를 빠뜨려도 미탐 → 필수 포함을 별도 단언.
 #   G6: DELIVERABLE_FORMAT 도 필수 — 키비주얼 레이아웃이 포맷별(BM 860 세로 / one_pager 1매)로
 #   분기하려면 프롬프트가 포맷 라벨을 입력 경계로 받아야 한다(BM-860 하드코딩 회귀 차단).
-# 파일을 '직접' grep 한다(Inputs 줄을 변수로 캡처해 eval 에 넘기면 줄 안의 백틱 `build_context` 가 실행됨 — Codex 단계5 Low).
+# 파일을 '직접' grep 한다(Inputs 줄을 변수로 캡처해 eval 에 넘기면 줄 안의 백틱 `build_context` 가 실행됨 — 외부리뷰 단계5 Low).
 for req in STORYBOARD_PLAN REFERENCE_IMAGES STORYLINE DELIVERABLE_FORMAT; do
   check "(keyvisual) Inputs 에 $req 필수 포함(누적 종합 입력 — M6 / 포맷 분기 — G6)" \
     "grep -m1 -F '**Inputs**' '$ROOT/prompts/keyvisual.md' | grep -q '$req'"

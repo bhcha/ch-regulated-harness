@@ -194,7 +194,7 @@ check "(H-1) intake≡new-run 초기 functional_status(화장품 실측 동일)"
   "[ \"\$(python3 '$ROOT/scripts/lib/harness.py' jget '$U/state.json' product.functional_status 2>/dev/null)\" = \"\$(python3 '$ROOT/scripts/lib/harness.py' jget '$ROOT/runs/ci-intake-e/state.json' product.functional_status 2>/dev/null)\" ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (g·Codex W4) 사람 선언(state.json)이 진실: 합성 번들 제품명은 에이전트 제안 변조를 무시하고 state.product.name 을 쓴다.
+# W-2 (g·외부리뷰 W4) 사람 선언(state.json)이 진실: 합성 번들 제품명은 에이전트 제안 변조를 무시하고 state.product.name 을 쓴다.
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (g) 합성 번들 제품명 = state 선언(에이전트 제안 변조 무시)"
 mk_fixture "$SCRATCH/attach_g"    # crawl 없음 → 합성 번들
@@ -207,7 +207,7 @@ G="$ROOT/runs/ci-intake-g"
 check "(g) 합성 번들 제품명 = state 선언(제안 변조 무시)" "[ \"\$(python3 -c \"import json;print(json.load(open('$G/00a-intake/routed/bundle/product.json'))['name'])\")\" = '[브랜드] 릴리프' ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (h·Codex W4) 비화장품 도메인: reference_crawl 이 state 도메인 폴더(examples/drug)로 라우팅(cosmetic 기본값 아님).
+# W-2 (h·외부리뷰 W4) 비화장품 도메인: reference_crawl 이 state 도메인 폴더(examples/drug)로 라우팅(cosmetic 기본값 아님).
 # ─────────────────────────────────────────────────────────────────────────────
 if command -v zip >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
   echo "# (h) 비화장품(의약품) reference_crawl → examples/drug 라우팅(도메인=state)"
@@ -225,7 +225,7 @@ if command -v zip >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (i·Codex W4-R2) WB shift-left: 변환본 없으면 '승인 전' validate 거부(apply 단계 wedge 방지).
+# W-2 (i·외부리뷰 W4-R2) WB shift-left: 변환본 없으면 '승인 전' validate 거부(apply 단계 wedge 방지).
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (i) 워킹백워드 변환본 없음 → validate-stage 00a 승인 전 거부"
 mk_fixture "$SCRATCH/attach_i"
@@ -241,7 +241,7 @@ rm -f "$II/00a-intake/converted/working-backwards.md"
 check "(i) 변환본 없음 → validate-stage 00a 거부(승인 전 wedge 방지)" "[ $? -ne 0 ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (j·Codex W4-R3) category↔kind 불일치(evidence_test_report+kind:general) → 승인 전 validate 거부(근거 강등 우회 차단).
+# W-2 (j·외부리뷰 W4-R3) category↔kind 불일치(evidence_test_report+kind:general) → 승인 전 validate 거부(근거 강등 우회 차단).
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (j) category↔kind 불일치 → validate-stage 00a 승인 전 거부"
 mk_fixture "$SCRATCH/attach_j" pdf    # PDF 포함 → evidence_test_report 분류
@@ -263,7 +263,7 @@ sys.exit(0 if hit else 3)" || fail "(j) 픽스처에 evidence_test_report 행 �
 check "(j) category↔kind 불일치 → validate-stage 00a 거부(근거 강등 우회 차단)" "[ $? -ne 0 ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (k·Codex W4-R4) 부분 크롤(product.json 만·reviews.csv 없음) → apply 가 reviews.csv 합성 → ingest 성공(hard-fail wedge 방지).
+# W-2 (k·외부리뷰 W4-R4) 부분 크롤(product.json 만·reviews.csv 없음) → apply 가 reviews.csv 합성 → ingest 성공(hard-fail wedge 방지).
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (k) 부분 크롤(reviews.csv 없음) → reviews.csv 합성 → 인입 성공"
 K="$SCRATCH/attach_k"; rm -rf "$K"; mkdir -p "$K"
@@ -277,7 +277,7 @@ check "(k) 부분 크롤: 크롤 product.json 보존(합성 아님)" "[ -f '$KK/
 check "(k) 부분 크롤 → 00-ingest 성공(voc.json)" "[ -f '$KK/00-ingest/voc.json' ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (l·Codex W4-R5) 변환본 결손 시 run-stage 재생성(skip wedge 방지) — proposal 만 보고 skip 하지 않는다.
+# W-2 (l·외부리뷰 W4-R5) 변환본 결손 시 run-stage 재생성(skip wedge 방지) — proposal 만 보고 skip 하지 않는다.
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (l) 변환본 결손 → revise 재생성으로 복구(wedge 아님) + primary_ok 완료조건에 변환본 포함"
 mk_fixture "$SCRATCH/attach_l"
@@ -295,7 +295,7 @@ check "(l) 변환본 결손 → validate 거부(승인 전)" "[ $? -ne 0 ]"
 check "(l) revise→run-stage: 변환본 재생성됨(복구 가능·wedge 아님)" "[ -s '$L/00a-intake/converted/working-backwards.md' ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (m·Codex W4-R6) 다중 워킹백워드 문서 → 변환본이 전부 결합(첫 파일만 쓰지 않음, 사실 유실 방지).
+# W-2 (m·외부리뷰 W4-R6) 다중 워킹백워드 문서 → 변환본이 전부 결합(첫 파일만 쓰지 않음, 사실 유실 방지).
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (m) 다중 WB 문서 → 변환본 전부 결합"
 M="$SCRATCH/attach_m"; rm -rf "$M"; mkdir -p "$M"
@@ -309,7 +309,7 @@ check "(m) 다중 WB → 변환본에 두 문서 내용 모두 결합" \
   "grep -q uniquealpha '$MM/00a-intake/converted/working-backwards.md' && grep -q uniquebeta '$MM/00a-intake/converted/working-backwards.md'"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (n·Codex W4-R6) 느슨한(zip 아님) reference 크롤 → 단일 _reference/ 디렉터리로 병합(product/review 쌍 보존).
+# W-2 (n·외부리뷰 W4-R6) 느슨한(zip 아님) reference 크롤 → 단일 _reference/ 디렉터리로 병합(product/review 쌍 보존).
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (n) 느슨한 reference 2파일 → 단일 _reference/ 병합"
 N="$SCRATCH/attach_n"; rm -rf "$N"; mkdir -p "$N"
@@ -333,7 +333,7 @@ check "(n) 느슨한 reference 2파일이 단일 _reference/ 에 병합(product+
   "[ -f '$RD/product.json' ] && [ -f '$RD/reviews.csv' ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (o·Codex W4-R7) 비ASCII run_id → intake.sh 생성단계 fail-closed(apply-intake 에서만 실패하는 wedge 방지·토큰 일관).
+# W-2 (o·외부리뷰 W4-R7) 비ASCII run_id → intake.sh 생성단계 fail-closed(apply-intake 에서만 실패하는 wedge 방지·토큰 일관).
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (o) 한글 run_id → intake.sh 거부"
 mk_fixture "$SCRATCH/attach_o"
@@ -342,7 +342,7 @@ check "(o) 한글 run_id → intake.sh fail-closed(rc≠0)" "[ $RC -ne 0 ]"
 check "(o) 거부된 run_id 로 런 디렉터리 미생성" "[ ! -d '$ROOT/runs/한글런아이디' ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (p·Codex W4-R8) 승인 직전 전체 00a 검증: 생성 후 gate=user 에서 변환본 삭제 → approve 거부(review 게이트 wedge 방지).
+# W-2 (p·외부리뷰 W4-R8) 승인 직전 전체 00a 검증: 생성 후 gate=user 에서 변환본 삭제 → approve 거부(review 게이트 wedge 방지).
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (p) 생성 후 변환본 삭제 → approve 거부(전체 00a 재검증)"
 mk_fixture "$SCRATCH/attach_p"
@@ -355,7 +355,7 @@ check "(p) 변환본 삭제 후 approve 거부(rc≠0, review 게이트로 안 �
 check "(p) 거부 후 phase=00a-intake 불변(gate=user 유지)" "[ \"\$(jq_phase ci-intake-p phase)\" = '00a-intake' ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (q·Codex W4-R8) category↔route 일관성: product_image+route:evidence 불일치 → 승인 전 validate 거부.
+# W-2 (q·외부리뷰 W4-R8) category↔route 일관성: product_image+route:evidence 불일치 → 승인 전 validate 거부.
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (q) category↔route 불일치 → validate-stage 00a 거부"
 mk_fixture "$SCRATCH/attach_q"
@@ -372,7 +372,7 @@ json.dump(d,open(p,'w'),ensure_ascii=False)"
 check "(q) category↔route 불일치 → validate-stage 00a 거부" "[ $? -ne 0 ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (r·Codex W4-R8) sanitize 충돌 reference zip → 접미사로 분리(덮어쓰기·유실 방지).
+# W-2 (r·외부리뷰 W4-R8) sanitize 충돌 reference zip → 접미사로 분리(덮어쓰기·유실 방지).
 # ─────────────────────────────────────────────────────────────────────────────
 if command -v zip >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
   echo "# (r) sanitize 충돌 reference zip 2개 → 둘 다 보존(접미사)"
@@ -391,7 +391,7 @@ if command -v zip >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (s·Codex W4-R9) evidence 확장자 화이트리스트 미러: evidence_* 로 분류된 화이트리스트-밖 확장자 → 승인 전 validate 거부.
+# W-2 (s·외부리뷰 W4-R9) evidence 확장자 화이트리스트 미러: evidence_* 로 분류된 화이트리스트-밖 확장자 → 승인 전 validate 거부.
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (s) evidence_* 화이트리스트-밖 확장자 → validate-stage 00a 거부"
 mk_fixture "$SCRATCH/attach_s" unknown    # mystery.xyz 포함
@@ -410,7 +410,7 @@ json.dump(d,open(p,'w'),ensure_ascii=False)"
 check "(s) evidence_* .xyz(화이트리스트 밖) → validate-stage 00a 거부(승인 전)" "[ $? -ne 0 ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# W-2 (t·Codex W4-R10) product_image 확장자 미러: gif(자사 스캔 밖) → 승인 전 validate 거부(자사컷 유실 방지).
+# W-2 (t·외부리뷰 W4-R10) product_image 확장자 미러: gif(자사 스캔 밖) → 승인 전 validate 거부(자사컷 유실 방지).
 # ─────────────────────────────────────────────────────────────────────────────
 echo "# (t) product_image gif(자사 스캔 밖) → validate-stage 00a 거부"
 T="$SCRATCH/attach_t"; rm -rf "$T"; mkdir -p "$T"

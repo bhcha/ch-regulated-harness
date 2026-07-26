@@ -22,7 +22,7 @@ _SAFE_ID = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 def _safe_id(s):
-    """도메인·run_id 식별자 안전 검사(path traversal 차단, Codex High) — 영숫자·.·-·_ 만 + '..' 금지."""
+    """도메인·run_id 식별자 안전 검사(path traversal 차단, 외부리뷰 High) — 영숫자·.·-·_ 만 + '..' 금지."""
     return isinstance(s, str) and bool(_SAFE_ID.match(s)) and ".." not in s
 
 # verdict 파일명 → 단계(applies_to 도출).
@@ -65,14 +65,14 @@ def _common_terms(domain):
 def analyze(domain, run_ids, k=2):
     _empty = {"domain": domain, "k": k, "analyzed_runs": 0, "candidates": [],
               "dropped": {"below_k": 0, "common_term": 0, "pingpong": 0}}
-    if not _safe_id(domain):          # domain traversal 차단(Codex High)
+    if not _safe_id(domain):          # domain traversal 차단(외부리뷰 High)
         _empty["error"] = "invalid domain id"
         return _empty
     runs_root = os.path.join(HARNESS_ROOT, "runs")
     if not run_ids:
         run_ids = [r for r in sorted(os.listdir(runs_root)) if os.path.isdir(os.path.join(runs_root, r))
                    and _run_domain(r) == domain] if os.path.isdir(runs_root) else []
-    run_ids = [r for r in run_ids if _safe_id(r)]     # run_id traversal 차단(Codex High)
+    run_ids = [r for r in run_ids if _safe_id(r)]     # run_id traversal 차단(외부리뷰 High)
     common = _common_terms(domain)
 
     # (target_text, axis) → {rule, stages, run_ids}
@@ -88,7 +88,7 @@ def analyze(domain, run_ids, k=2):
                 continue
             stage = _stage_of(vp)
             violations = v.get("violations")
-            if not isinstance(violations, list):   # violations 비-list(예 123) → TypeError 방어(Codex High)
+            if not isinstance(violations, list):   # violations 비-list(예 123) → TypeError 방어(외부리뷰 High)
                 continue
             for viol in violations:
                 if not isinstance(viol, dict):
@@ -141,7 +141,7 @@ def main():
     result = analyze(args.domain, run_ids, k=max(1, args.k))
     out = json.dumps(result, ensure_ascii=False, indent=2)
     if args.out:
-        # --out 보호경로 가드(Codex High): runs/·packs/ 밖이어야 한다(state·팩·산출물 덮어쓰기 차단).
+        # --out 보호경로 가드(외부리뷰 High): runs/·packs/ 밖이어야 한다(state·팩·산출물 덮어쓰기 차단).
         outp = os.path.abspath(args.out)
         for _prot in (os.path.abspath(os.path.join(HARNESS_ROOT, "runs")), os.path.abspath(PACKS_DIR)):
             if outp == _prot or outp.startswith(_prot + os.sep):

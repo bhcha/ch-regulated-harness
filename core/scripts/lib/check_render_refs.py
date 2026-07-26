@@ -100,7 +100,7 @@ def _gen_stem(resolved, gen_root):
           크롤원본(bundle/…)은 부모가 generated 가 아니라 제외.
       (c) 구 레이아웃(inputs/assets/generated/<id>/…) stale 참조도 생성물로 판정 → 존재성 게이트로
           fail-closed. 프롬프트/HTML 드리프트로 옛 경로가 남으면 파일이 새 위치(04-keyvisual/generated)로
-          옮겨져 옛 위치엔 없다 → missing 으로 렌더 차단(조용한 깨진 <img> 통과 금지; Codex P1)."""
+          옮겨져 옛 위치엔 없다 → missing 으로 렌더 차단(조용한 깨진 <img> 통과 금지; 외부리뷰 P1)."""
     rp = os.path.realpath(resolved)
     under = bool(gen_root) and (rp == gen_root or rp.startswith(gen_root + os.sep))
     parent_gen = os.path.basename(os.path.dirname(resolved)) == "generated"

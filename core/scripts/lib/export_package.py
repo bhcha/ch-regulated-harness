@@ -185,7 +185,7 @@ def main():
             r = load_json(rec).get("ranked", [])
             sel = r[0] if r else None
 
-    # 선택 옵션이 실재해야 한다(없으면 빈 패키지 대신 실패 — Codex B5#7/B7#7)
+    # 선택 옵션이 실재해야 한다(없으면 빈 패키지 대신 실패 — 외부리뷰 B5#7/B7#7)
     shots = os.path.join(kv, "options", sel or "", "shots")
     if not sel or not os.path.isdir(os.path.join(kv, "options", sel)):
         sys.stderr.write("[export 실패] 선택 옵션이 없습니다(decision/recommendation 확인).\n")
@@ -262,7 +262,7 @@ def main():
                               "summary": x.get("title", ""), "status": src_status})
 
     # evidence_note 를 sources 엔진에 맞춘다: openalex(온라인 실검색)면 OpenAlex 노트, 그 외(manual/stub/무-sources)면
-    #   원문 노트 → 오프라인 골든(engine=manual)은 바이트 불변이고, 온라인 openalex 런의 '수동 mock·후속' 자기모순은 제거(Codex).
+    #   원문 노트 → 오프라인 골든(engine=manual)은 바이트 불변이고, 온라인 openalex 런의 '수동 mock·후속' 자기모순은 제거(외부리뷰).
     _evidence_note = ("실증 근거 검색은 OpenAlex 직접 HTTP 실연동(온라인=실검색)이며 grade/출처를 함께 표기함. "
                       "OpenAlex 결과는 검증 전 발견 후보라 자동 인용되지 않으며 채택 여부는 제출자(현업/RA)가 판단함."
                       ) if evidence_engine == "openalex" else \
@@ -280,7 +280,7 @@ def main():
             if not isinstance(s, dict) or not s.get("label") or s["label"] in _excl_seen:
                 continue
             # ⚠ approved(주장됨) 라벨도 _excl_seen 에 등록 → 아래 unsupported_claims 패스에서 같은 표현이 '배제됨'으로
-            #   재방출되는 모순 차단(Codex High: 승인 표현을 배제로 오표기 금지). 단 대장에는 non-approved 만 적재.
+            #   재방출되는 모순 차단(외부리뷰 High: 승인 표현을 배제로 오표기 금지). 단 대장에는 non-approved 만 적재.
             _excl_seen.add(s["label"])
             if s.get("status") != "approved":
                 exclusion_ledger.append({"expression": s["label"],
@@ -296,7 +296,7 @@ def main():
     review_capture_flag = None
     _vocj = load_json(os.path.join(rdir, "00-ingest/voc.json"))
     # ⚠ review_count 는 객체 {collected, site_total}(voc.schema) — collected 로 판정(스칼라도 후방호환).
-    #   Codex High: 객체를 스칼라로 검사하면 항상 truthy 라 플래그가 안 켜진다. 비-숫자/미존재 = 미확정(플래그 안 켬, 보수적).
+    #   외부리뷰 High: 객체를 스칼라로 검사하면 항상 truthy 라 플래그가 안 켜진다. 비-숫자/미존재 = 미확정(플래그 안 켬, 보수적).
     _rcnt = _vocj.get("review_count") if isinstance(_vocj, dict) else None
     _collected = _rcnt.get("collected") if isinstance(_rcnt, dict) else _rcnt
     if isinstance(_collected, (int, float)) and _collected == 0:

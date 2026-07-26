@@ -63,7 +63,7 @@ describe.skipIf(SKIP)("인수 시나리오 ③: 보완 루프(브리프 [보완]
         driver.presentations().some((p) => p.type === "Progress" && p.message.includes("고칠 내용")),
       ).toBe(true);
 
-      // 3′) 회귀(Codex S3 P2): 지금 최종 화면은 버튼 없는 Progress(답글 대기)이고 na 는 미완이다. 분석기에 답글-대기를
+      // 3′) 회귀(외부리뷰 S3 P2): 지금 최종 화면은 버튼 없는 Progress(답글 대기)이고 na 는 미완이다. 분석기에 답글-대기를
       //     알리지 않으면 이 정당한 대기를 dead-end 로 오탐한다 — driver.awaitingReply()로 알리면 억제됨을 못박는다.
       const naPrompt = await driver.readNa();
       const promptInput = {
