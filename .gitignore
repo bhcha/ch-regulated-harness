@@ -27,3 +27,13 @@ __pycache__/
 secrets/
 # Playwright MCP 생성 트레이스(브라우저 스냅샷/로그) — 커밋 금지
 .playwright-mcp/
+# 개발 하네스(dev-loop) 스크래치 — 이 레포의 '런 하네스'와 무관한 개발 루프의 작업기록(상태·리뷰 로그·프롬프트·diff).
+#   레포 산출물이 아니라 세션 부산물이므로 추적하지 않는다(2026-07-25: 기존 추적분 53개를 git rm --cached).
+#   ⚠ 리뷰 로그·프롬프트에는 개발 중 내부 논의가 그대로 담기므로 공개 저장소에 실리면 안 된다.
+.dev-loop-state.json
+.dev-loop-resume.log
+.dev-loop-watchdog.pid
+.dev-loop-w2/
+codex-review.log
+# 스케줄러 런타임 lock(세션 부산물)
+.claude/scheduled_tasks.lock
