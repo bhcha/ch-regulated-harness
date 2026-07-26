@@ -4,7 +4,7 @@
 #   생략했다 → verdict 가 통과한 '뒤' 리뷰된 산출물(키비주얼 선택안 index.html)을 수정해도 재심의 없이 done 까지 샜다.
 #   처방(kcia-check.sh): 마커 생산 시 '리뷰된 1차 산출물 sha256'을 .logs/review-binding.json(골든제외)에 함께 적고,
 #   재개-스킵 직전 현재 해시를 재계산해 대조 — 불일치(수정됨)·사이드카 부재면 스킵하지 않고 정식 재심의로 떨어진다.
-#   기존 위조방어(마커 부재 → 재심의, 코덱스 5R)는 그대로 1차 게이트로 유지되고 이 해시 대조는 그 위의 추가 방어다.
+#   기존 위조방어(마커 부재 → 재심의, 외부리뷰 5R)는 그대로 1차 게이트로 유지되고 이 해시 대조는 그 위의 추가 방어다.
 #
 #   이 회귀: 통과 keyvisual verdict 뒤 (A) 산출물 미수정 → 재심의 생략(mtime 불변, 오버-트리거 없음)
 #            (B) 선택안 index.html 수정 → 재심의(mtime 변경) ← 결함이 났던 구멍. offline/hermetic.
@@ -58,7 +58,7 @@ check "(B) 심의 통과 뒤 선택안 index.html 수정 → 재심의(verdict m
 NEW_STORED="$(python3 -c "import json;print(json.load(open('$BIND')).get('keyvisual',{}).get('artifact_sha256',''))" 2>/dev/null || true)"
 check "(B) 재심의가 바인딩을 수정본으로 갱신(자가치유·이전 해시와 다름)" "[ -n \"$NEW_STORED\" ] && [ \"$NEW_STORED\" != \"$BIND_KV\" ]"
 
-# ── (C) 통과 verdict '뒤' 선택안 shots/*.png 수정 → 재심의 ── 결박이 옵션 디렉터리(index.html·styles.css·shots)를 덮는지(Codex P0: index.html-only 결박이면 CSS/샷 편집이 스킵으로 샜다).
+# ── (C) 통과 verdict '뒤' 선택안 shots/*.png 수정 → 재심의 ── 결박이 옵션 디렉터리(index.html·styles.css·shots)를 덮는지(외부리뷰 P0: index.html-only 결박이면 CSS/샷 편집이 스킵으로 샜다).
 SHOT="$(ls "$ROOT/runs/$RID/04-keyvisual/options/$SEL/shots/"*.png 2>/dev/null | head -1)"
 check "선택 옵션 shots/*.png 존재(리뷰·export 되는 산출물 일부)" "[ -n \"$SHOT\" ] && [ -f \"$SHOT\" ]"
 rewind_to_kv_review

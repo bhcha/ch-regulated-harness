@@ -26,7 +26,7 @@ MULTI="$(phase_is_multi "$RID")"
 
 case "$EVENT" in
   review)
-    # M4(코덱스 CRITICAL): review 게이트 가드 — gate=review 가 아니면 거부.
+    # M4(외부리뷰 CRITICAL): review 게이트 가드 — gate=review 가 아니면 거부.
     #   직접 gate.sh review 호출로 사람 승인·self-grading 가드를 우회해 advance/export 하는 것을 차단(부록A-9).
     [ "$(jget "$SF" gate)" = "review" ] \
       || die "심의(review) 게이트가 아닙니다 (gate=$(jget "$SF" gate)). 생성→승인/선택 후 심의하세요(승인 우회 차단)."
@@ -42,7 +42,7 @@ case "$EVENT" in
       if [ "$PHASE" = "04-keyvisual" ]; then
         # C3: 심의 통과 finalize — export 직전 선택안 검증(저작권/구성요소) 재확인(직접 gate.sh approve 가 approve.sh 렌더·검증을
         #   우회했을 경우 방어) → 통과면 export_package(협회) 1회 → done.
-        # H1(코덱스 2R): 렌더된 design-manifest 의 선택안이 decision 과 일치하는지 확인 — 직접 gate.sh approve 가 approve.sh 의
+        # H1(외부리뷰 2R): 렌더된 design-manifest 의 선택안이 decision 과 일치하는지 확인 — 직접 gate.sh approve 가 approve.sh 의
         #   '선택안 재렌더'를 우회해 다른 안(A) manifest 로 검증 통과시키고 선택안(B) shots 를 export 하는 불일치를 차단.
         _KV_DSEL="$(jget "$(run_dir "$RID")/04-keyvisual/decision.json" selected 2>/dev/null || true)"
         _KV_MSEL="$(jget "$(run_dir "$RID")/04-keyvisual/design-manifest.json" selected_option 2>/dev/null || true)"
@@ -59,7 +59,7 @@ case "$EVENT" in
         append_history "$SF" "$PHASE" "review:passed→export-finalize" "gate.sh"
         bash "$HARNESS_ROOT/scripts/advance-phase.sh" "$RID"   # → done (심의 통과 finalize)
       elif [ "$PHASE" = "03-storyboard" ] && [ "$(storyboard_substage "$RID")" = "outline" ]; then
-        # 코덱스 3R Medium: 스토리라인(outline) 완전성 재검증(선택안 storyline 누락/손상 → plan 진행 차단).
+        # 외부리뷰 3R Medium: 스토리라인(outline) 완전성 재검증(선택안 storyline 누락/손상 → plan 진행 차단).
         bash "$HARNESS_ROOT/scripts/validate-stage.sh" "$RID" 03-storyboard >/dev/null 2>&1 \
           || die "스토리라인(outline) 검증 실패 — plan 진행 보류(storyline 누락/손상). run-stage storyboard-outline 으로 보충하세요."
         # 스토리라인 심의 통과 → 커서 outline→plan + 같은 페이즈 generate(state 전이와 한 atomic write).
@@ -107,7 +107,7 @@ PYEOF
         #     ingest-bundle exact-replacement)이 회복한다. state.json 은 셸(ingest-bundle)만 쓴다.
         append_history "$SF" "$PHASE" "review:passed→apply-intake+ingest" "gate.sh"
         RDIR_AI="$(run_dir "$RID")"
-        # ⚠ Codex W4-R2 회복성: 훅(apply-intake + ingest-bundle)이 실패하면 state 를 '훅 이전(phase=00a-intake)'으로
+        # ⚠ 외부리뷰 W4-R2 회복성: 훅(apply-intake + ingest-bundle)이 실패하면 state 를 '훅 이전(phase=00a-intake)'으로
         #   복원해 재-kcia-check 가 훅을 재진입(멱등: apply-intake wipe+rebuild · ingest-bundle exact-replacement)하게 한다.
         #   복원 없이 ingest-bundle 이 phase=00-ingest+`.ingest-incomplete` 를 남기면, 복구 명령이 assert_ingest_complete 에서
         #   죽어 재진입 불가(wedge)다. 부분 00-ingest 산출·센티넬은 다음 ingest-bundle 재실행이 재구축·클리어한다.
@@ -132,7 +132,7 @@ PYEOF
         # ingest-bundle 이 phase 를 00-ingest→조건부(00e/00g/01-brief)로 전이·렌더까지 마쳤다(여기서 advance 안 함).
       else
         # brief·concept·00g·storyboard-plan: 심의 통과 → 다음 페이즈로 advance.
-        # 코덱스 3R High: 03-storyboard plan 은 advance 직전 plan 완전성 재검증(부분 plan 손상 → 무내용 pass 차단).
+        # 외부리뷰 3R High: 03-storyboard plan 은 advance 직전 plan 완전성 재검증(부분 plan 손상 → 무내용 pass 차단).
         #   validate-stage(03 plan scope)는 선택 스토리라인의 모든 블록이 plan/NN-type.json 으로 존재하는지 확인한다.
         if [ "$PHASE" = "03-storyboard" ]; then
           bash "$HARNESS_ROOT/scripts/validate-stage.sh" "$RID" 03-storyboard >/dev/null 2>&1 \
@@ -157,7 +157,7 @@ PYEOF
     ;;
 
   select)
-    # 가드: 선택 게이트에서만(Codex B4 #8). 03-storyboard 에서 gate=select 는 outline substage 만(M3: tone 제거).
+    # 가드: 선택 게이트에서만(외부리뷰 B4 #8). 03-storyboard 에서 gate=select 는 outline substage 만(M3: tone 제거).
     CUR_GATE="$(jget "$SF" gate)"; CUR_STATUS="$(jget "$SF" status)"
     if [ "$CUR_GATE" != "select" ] || { [ "$CUR_STATUS" != "pending" ] && [ "$CUR_STATUS" != "selected" ]; }; then
       die "select 게이트가 아닙니다 (gate=$CUR_GATE, status=$CUR_STATUS)."
@@ -181,7 +181,7 @@ PYEOF
     ;;
 
   approve)
-    # M4(코덱스 CRITICAL): approve 게이트 가드 + 사람-승인 안전검사 — 직접 gate.sh approve 로 RA 확인을 우회 못하게.
+    # M4(외부리뷰 CRITICAL): approve 게이트 가드 + 사람-승인 안전검사 — 직접 gate.sh approve 로 RA 확인을 우회 못하게.
     CUR_GATE_A="$(jget "$SF" gate)"; CUR_STATUS_A="$(jget "$SF" status)"
     if [ "$CUR_GATE_A" != "user" ] || { [ "$CUR_STATUS_A" != "pending" ] && [ "$CUR_STATUS_A" != "escalated" ]; }; then
       die "승인(user) 게이트가 아닙니다 (gate=$CUR_GATE_A, status=$CUR_STATUS_A)."

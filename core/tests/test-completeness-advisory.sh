@@ -56,7 +56,7 @@ S1=$(shasum "$RDIR/state.json" | awk '{print $1}')
 HARNESS_ROOT="$ROOT" python3 "$ROOT/scripts/lib/render_runmd.py" "$RID" "$RDIR" >/dev/null 2>&1
 S2=$(shasum "$RDIR/state.json" | awk '{print $1}')
 check "(4) render 가 state.json 안 바꿈(읽기전용)" "[ '$S1' = '$S2' ]"
-# ⚠ 03-storyboard verdict 정본은 substage별(plan-verdict.json/outline-verdict.json) — 잘못된 경로 단언은 거짓통과(Codex).
+# ⚠ 03-storyboard verdict 정본은 substage별(plan-verdict.json/outline-verdict.json) — 잘못된 경로 단언은 거짓통과(외부리뷰).
 check "(4) verdict 미생성(정본 경로 plan/outline)" \
   "[ ! -f '$RDIR/03-storyboard/plan-verdict.json' ] && [ ! -f '$RDIR/03-storyboard/outline-verdict.json' ]"
 

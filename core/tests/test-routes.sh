@@ -134,7 +134,7 @@ RID4=ci-routes-tobogus; rm -rf "$ROOT/runs/$RID4"
 check "(5b) advance-phase --to 동결외('05-bogus') → 비0 종료(hard-fail)" "[ $TO_RC -ne 0 ]"
 check "(5c) 실패한 --to 후 state.phase 가 동결 외 값으로 오염되지 않음" \
   "[ \"\$(jq_phase "$RID4" phase)\" = '00-ingest' ]"
-# (5b2·코덱스 2R Critical) --to <유효 동결 phase 지만 비후속>(04-keyvisual) → 거부: --to 는 00-ingest 후속(00g/01-brief)만.
+# (5b2·외부리뷰 2R Critical) --to <유효 동결 phase 지만 비후속>(04-keyvisual) → 거부: --to 는 00-ingest 후속(00g/01-brief)만.
 #   심의 게이트 보유 페이즈로 점프해 사람승인·심의를 우회하는 것 차단(부록A-9).
 ( cd "$ROOT" && bash scripts/advance-phase.sh "$RID4" --to 04-keyvisual ) >/dev/null 2>&1; TOKV_RC=$?
 check "(5b2) --to 04-keyvisual(유효 phase·비후속) → 거부(00g/01-brief 만)" "[ $TOKV_RC -ne 0 ]"

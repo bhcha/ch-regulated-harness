@@ -17,9 +17,9 @@
  *
  * 격리: 전용 rid(chat-e2e-accept-bridge) + 전용 mktemp CHAT_JOBS_DIR/examples + afterAll 정리(consumer-daemon.e2e 미러).
  *   시계는 주입(벽시계 assert 없음 · 함정 6): **브리지 시계는 폴링마다 전진**해 데몬이 전이를 못 내면 유한 fake-time 에
- *   자기 마감(deadline)에 도달, 무한 폴링 대신 명확히 실패한다(Codex S4 리뷰 P2). 해피패스는 전이 감지가 마감보다
+ *   자기 마감(deadline)에 도달, 무한 폴링 대신 명확히 실패한다(외부리뷰 S4 P2). 해피패스는 전이 감지가 마감보다
  *   훨씬 앞서라 영향 없다. **데몬 예산 검사는 별도 상수 시계 + 명시 budgetMs/startupMarginMs** 로 못 박아 ambient
- *   CHAT_SDK_GEN_TIMEOUT 에 의존하지 않는다(잡 만료 ~900s ≫ 예산 130s → 결정론 통과 · Codex S4 리뷰 P2).
+ *   CHAT_SDK_GEN_TIMEOUT 에 의존하지 않는다(잡 만료 ~900s ≫ 예산 130s → 결정론 통과 · 외부리뷰 S4 P2).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
@@ -112,7 +112,7 @@ describe.skipIf(SKIP)("인수 시나리오 ②: Bridge 적재 → 데몬 클레�
       process.env.CHAT_SDK_STAGES = stage;
 
       // 브리지 시계는 폴링마다 전진 → 데몬이 전이를 못 내면 브리지가 유한 fake-time 에 자기 마감에 도달해 무한
-      //   폴링 대신 명확히 실패한다(Codex S4 P2). 전진폭(200ms)×마감(900s) = ~4500 콜이라 해피패스(전이 감지가
+      //   폴링 대신 명확히 실패한다(외부리뷰 S4 P2). 전진폭(200ms)×마감(900s) = ~4500 콜이라 해피패스(전이 감지가
       //   훨씬 앞섬)엔 큰 여유. 데몬 예산 검사는 별도 상수 시계로 안정(전진 시계와 무관).
       let clock = CLOCK;
       const bridgeNow = (): number => (clock += 200);
@@ -133,7 +133,7 @@ describe.skipIf(SKIP)("인수 시나리오 ②: Bridge 적재 → 데몬 클레�
       });
 
       // 4) 무인 데몬(오프라인 = makeStubRunJob 자동 선택 · 실 CLI 0). 상수 now + **명시 예산**으로 예산 검사를 못 박는다
-      //    → ambient CHAT_SDK_GEN_TIMEOUT 에 의존하지 않는다(잡 만료 ~900s ≫ 130s → 결정론 통과 · Codex S4 P2).
+      //    → ambient CHAT_SDK_GEN_TIMEOUT 에 의존하지 않는다(잡 만료 ~900s ≫ 130s → 결정론 통과 · 외부리뷰 S4 P2).
       const daemon = new ConsumerDaemon({ now: daemonNow, log: () => {}, budgetMs: 120_000, startupMarginMs: 10_000 });
 
       // 5) 동시 구동: 브리지 execute(적재 → 폴링) ∥ 데몬 consumeOne(클레임 → stub 소비 → 전이).

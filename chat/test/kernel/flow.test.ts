@@ -1715,7 +1715,7 @@ describe("onOutcome — 잡-레벨 리뷰 재적재(chat-review-retry-plan 2-3/2
   });
 
   it("7) ★ 재적재 직전 재확인 readNext 실패(reject) → 조용한 포기 금지 · 보이는 Failure(fail-closed) · 리뷰 잡 0", async () => {
-    // Codex P2: readNext().catch(()=>null) 은 '읽기 실패'와 '게이트 전진'을 뭉갠다. 읽기가 reject 하면 na=null →
+    // 외부리뷰 P2: readNext().catch(()=>null) 은 '읽기 실패'와 '게이트 전진'을 뭉갠다. 읽기가 reject 하면 na=null →
     //   옛 else 분기가 "abandon(gate advanced)" 로그만 찍고 아무것도 안 했다 — 재적재도 없고 카드도 없어, 마지막 카드가
     //   "잠시 뒤 자동으로 다시 점검합니다"(거짓 약속)로 남고 런이 review 에 조용히 고착된다(계획 2-4 · STALL-LOG).
     //   이제 읽기 실패는 보이는 fail-closed(Failure)로 끊는다. eligibility 는 outcome.next 기준이라 재확인 readNext 만 throw.
@@ -1831,7 +1831,7 @@ describe("onOutcome — 잡-레벨 리뷰 재적재(chat-review-retry-plan 2-3/2
 describe("onOutcome — 사람-결정(approve/select) 실패의 게이트-전진 진실 검사(진 클릭 ≠ Failure)", () => {
   // 큐 FIFO 중재에서 진 둘째 잡(드라이버 fire vs 사람 클릭 · 스테일 카드 재클릭)은 core 멱등 거부로 ok:false 가
   //   되는데, 게이트가 이미 전진했으면 그건 오류가 아니라 '이미 처리된 결정'이다 — Failure 로 그리면 개입한 사람이
-  //   실패로 오독하고 전 세션 집계 리포트의 failure-zero 를 영구 오염시킨다(Codex W2R3 P1).
+  //   실패로 오독하고 전 세션 집계 리포트의 failure-zero 를 영구 오염시킨다(외부리뷰 W2R3 P1).
   it("approve 실패 + 게이트는 이미 select 차례로 전진 → Failure 아님 · 현재 게이트 카드(OptionSet 계열) 재파생", async () => {
     const { gw, renders } = fakeGateway();
     const out = {

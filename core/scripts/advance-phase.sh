@@ -18,14 +18,14 @@ _ADV_T0="$(date +%s)"   # 개선0(측정): 실제 페이즈 전이 시각(--rend
 LOCK_OWN=0
 if [ -z "${HARNESS_LOCK_HELD:-}" ]; then acquire_lock "$RID"; LOCK_OWN=1; fi
 
-# M4(코덱스 CRITICAL/HIGH): 페이즈 전이 우회 가드 — **lock 획득 뒤** state 를 읽어(stale-read 경쟁 차단) 검증한다.
+# M4(외부리뷰 CRITICAL/HIGH): 페이즈 전이 우회 가드 — **lock 획득 뒤** state 를 읽어(stale-read 경쟁 차단) 검증한다.
 #   ① no-arg 자동 전이는 심의 통과 상태(gate=review + 현재 페이즈 verdict=pass)에서만(부록A-9). env 토큰이 아닌 비위조 state 검증.
 #   ② --to 명시 라우팅은 **입력단계(00-ingest)에서만** 허용 — 심의게이트 없는 입력단계가 00g/01-brief 로 가는 정당 경로.
 #      그 외 페이즈(user/select/review 게이트)에서 --to 로 점프해 사람승인·심의를 우회하는 것을 차단(부록A-9). 'done' 직행 금지.
 _ADV_PHASE="$(jget "$SF" phase 2>/dev/null || true)"
 if [ "${2:-}" = "--to" ]; then
   [ "${3:-}" != "done" ] || die "--to done 금지: 종료(done) 전이는 심의 통과 finalize(gate.sh review-pass)에서만."
-  # ② --to 명시 라우팅은 **입력단계(00-ingest)에서 그 정당 후속(00g-guideline|01-brief)으로만**(코덱스 2R Critical).
+  # ② --to 명시 라우팅은 **입력단계(00-ingest)에서 그 정당 후속(00g-guideline|01-brief)으로만**(외부리뷰 2R Critical).
   #   00-ingest 는 심의게이트가 없는 입력단계라 ingest-bundle 이 examples 유무에 따라 00g/01-brief 로 라우팅한다.
   #   현재 phase 나 타깃을 제한하지 않으면 user/select/review 게이트에서 임의 phase 로 점프해 사람승인·심의를 우회(부록A-9).
   [ "$_ADV_PHASE" = "00-ingest" ] \
@@ -36,8 +36,8 @@ if [ "${2:-}" = "--to" ]; then
   esac
   # ── N11·N12: 00-ingest 양성 완료 게이트 — 정당 후속(00g-guideline·01-brief) 양쪽 모두에 적용. ──
   #   sentinel 부재는 '필요조건'일 뿐 충분조건이 아니다: fresh 런(ingest 미시작)은 sentinel 이 애초에 없어
-  #   '부재=완료'로 오판하면 ingest 를 건너뛴 직행 점프가 열린다(Codex r8). 특정 타깃(01-brief)만 막으면 다른
-  #   후속(00g-guideline)으로 우회되므로 위 case 의 두 후속 모두에 적용한다(Codex r9). 따라서 '양성 완료'를
+  #   '부재=완료'로 오판하면 ingest 를 건너뛴 직행 점프가 열린다(외부리뷰 r8). 특정 타깃(01-brief)만 막으면 다른
+  #   후속(00g-guideline)으로 우회되므로 위 case 의 두 후속 모두에 적용한다(외부리뷰 r9). 따라서 '양성 완료'를
   #   증명해야 전이한다: ① state.status=passed(00-ingest) 그리고 ② 필수 4종(voc·claim-basis·assets-manifest·
   #   best-practices) present+valid. 결정적·오프라인 안전(네트워크/LLM 없음): state 읽기 + 로컬 스키마 검증뿐.
   #   정상 경로: ingest-bundle.sh 가 이 4종을 검증(status=passed)한 '뒤' --to 를 부르므로 통과한다.
@@ -56,7 +56,7 @@ else
   if [ "$_ADV_G" != "review" ] || [ "$_ADV_V" != "pass" ]; then
     die "자동 페이즈 전이는 심의 통과(gate=review + verdict=pass) 후에만 가능합니다(부록A-9). 현재 gate=${_ADV_G:-?}, verdict=${_ADV_V:-없음}. 승인·심의 우회 금지."
   fi
-  # ★ 근본 가드(코덱스 4R High): no-arg 전이는 **gate.sh review-pass 가 직전에 기록한 전이 의도 history 마커**가 있어야만 허용한다.
+  # ★ 근본 가드(외부리뷰 4R High): no-arg 전이는 **gate.sh review-pass 가 직전에 기록한 전이 의도 history 마커**가 있어야만 허용한다.
   #   gate.sh review-pass 는 phase별 검증(03-plan=plan 완전성 validate / 04=manifest 일치+export_package)을 마친 뒤
   #   'review:passed→advance'(일반) 또는 'review:passed→export-finalize'(04) 를 history 에 남기고 advance-phase 를 부른다.
   #   직접 no-arg 호출은 이 마커가 없으므로(마지막 이벤트가 verdict/사람행위) 거부 → phase별 검증 우회를 phase 불문 한 번에 차단.
@@ -70,7 +70,7 @@ except Exception: print('')" 2>/dev/null || true)"
     "review:passed→advance"|"review:passed→export-finalize") ;;
     *) die "no-arg 페이즈 전이는 gate.sh review-pass 직후에만 허용됩니다(부록A-9) — 직접 호출로 phase별 검증(03-plan 완전성·04 export) 우회 금지. 마지막 history 이벤트='${_ADV_LASTEV:-없음}'." ;;
   esac
-  # ① 직접 no-arg 호출이 gate.sh review-pass 의 검사를 우회 못하게(코덱스 2R Critical, 위 마커와 중첩 방어):
+  # ① 직접 no-arg 호출이 gate.sh review-pass 의 검사를 우회 못하게(외부리뷰 2R Critical, 위 마커와 중첩 방어):
   #   escalate≠true(에스컬레이션 verdict 로 전이 금지) + 04 는 export 패키지 완료 요구(gate.sh review-pass 가 export_package 뒤 advance 호출).
   #   (verdict 스키마 검증은 gate.sh review 가 이미 수행하고, 스키마만으로는 위조 verdict 를 못 거르므로 여기선 생략 — 위조 방지는 단일쓰기 불변식 소관.)
   [ "$(jget "$_ADV_VP" escalate 2>/dev/null || true)" != "true" ] \
@@ -80,7 +80,7 @@ except Exception: print('')" 2>/dev/null || true)"
       || die "04→done 은 gate.sh review-pass(export finalize)에서만 — 협회 export 패키지 부재(직접 advance 로 export 우회 금지, 부록A-9)."
   fi
   # 03-storyboard outline 심의통과는 gate.sh review-pass 가 **intra-phase 로 outline→plan** 전이한다(라우트 03→04 아님).
-  #   no-arg advance 는 라우트 전이(03→04)를 수행해 plan 생성·심의를 통째 건너뛰므로 outline substage 에서는 금지(코덱스 3R Critical).
+  #   no-arg advance 는 라우트 전이(03→04)를 수행해 plan 생성·심의를 통째 건너뛰므로 outline substage 에서는 금지(외부리뷰 3R Critical).
   if [ "$_ADV_PHASE" = "03-storyboard" ] && [ "$(storyboard_substage "$RID")" = "outline" ]; then
     die "03-storyboard outline 심의통과는 gate.sh review-pass 가 plan 으로 전이합니다 — advance-phase 직접 호출 금지(plan 단계 우회, 부록A-9)."
   fi

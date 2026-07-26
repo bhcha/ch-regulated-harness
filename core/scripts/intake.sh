@@ -11,7 +11,7 @@ RID="${1:-}"; shift || true
 [ -n "$ATTACH_SRC" ] || die "첨부 폴더 경로가 필요합니다. 예: bash scripts/intake.sh <첨부폴더> my-product-2026 --product \"[브랜드] 제품명\" --domain 화장품 --format 여러장"
 [ -d "$ATTACH_SRC" ] || die "첨부 폴더가 없거나 폴더가 아닙니다: $ATTACH_SRC"
 [ -n "$RID" ] || die "run_id 가 필요합니다. 예: bash scripts/intake.sh $ATTACH_SRC my-product-2026 --product \"제품명\" --domain 화장품 --format 여러장"
-# ★ Codex W4-R7: run_id 는 apply-intake 의 안전 토큰(_safe_path_token: [A-Za-z0-9._-])과 '동일 규칙'으로 생성단계에서
+# ★ 외부리뷰 W4-R7: run_id 는 apply-intake 의 안전 토큰(_safe_path_token: [A-Za-z0-9._-])과 '동일 규칙'으로 생성단계에서
 #   강제한다 — 안 그러면 한글·비ASCII id 런이 스테이징·생성·승인·autopass 까지 통과한 뒤 gate.sh 의 apply-intake 에서만
 #   실패해 승인된 인입이 인입 불가(wedge)가 된다. 생성 앞에서 fail-closed 하는 게 일관·안전하다.
 case "$RID" in

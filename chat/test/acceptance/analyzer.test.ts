@@ -117,7 +117,7 @@ describe("문제 분석기(analyzer) — 5개 디텍터", () => {
     expect(found.some((f) => f.kind === "dead-end")).toBe(true);
   });
 
-  it("dead-end — 답글 대기(awaitingReply)면 출구 없는 Progress 라도 발화 안 함(Codex S3 P2)", () => {
+  it("dead-end — 답글 대기(awaitingReply)면 출구 없는 Progress 라도 발화 안 함(외부리뷰 S3 P2)", () => {
     // 보완 사유 요청/WB 붙여넣기 안내처럼 버튼 없이 '답글'이 출구인 Progress — 막다른 화면 아님.
     const input = {
       presentations: [nlProposal(), ingest(), progress("r1", "빼거나 고칠 내용을 이 스레드에 답글로 적어 주세요.")],
@@ -145,7 +145,7 @@ describe("문제 분석기(analyzer) — 5개 디텍터", () => {
     expect(found.some((f) => f.kind === "dead-end")).toBe(false);
   });
 
-  it("dead-end — 화면이 하나도 없는데 run 이 미완이면 발화(표면 누락 · Codex S2 P2)", () => {
+  it("dead-end — 화면이 하나도 없는데 run 이 미완이면 발화(표면 누락 · 외부리뷰 S2 P2)", () => {
     const found = analyze({
       presentations: [],
       activeRuns: 0,

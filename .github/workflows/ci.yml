@@ -1,0 +1,88 @@
+# ci.yml — 머지 게이트(원격 CI). 게이트 경화 계획 1단계.
+#
+# 왜 시크릿·네트워크가 필요 없는가:
+#   core/tests/run-ci.sh 는 진입에서 운영 env 를 스크럽하고 HARNESS_OFFLINE=1 을 스스로 강제한다.
+#   AGENTS.md 2번 절 규약대로 HARNESS_OFFLINE=1 이 유일한 stub 게이트라 텍스트·이미지·근거검색 엔진이
+#   모두 결정적 stub 으로 내려간다 → API 키·외부 호출 없이 바이트-결정적으로 돈다.
+#   (아래 잡 env 의 HARNESS_OFFLINE 은 중복이지만 자기설명용으로 남긴다.)
+#
+# 예외: Playwright/Chromium 은 실제로 필요하다. core/scripts/lib/render.py 가 playwright 를 무조건
+#   import 하고(오프라인 우회 경로 없음) 오프라인 CI 도 실제 chromium 렌더로 design-manifest.json 을
+#   만든다(test-b5·test-b9·test-render-existence-depth·test-insession-genmode). 폰트는 레포에
+#   커밋돼 있다(core/assets/fonts/). jq 는 불요 — 테스트는 harness.py jget 을 쓴다.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 같은 PR ref 로 푸시가 연달아 오면 90분 잡이 쌓인다 → 진행 중 실행을 취소한다.
+#   main push 는 감사 기록이므로 취소하지 않는다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # 필수 상태 체크 이름 = "core" (UI 표기 "CI / core")
+  core:
+    name: core
+    runs-on: ubuntu-latest
+    # 41개 스위트에서 실측 ~24분 → 그 뒤 스위트가 늘어 선형 환산 ~33분+, ubuntu 러너는 개발 박스보다 느리고
+    #   chromium 렌더가 섞여 있어 50~65분을 예상 대역으로 본다. 90분 = 여유 + 진짜 행(hang)의 백스톱.
+    timeout-minutes: 90
+    env:
+      HARNESS_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@v4
+        # 얕은 체크아웃(기본 depth=1)이면 충분하다. 단 .git 자체는 필요하다 —
+        #   test-observability 는 provenance 의 git_sha(git rev-parse) 를,
+        #   test-runmd-intake 는 `git show HEAD:core/scripts/lib/render_runmd.py` 를 요구한다.
+
+      - uses: actions/setup-python@v5
+        with:
+          # 골든을 캡처하는 개발 박스와 같은 계열(3.14)로 맞춘다. 하네스 파이썬은 순수 stdlib
+          #   (pip 불요 — docs/reference/deployment.md)이라 이 버전이 곧 실행 계약이다.
+          python-version: "3.14"
+
+      - name: Playwright + Chromium 설치
+        # 버전을 고정해 chromium 빌드까지 재현 가능하게 한다(개발 박스 = playwright 1.58.0).
+        #   렌더 회귀가 의심되면 개발 박스 버전을 확인해 이 핀을 같이 올린다.
+        run: |
+          python -m pip install "playwright==1.58.0"
+          python -m playwright install --with-deps chromium
+
+      - name: run-ci (결정적 오프라인 머지 게이트 · 전 스위트)
+        run: bash core/tests/run-ci.sh
+
+  # 필수 상태 체크 이름 = "chat" (UI 표기 "CI / chat")
+  chat:
+    name: chat
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: chat
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # chat/package.json 에 packageManager 필드가 없다 → 명시 핀이 필요하다.
+          #   pnpm-lock.yaml 은 lockfileVersion '9.0'(pnpm 9·10 공통), 개발 박스는 pnpm 10.
+          version: "10"
+
+      - uses: actions/setup-node@v4
+        with:
+          # chat/package.json engines: "^20.19.0 || >=22.12.0" (개발 박스 = 22.x)
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: chat/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test

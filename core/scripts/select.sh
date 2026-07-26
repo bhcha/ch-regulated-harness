@@ -46,7 +46,7 @@ VALID=""
 if [ -n "$OPTS_DIR" ] && [ -d "$OPTS_DIR" ]; then
   VALID="$(cd "$OPTS_DIR" && ls -d */ 2>/dev/null | sed 's#/##' | tr '\n' ' ')"
 fi
-# 부분 매칭 허용("B"→"B-emotional")하되 **유일**해야 한다(모호하면 거부). Codex #7.
+# 부분 매칭 허용("B"→"B-emotional")하되 **유일**해야 한다(모호하면 거부). 외부리뷰 #7.
 MATCH=""; NMATCH=0; MATCHES=""
 for k in $VALID; do
   if [ "$k" = "$CHOICE" ]; then MATCH="$k"; NMATCH=1; MATCHES="$k"; break; fi   # 정확 일치 우선

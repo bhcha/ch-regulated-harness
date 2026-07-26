@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run-stage.sh — ★ 단계 실행기 (1급 경로, 슬래시 비의존). 설계 §11.2.
-#   엔진 선택: HARNESS_CLI=claude|codex|stub  (기본 stub: 결정적 CI/오프라인)
-#   HARNESS_OFFLINE=1 이면 claude/codex 선택이어도 stub 생성기로 폴백(엔진명은 보존).
+#   엔진 선택: HARNESS_CLI=claude|stub  (기본 stub: 결정적 CI/오프라인)
+#   HARNESS_OFFLINE=1 이면 claude 선택이어도 stub 생성기로 폴백(엔진명은 보존).
 #   재개: 산출물 파일 존재 + validate 통과 = 완료 → 재생성 생략(idempotent).
 # 사용법: bash scripts/run-stage.sh <stage> <run_id>
 #   stage: brief | concept | storyboard-outline | storyboard-plan | keyvisual | evidence | raise-limit
@@ -72,7 +72,7 @@ fi
 # raise-limit: 에스컬레이션 시 상한 상향
 if [ "$STAGE" = "raise-limit" ]; then
   lock_acquire "$RID"; SF="$(state_file "$RID")"
-  # 가드: escalated 상태에서만 상한 상향 허용(임의 페이즈/상태 변조 차단, Codex B7#5)
+  # 가드: escalated 상태에서만 상한 상향 허용(임의 페이즈/상태 변조 차단, 외부리뷰 B7#5)
   if [ "$(jget "$SF" status)" != "escalated" ]; then
     die "raise-limit 은 escalated(사람 개입 필요) 상태에서만 사용합니다. 현재 상태=$(jget "$SF" status)."
   fi
@@ -92,7 +92,7 @@ if [ "${HARNESS_OFFLINE:-0}" = "1" ]; then
 else
   CLI="${HARNESS_CLI:-claude}"
 fi
-case "$CLI" in claude|codex|stub) ;; *) die "HARNESS_CLI 는 claude|codex|stub 중 하나여야 합니다 (현재: $CLI)";; esac
+case "$CLI" in claude|stub) ;; *) die "HARNESS_CLI 는 claude|stub 중 하나여야 합니다 (현재: $CLI)";; esac
 # 비오프라인(운영/온라인)에서 stub 생성은 금지(③ stub=CI 전용). 명시 HARNESS_CLI=stub 도 여기서 막힌다.
 if [ "${HARNESS_OFFLINE:-0}" != "1" ] && [ "$CLI" = "stub" ]; then
   die "stub 생성은 CI(HARNESS_OFFLINE=1) 전용입니다. 운영은 HARNESS_CLI=claude(insession) 를 쓰세요."
@@ -109,7 +109,7 @@ HARNESS_FORMAT="$(jget "$SF" product.deliverable_format 2>/dev/null || true)"; [
 HARNESS_PRODUCT_NAME="$(jget "$SF" product.name 2>/dev/null || true)"; export HARNESS_PRODUCT_NAME
 
 # 단계가 현재 페이즈와 일치하는지 확인(생성은 해당 페이즈에서만)
-# H-3 fail-safe(K-2 #7 후속, Codex Low): 페이즈맵(committed harness 파일)이 부재/손상이면 stage_phase 가
+# H-3 fail-safe(K-2 #7 후속, 외부리뷰 Low): 페이즈맵(committed harness 파일)이 부재/손상이면 stage_phase 가
 #   빈값을 내고 아래 [-n] 가드가 조용히 skip 돼 잘못된 stage 명령이 페이즈 가드를 우회한다(옛 하드코딩 맵엔
 #   없던 fail-open) → 여기 메인 셸에서 fail-closed(서브셸 die 는 전파 안 되므로 여기서 막는다).
 "$PY" -c 'import json,sys; json.load(open(sys.argv[1]))["phase_to_stage"]' "$STAGE_PHASE_MAP" 2>/dev/null \
@@ -128,7 +128,7 @@ if [ "$STAGE" = "keyvisual" ]; then
       die "산출물 포맷 '$FMT_NOW' 의 status 가 active 가 아닙니다(format-profiles.json 의 formats.$FMT_NOW.status). 해당 포맷을 active 로 전환 후 진행하세요."
   fi
 fi
-# 레거시 마이그레이션(Codex P1 H3): 00g 가 단안(승인)으로 전환되기 전 생성된 런이 select 게이트에 갇혀(step=select) 있으면,
+# 레거시 마이그레이션(외부리뷰 P1 H3): 00g 가 단안(승인)으로 전환되기 전 생성된 런이 select 게이트에 갇혀(step=select) 있으면,
 #   guideline 재생성으로 복구할 수 있도록 step=generate 로 정규화한다 — 끝의 전이 python 이 step==generate 에서만 발동하므로
 #   이 정규화 없이는 재생성해도 gate=select 에 갇혀 dead-end 루프가 된다. 신규 00g 는 select 에 도달하지 않으므로 무해(STAGE=guideline 한정).
 if [ "$STAGE" = "guideline" ] && [ "$(jget "$SF" gate)" = "select" ]; then
@@ -136,7 +136,7 @@ if [ "$STAGE" = "guideline" ] && [ "$(jget "$SF" gate)" = "select" ]; then
   transition step='"generate"' gate=null status='"revise"' awaiting='"none"' \
              "@history=$(jget "$SF" phase)|migrate:00g-select→generate(단안전환 복구)|run-stage.sh"
 fi
-# 생성 단계 가드(Codex 2차 B): 사람-액션 게이트(select/user) 중에는 생성 금지(위 00g 레거시 정규화 후엔 gate≠select).
+# 생성 단계 가드(외부리뷰 2차 B): 사람-액션 게이트(select/user) 중에는 생성 금지(위 00g 레거시 정규화 후엔 gate≠select).
 CUR_GATE_RS="$(jget "$SF" gate)"
 case "$CUR_GATE_RS" in
   select) die "지금은 만들 차례가 아니라 고를 차례예요. bash scripts/select.sh $RID <옵션> 을 실행하세요." ;;
@@ -175,17 +175,17 @@ esac
 
 # 재개 판정: 산출물 존재 + 검증 통과 + 현재 revise 루프가 아님 → 생략.
 #   concept/storyboard-plan 은 '항목 단위'로 생성·재개하므로 단일 primary 단락 평가를 건너뛰고
-#   각 브랜치가 항목별 idempotent skip 을 수행한다(부분 생성 중단→재개 안전, Codex B4 #7).
+#   각 브랜치가 항목별 idempotent skip 을 수행한다(부분 생성 중단→재개 안전, 외부리뷰 B4 #7).
 cur_status="$(jget "$SF" status)"
-# primary 산출물 존재+유효: JSON 은 schema 검증, 비-JSON(html 등)은 존재로 충분(Codex 4차: HTML 에 JSON validate 쓰던 버그).
+# primary 산출물 존재+유효: JSON 은 schema 검증, 비-JSON(html 등)은 존재로 충분(외부리뷰 4차: HTML 에 JSON validate 쓰던 버그).
 primary_ok() {
   [ -f "$RDIR/$primary" ] || return 1
   case "$primary" in *.json) validate_artifact "$RDIR/$primary" >/dev/null 2>&1 || return 1 ;; esac
-  # keyvisual 은 렌더 산출물(design-manifest.json)까지 유효해야 '완료'(partial 렌더 후 skip→manifest 없이 전이 차단, Codex 5차).
+  # keyvisual 은 렌더 산출물(design-manifest.json)까지 유효해야 '완료'(partial 렌더 후 skip→manifest 없이 전이 차단, 외부리뷰 5차).
   if [ "$STAGE" = "keyvisual" ]; then
     { [ -f "$RDIR/04-keyvisual/design-manifest.json" ] && validate_artifact "$RDIR/04-keyvisual/design-manifest.json" >/dev/null 2>&1; } || return 1
   fi
-  # intake 완료조건 = 00a '전체 검증'(스키마+시맨틱: WB 분류·변환본·category/kind 일관성·sha256·1:1) 통과. ★ Codex W4-R7:
+  # intake 완료조건 = 00a '전체 검증'(스키마+시맨틱: WB 분류·변환본·category/kind 일관성·sha256·1:1) 통과. ★ 외부리뷰 W4-R7:
   #   스키마만 보면 시맨틱 실패 제안(WB 행 없음·category/kind 불일치 등)을 '완료'로 오인해 재생성을 skip → validate 가 반복
   #   실패하는 wedge 가 된다. validate-stage 를 완료조건으로 삼아 이 부류(개별 체크별 skip 불일치)를 통째로 닫는다.
   if [ "$STAGE" = "intake" ]; then
@@ -212,7 +212,7 @@ if [ "$STAGE" != "concept" ] && [ "$STAGE" != "storyboard-plan" ] \
   info "[$STAGE] 이미 완료·검증된 산출물 존재 — 재생성 생략(idempotent)."
   NEED_GENERATE=0
 fi
-# review 게이트 재진입(idempotent): primary 가 유효하면 stage 종류 무관하게 재생성 없이 전이만(verdict 보존, Codex 3·4차).
+# review 게이트 재진입(idempotent): primary 가 유효하면 stage 종류 무관하게 재생성 없이 전이만(verdict 보존, 외부리뷰 3·4차).
 #   concept/tone/plan/keyvisual 모두 review 재진입은 no-op 이어야 한다.
 if [ "${NEED_GENERATE:-1}" != "0" ] && [ "$CUR_GATE_RS" = "review" ] && [ "$cur_status" = "pending" ] && primary_ok; then
   info "[$STAGE] review 게이트 재진입 — 재생성 생략(idempotent, verdict 보존)."
@@ -258,8 +258,8 @@ case " $* " in *" --proceed-with-gaps "*) PROCEED_WITH_GAPS=1 ;; esac
 #   제어흐름 역전(docs/_archive/in-session-generation-proposal.md §2): in-session 은 run_llm 을 절대 호출하지 않고,
 #   '세션 안 에이전트가 이미 쓴 산출물'을 검증·전이만 한다(셸=자식).
 #   기본값 자동선택(in-session 전환 — 단계 A): HARNESS_GEN_MODE 미지정 시,
-#     STUB_MODE 가 아니고(=실엔진 claude/codex + 온라인) Claude Code 세션이 신뢰 마커로 감지되면 insession,
-#     아니면(세션밖·cron·codex headless·CI) subprocess 로 폴백. → 인터랙티브 세션에서 헤드리스 600초 행/0바이트 재발 차단.
+#     STUB_MODE 가 아니고(=실엔진 claude + 온라인) Claude Code 세션이 신뢰 마커로 감지되면 insession,
+#     아니면(세션밖·cron·CI) subprocess 로 폴백. → 인터랙티브 세션에서 헤드리스 600초 행/0바이트 재발 차단.
 #   ★ STUB_MODE(=HARNESS_CLI=stub 또는 HARNESS_OFFLINE=1)는 '항상' subprocess+stub 으로 남겨 CI/골든 결정성을
 #     불변으로 지킨다(안전 불변식 §7 / 설계원칙 #2). 계획 단계 A 의 'stub 무영향'은 이 STUB_MODE 게이트로 충족한다
 #     — 실엔진(claude) 미선언 stub 기본 호출(테스트·오프라인)이 우발적으로 insession 으로 새지 않게(헤드리스는 명시 opt-in).
@@ -273,27 +273,27 @@ else
 fi
 case "$GEN_MODE" in subprocess|insession) ;; *) die "HARNESS_GEN_MODE 는 subprocess|insession 이어야 합니다 (현재: $GEN_MODE)";; esac
 # 명시 HARNESS_GEN_MODE=insession 라도 STUB_MODE(=HARNESS_CLI=stub 또는 HARNESS_OFFLINE=1)면 subprocess 로 강제한다.
-#   결정적 stub 경로가 insession 으로 우회되어(세션 안 산출물 없이) stub 으로 덮이거나 비결정적이 되지 않게 — CI/골든 결정성 불변(Codex PR1 R2 HIGH).
+#   결정적 stub 경로가 insession 으로 우회되어(세션 안 산출물 없이) stub 으로 덮이거나 비결정적이 되지 않게 — CI/골든 결정성 불변(외부리뷰 PR1 R2 HIGH).
 #   세션 내 SKILL 은 transition 명령에 HARNESS_CLI=claude 를 명시한다(STUB_MODE=0 → insession 보존). offline 은 STUB_MODE 에 이미 포함.
 [ "$STUB_MODE" = "1" ] && GEN_MODE="subprocess"
-# ②b: 헤드리스 subprocess 실엔진 생성(run_llm 의 claude -p / codex exec)은 제거됐다(개편계획 ②b③).
+# ②b: 헤드리스 subprocess 실엔진 생성(run_llm 의 claude -p)은 제거됐다(개편계획 ②b③).
 #   도달 가능한 모드는 insession(실엔진, 세션 내 직접 생성) 또는 subprocess+STUB_MODE(CI/오프라인 stub)뿐이다.
 #   실엔진(STUB_MODE!=1)인데 subprocess 로 귀결되면(세션 밖·insession 미감지) fail-closed — run_llm 실엔진 경로 차단.
 #   ★ 단 NEED_GENERATE=0(재개: 산출물 이미 존재·검증 통과, 생성할 것 없음)이면 발동하지 않는다 —
-#     크래시 후 idempotent 재개(파일 작성↔전이 사이)는 세션/엔진 무관하게 전이만 보정해야 한다(Codex P2).
+#     크래시 후 idempotent 재개(파일 작성↔전이 사이)는 세션/엔진 무관하게 전이만 보정해야 한다(외부리뷰 P2).
 if [ "$GEN_MODE" = "subprocess" ] && [ "$STUB_MODE" != "1" ] && [ "${NEED_GENERATE:-1}" != "0" ]; then
   die "세션 밖 실엔진 생성은 제거되었습니다(헤드리스 subprocess 금지). 세션 안(insession) 생성 또는 CI(HARNESS_OFFLINE=1, stub)만 허용됩니다."
 fi
 if [ "$GEN_MODE" = "insession" ]; then
   # PR2-E: 키비주얼도 세션 내 지원 — 에이전트는 HTML 만 쓰고, 렌더(Playwright 캡처+manifest+lint)는 아래 전이 단계가 돌린다(생성과 분리).
-  # ⓪ in-session 생성은 'generate' 단계에서만 — review 재진입 등 step!=generate 에서는 fail-closed(Codex 리뷰 CRITICAL #1).
+  # ⓪ in-session 생성은 'generate' 단계에서만 — review 재진입 등 step!=generate 에서는 fail-closed(외부리뷰 CRITICAL #1).
   #    step!=generate 에서 재실행하면 전이 python 이 no-op 라 generate:insession 이벤트가 안 남고, 직전 stub/구토큰이
   #    살아 kcia 자가심의 가드가 무력화된다(stub 생성 → review → insession 재진입 → claude critic 통과 우회).
   CUR_STEP_RS="$(jget "$SF" step)"
   [ "$CUR_STEP_RS" = "generate" ] || die "in-session 생성은 'generate' 단계에서만 가능합니다(현재 step=$CUR_STEP_RS). 이미 심의/이후 단계라면 run.md 의 '다음 명령'을 따르세요."
   # ① 신뢰 CLI 마커로 생성 엔진 감지(미상 → fail-closed). 가드(kcia-check)의 생명줄.
   ENGINE_LABEL="$(detect_insession_engine || true)"
-  [ -n "$ENGINE_LABEL" ] || die "in-session 생성 엔진을 신뢰 마커로 확인할 수 없습니다(fail-closed). Claude Code 세션 안에서 실행하거나, 헤드리스는 HARNESS_CLI=claude|codex(subprocess)를 쓰세요."
+  [ -n "$ENGINE_LABEL" ] || die "in-session 생성 엔진을 신뢰 마커로 확인할 수 없습니다(fail-closed). Claude Code 세션 안에서 실행하세요 — 세션 밖 헤드리스 실엔진 생성은 폐기됐고, CI/오프라인은 HARNESS_OFFLINE=1(stub)만 허용됩니다."
   # ② 세션 안 에이전트가 산출물을 '먼저' 썼어야 한다 — 없으면 run_llm 으로 떨어지지 않고 친절히 중단(중첩 생성 금지).
   #    완전성(fan-out 전체)은 아래 validate-stage.sh 가 강제하므로 여기선 1차 산출물 존재·유효만 빠르게 확인.
   insession_primary_ok || die "in-session 모드: 1차 산출물('$primary')이 없거나 무효입니다. 세션 안 에이전트가 먼저 산출물(+fan-out 전체)을 작성한 뒤 이 명령을 실행하세요(키비주얼은 design-manifest 제외 — 렌더는 전이 단계가 한다)."
@@ -312,12 +312,12 @@ if [ "$STAGE" = "keyvisual" ] && [ -d "$RDIR/03-storyboard/plan" ] && [ -n "$(ls
   #   (임상 측정치 등록됐는데 시험성적서 요소 빠짐 = must_fill)이면 멈춘다. override = HARNESS_ACK_GAPS=1 또는 --proceed-with-gaps.
   #   ★ stub/오프라인(STUB_MODE=1)은 면제 — CI/골든 결정성 불변(생성 입력·stub 바이트 동일). 점검은 읽기전용(state 미기록).
   #   ★ '실엔진(비-stub) 이미지 매니페스트'가 이미 있을 때만(=비용 큰 실생성 완료, 멱등 재진입·resume·review 재진입)
-  #     preflight 를 건너뛴다: 생성할 게 없는데 멈추면 no-op 재개가 깨진다(Codex). 핵심 근거 — 비-stub 매니페스트가
+  #     preflight 를 건너뛴다: 생성할 게 없는데 멈추면 no-op 재개가 깨진다(외부리뷰). 핵심 근거 — 비-stub 매니페스트가
   #     존재한다는 것은 '이전에 온라인 실생성이 이미 한 번 일어났다 = 그때 이 게이트를 통과(무결손)했거나 ack 로 진행했다'는
   #     뜻이다(임계 결손은 run 전역 claim-basis 라 블록/에셋 변화로 새로 생기지 않는다). 따라서 에셋 일부가 지워졌거나
   #     플랜이 바뀌어 image_engine 이 일부를 재생성하더라도, 그건 '이미 게이트를 거친 run' 의 재생성이라 재멈춤이 불필요하다.
   #     반대로 매니페스트가 없거나 stub/오프라인 산출(engine=stub)이면 '게이트가 아직 한 번도 적용되지 않은 실생성 전'이므로
-  #     — 예: stub 런이 SVG 매니페스트를 남긴 뒤 온라인 재실행 — preflight 가 반드시 돌아야 한다(stub→online 우회 차단, Codex).
+  #     — 예: stub 런이 SVG 매니페스트를 남긴 뒤 온라인 재실행 — preflight 가 반드시 돌아야 한다(stub→online 우회 차단, 외부리뷰).
   #   ★ P-1 강화: '완료' = 실엔진 매니페스트 존재 && engine != stub && incomplete 아님(부분 매니페스트는 재생성 트리거).
   #     증분 매니페스트(부분성공, incomplete:true)를 '완료'로 오인하면 preflight 면제가 새므로 image_manifest_complete 로 판정.
   _KV_REAL_DONE=0
@@ -343,10 +343,10 @@ $_PF_SH
   fi
   _KV_IMG_ENG="$(resolve_image_engine)"
   # stdout(>/dev/null): image_engine 진단 print('[image-engine] engine=…')이 현업 4동작 화면에 'engine=' 잭곤으로 새지 않게(진단은 image-manifest.json 에 보존). stderr 는 유지(실패 추적).
-  # ★ P-1/Codex W1c(c)/8R fail-closed: 실엔진(비-STUB) 이미지 생성이 '비-0 종료'면 여기서 멈춘다 — 어떤 실패 경로든
+  # ★ P-1/외부리뷰 W1c(c)/8R fail-closed: 실엔진(비-STUB) 이미지 생성이 '비-0 종료'면 여기서 멈춘다 — 어떤 실패 경로든
   #   (429 소진·fallback 호출 실패[잘못된 모델·네트워크·5xx]·첫 자산 전 크래시 등) 미완결 이미지가 검증(validate)·전이
   #   (advance)로 새지 않게(부분/무 이미지로 done 진행 차단). 재실행=멱등 재개(지금까지 만든 자산은 skip, 남은 블록만 생성).
-  #   비-0 종료를 마커 유무로 판정하지 않는다(마커 미기록 실패 경로도 있음 — Codex 8R) → 종료코드로 직접 fail-closed.
+  #   비-0 종료를 마커 유무로 판정하지 않는다(마커 미기록 실패 경로도 있음 — 외부리뷰 8R) → 종료코드로 직접 fail-closed.
   #   STUB_MODE(오프라인/CI)는 stub 이 결정적으로 성공하므로 die 없음(골든 바이트 불변); stub 이상종료 시엔 info 로 계속.
   # F1(C): --domain 으로 선언 규제도메인 전달 — 규제도메인(drug/quasi_drug/health_food)은 그래픽 블록(html_only)
   #   미생성(1급 keyvisual 경로도 gen-images.sh·render-design.sh 와 동일 술어. 누락 시 규제도메인에서 그래픽 baked 누수).
@@ -519,7 +519,7 @@ elif [ "$STAGE" = "concept" ]; then
   else run_llm "$CLI" "$CPROMPT
 [STEP: 추천] recommendation.json(ranked=실재 옵션 id, rationale) 만 작성. RUN_DIR=$RDIR." "$CDIR/recommendation.json"; fi
 elif [ "$STAGE" = "storyboard-plan" ]; then
-  # ── 기획안: 블록 단위 생성/재개/부분 재생성 (Codex B4 #6/#7). ──
+  # ── 기획안: 블록 단위 생성/재개/부분 재생성 (외부리뷰 B4 #6/#7). ──
   info "[storyboard-plan] 페이지 구성안을 블록별로 만드는 중"
   PDIR="$RDIR/03-storyboard/plan"; mkdir -p "$PDIR"
   PPROMPT="$(cat "$HARNESS_ROOT/prompts/storyboard-plan.md")"; PCTX="$(build_context "$RID" storyboard-plan)"
@@ -527,8 +527,8 @@ elif [ "$STAGE" = "storyboard-plan" ]; then
   #   이 master_palette/color_temp/lighting/typography/master_reference 를 상속(블록마다 다른 경쟁사 스타일 앵커 = 톤 분열 제거).
   #   revise 시 갱신(결정적·idempotent). 블록 palette ⊆ master_palette 는 validate-stage 가 fail-closed 강제.
   #   ⚠ revise 시엔 기본 '보존'한다(재생성 금지) — 아트디렉션은 전 블록 공통 '안정' 브랜드킷이라, revise 마다 master_palette 가
-  #     바뀌면 부분 재생성으로 보존된 블록 palette 가 새 master 밖으로 떨어져 검증 dead-end(Codex HIGH). 최초 1회만 정의.
-  #   예외(Codex 2R HIGH 'inverse dead-end'): 보완 요청(feedback)이 '전역 톤/팔레트/마스터 reference 자체'를 겨냥하면
+  #     바뀌면 부분 재생성으로 보존된 블록 palette 가 새 master 밖으로 떨어져 검증 dead-end(외부리뷰 HIGH). 최초 1회만 정의.
+  #   예외(외부리뷰 2R HIGH 'inverse dead-end'): 보완 요청(feedback)이 '전역 톤/팔레트/마스터 reference 자체'를 겨냥하면
   #     아트디렉션을 재생성하고 **전 블록 강제 재생성**(부분 보존이 새 master 와 어긋나는 dead-end 회피). 정상 4동작(revise)으로 전역 톤 교정 경로 제공.
   ADF="$RDIR/03-storyboard/art-direction.json"
   AD_REVISE=0
@@ -543,7 +543,7 @@ elif [ "$STAGE" = "storyboard-plan" ]; then
 [STEP: 전역 아트디렉션만] 03-storyboard/art-direction.json 만 작성(harness/art-direction.schema.json). master_palette·color_temp·lighting·typography + master_reference(자사 자산 inputs/assets/). 모든 블록 visual.concept 가 이를 상속하므로 블록 palette 는 master_palette 의 부분집합이어야 한다. RUN_DIR=$RDIR. $PCTX" "$ADF"; fi
     append_history "$SF" "$(jget "$SF" phase)" "generate:art-direction:$ENGINE_LABEL" "run-stage.sh"
     # ★ PCTX 재계산: 이제 art-direction.json 이 존재 → build_context 가 ART_DIRECTION 라벨을 포함한다.
-    #   블록 생성(아래 run_llm $PCTX)이 master_palette/톤을 실제로 상속받게 한다(Codex HIGH: stale PCTX 우회 차단).
+    #   블록 생성(아래 run_llm $PCTX)이 master_palette/톤을 실제로 상속받게 한다(외부리뷰 HIGH: stale PCTX 우회 차단).
     PCTX="$(build_context "$RID" storyboard-plan)"
   fi
   # M3: tone 서브스테이지 흡수 — 기획안 블록이 구도/무드/참조(visual.concept)를 직접 산출(tone 선택 불필요).
@@ -561,7 +561,7 @@ print(' '.join(sorted(ts)))" 2>/dev/null || true)"
     RND="$PDIR/history/iter-$iter"; mkdir -p "$RND"; cp -f "$PDIR"/*.json "$RND"/ 2>/dev/null || true
   fi
   # 아트디렉션이 재생성됐으면(AD_REVISE) 전 블록을 강제 재생성한다 — 보존 블록의 옛 palette 가 새 master 밖으로
-  #   떨어지는 inverse dead-end 차단(Codex 2R HIGH). REVISE_TARGETS 를 비워 아래 루프의 '빈 타겟=전체 재생성' 경로를 탄다.
+  #   떨어지는 inverse dead-end 차단(외부리뷰 2R HIGH). REVISE_TARGETS 를 비워 아래 루프의 '빈 타겟=전체 재생성' 경로를 탄다.
   [ "$AD_REVISE" = "1" ] && REVISE_TARGETS=""
   # 선택 스토리라인의 블록 목록을 순회하며 개별 생성(이미 유효하고 revise 대상 아니면 skip).
   while IFS='|' read -r ORD TYP; do
@@ -570,7 +570,7 @@ print(' '.join(sorted(ts)))" 2>/dev/null || true)"
     regen=1
     if [ -f "$BF" ] && validate_artifact "$BF" >/dev/null 2>&1; then
       if [ "$cur_status" = "revise" ] || [ "$cur_status" = "changes_requested" ]; then
-        # revise: 매핑된 위반 블록만 재생성. 단 매핑 실패(빈 타겟)면 전체 재생성(no-op 방지, Codex 5차).
+        # revise: 매핑된 위반 블록만 재생성. 단 매핑 실패(빈 타겟)면 전체 재생성(no-op 방지, 외부리뷰 5차).
         if [ -z "$REVISE_TARGETS" ]; then regen=1
         else case " $REVISE_TARGETS " in *" $TYP "*) regen=1;; *) regen=0;; esac; fi
       else
@@ -605,7 +605,7 @@ RUN_DIR=$RDIR
 $CTX
 
 위 스키마·규약을 지켜 산출물 파일을 RUN_DIR 하위에 직접 작성하라. state.json 은 건드리지 마라."
-  # 완료감지 watch = 이 단계의 '필수 산출물 전부'(validate-stage 와 동일 집합). 부분 산출물에 조기중단 금지(Codex 리뷰 HIGH).
+  # 완료감지 watch = 이 단계의 '필수 산출물 전부'(validate-stage 와 동일 집합). 부분 산출물에 조기중단 금지(외부리뷰 HIGH).
   #   keyvisual: A·B HTML + recommendation(없으면 validate 실패) / storyboard-outline: A·B storyline + recommendation + sources/results.
   # 이슈3a(최소 3안): 다안 페이즈는 A·B·C 3안을 완료감지·검증 대상으로(2안 하드코딩 제거 → 실 LLM 이 3안을 내야 완료).
   case "$STAGE" in
@@ -630,7 +630,7 @@ fi
 #   덮어쓴 뒤 아래 validate-stage 가 results.schema 로 재검증(비정상 응답도 fail-closed). state.json 미접촉(sources 만 씀).
 #   ★ '생성이 일어난 시점'에만 호출(NEED_GENERATE!=0 또는 insession) — 그래야 에이전트 mock 을 실검색으로 덮어쓴다.
 #   순수 재개/no-op(NEED_GENERATE=0·비-insession)은 호출 안 함(직전 생성 때 이미 스크립트-검색된 sources 유지 → 안정·중복검색 방지).
-#   evidence_search 는 기존 파일의 engine 마커를 신뢰하지 않고 항상 재검색하므로, 이 생성-게이트가 우회·재검색 폭주를 함께 막는다(Codex).
+#   evidence_search 는 기존 파일의 engine 마커를 신뢰하지 않고 항상 재검색하므로, 이 생성-게이트가 우회·재검색 폭주를 함께 막는다(외부리뷰).
 if [ "$STAGE" = "storyboard-outline" ] && [ "$STUB_MODE" != "1" ] && { [ "$NEED_GENERATE" != "0" ] || [ "$GEN_SOURCE" = "insession" ]; }; then
   EVIDENCE_ENGINE="$(resolve_evidence_engine)"   # 온라인 → openalex(오프라인은 위 STUB_MODE 가드로 진입 안 함)
   "$PY" "$HARNESS_ROOT/scripts/lib/evidence_search.py" "$RID" "$RDIR" "$EVIDENCE_ENGINE" \
@@ -638,10 +638,10 @@ if [ "$STAGE" = "storyboard-outline" ] && [ "$STUB_MODE" != "1" ] && { [ "$NEED_
 fi
 
 # 키비주얼 렌더(Playwright 결정적 후처리: 저작권 lint + 섹션 캡처 + design-manifest)는 '무슨 일이 있었나'로 돈다(PR2-E 렌더 디커플링):
-#   · subprocess 생성/보완(NEED_GENERATE!=0) → 기존과 동일하게 항상 렌더(보완 시 stale-skip 회귀 없음 — Codex PR2 R1 HIGH).
+#   · subprocess 생성/보완(NEED_GENERATE!=0) → 기존과 동일하게 항상 렌더(보완 시 stale-skip 회귀 없음 — 외부리뷰 PR2 R1 HIGH).
 #   · 세션 내 생성(GEN_SOURCE=insession; 에이전트가 HTML 만 씀) → 전이 단계에서 렌더가 manifest 를 만든다(claude 불필요).
 #   · 재개(NEED_GENERATE=0 · subprocess: 완성·manifest 보유) → 둘 다 거짓 → 렌더 생략(멱등, 기존 동작 보존).
-#   mtime/해시 staleness 비교를 쓰지 않는다(CSS-only 변경·동초 mtime 우회 불가 — Codex PR2 R1 HIGH). 렌더는 항상 현재 HTML/CSS 로 manifest 를 재산출한다.
+#   mtime/해시 staleness 비교를 쓰지 않는다(CSS-only 변경·동초 mtime 우회 불가 — 외부리뷰 PR2 R1 HIGH). 렌더는 항상 현재 HTML/CSS 로 manifest 를 재산출한다.
 if [ "$STAGE" = "keyvisual" ] && [ -f "$RDIR/04-keyvisual/options/A/index.html" ] \
    && { [ "$NEED_GENERATE" != "0" ] || [ "$GEN_SOURCE" = "insession" ]; }; then
   bash "$HARNESS_ROOT/scripts/render-design.sh" "$RID"
@@ -664,7 +664,7 @@ obs_timing "$RID" phase="$CUR_PHASE" stage="$STAGE" step=generate engine="$ENGIN
   outcome="$([ "$NEED_GENERATE" = "0" ] && echo skipped || echo ok)" rc=0 duration_s="$(( $(date +%s) - _GEN_T0 ))"
 # L-1: 실행 기록(git_sha·엔진·유효플래그·프롬프트 지문) — 실제 생성이 일어난 경우만 기록(순수 재개/no-op 제외).
 #   ⚠ insession(온라인 primary 모드, 298행)은 NEED_GENERATE=0 **이면서** GEN_SOURCE=insession 이다 → NEED_GENERATE 만
-#   보면 insession 생성이 감사 로그에서 빠진다(Codex P2). 그래서 'insession 이거나 subprocess/stub 실생성(NEED_GENERATE=1)'
+#   보면 insession 생성이 감사 로그에서 빠진다(외부리뷰 P2). 그래서 'insession 이거나 subprocess/stub 실생성(NEED_GENERATE=1)'
 #   일 때 기록하고, 순수 재개(NEED_GENERATE=0 · GEN_SOURCE=subprocess)만 제외한다. .logs 골든제외·best-effort.
 { [ "$NEED_GENERATE" != "0" ] || [ "$GEN_SOURCE" = "insession" ]; } && obs_provenance "$RID" generate "$ENGINE_LABEL" "$_GS"
 
@@ -676,7 +676,7 @@ if [ "$(jget "$SF" step)" = "generate" ]; then   # step==generate 일 때만(재
   else                          # 단안(brief/storyboard-plan) → 승인 게이트
     _ST='"human"'; _GT='"user"'; _AW='"user"'
   fi
-  # 끝 토큰은 항상 엔진 패밀리(claude/codex/stub) — kcia-check 의 GEN_CLI 파스(split(':')[-1])가 두 모드 모두에서 발동.
+  # 끝 토큰은 항상 엔진 패밀리(claude/stub) — kcia-check 의 GEN_CLI 파스(split(':')[-1])가 두 모드 모두에서 발동.
   if [ "$GEN_SOURCE" = "insession" ]; then _EV="generate:insession:$STAGE:$ENGINE_LABEL"   # WS-1(in-session): 세션 내 직접 생성
   elif [ "$NEED_GENERATE" = "1" ];   then _EV="generate:ok:$STAGE:$ENGINE_LABEL"           # subprocess(헤드리스 run_llm) — 기존 그대로
   else                                    _EV="resume:transition:$STAGE"; fi               # 재개(생성 생략 전이) — 기존 그대로

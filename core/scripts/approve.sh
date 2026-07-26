@@ -76,7 +76,7 @@ print('OK'); sys.exit(0)" 2>/dev/null)"; _APST=$?
   elif [ "$_APST" != "0" ]; then
     die "첨부 분류 제안을 확인하지 못했어요 — 다시 분류하세요: bash scripts/run-stage.sh intake $RID"
   fi
-  # ★ Codex W4-R8: unknown·sha256 뿐 아니라 '전체 00a 검증'을 승인 직전에 재실행 — 생성 후 gate=user 에서 제안이 편집되거나
+  # ★ 외부리뷰 W4-R8: unknown·sha256 뿐 아니라 '전체 00a 검증'을 승인 직전에 재실행 — 생성 후 gate=user 에서 제안이 편집되거나
   #   변환본이 삭제돼 시맨틱 전제(워킹백워드 분류·변환본·category/kind·category/route 일관성)가 깨지면 여기서 막는다.
   #   (안 막으면 gate=review 로 넘어간 뒤 kcia-check 가 실패하는데 그 게이트에선 revise 불가 → wedge.) generate·approve 동일 검증.
   bash "$HARNESS_ROOT/scripts/validate-stage.sh" "$RID" 00a-intake >/dev/null 2>&1 \
@@ -137,7 +137,7 @@ fi
 if [ "$PHASE" = "04-keyvisual" ]; then
   SEL="$(jget "$(run_dir "$RID")/04-keyvisual/decision.json" selected 2>/dev/null || true)"
   if [ -n "$SEL" ]; then
-    # 선택안(예: B)으로 매니페스트 재생성 — 미리보던 추천안과 다를 수 있으므로 선택안을 실제 검증(Codex coverage #1)
+    # 선택안(예: B)으로 매니페스트 재생성 — 미리보던 추천안과 다를 수 있으므로 선택안을 실제 검증(외부리뷰 coverage #1)
     bash "$HARNESS_ROOT/scripts/render-design.sh" "$RID" --option "$SEL" >/dev/null \
       || die "선택안($SEL) 렌더 실패 — 승인 보류."
     bash "$HARNESS_ROOT/scripts/validate-stage.sh" "$RID" 04-keyvisual >/dev/null 2>&1 \

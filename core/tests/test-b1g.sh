@@ -31,7 +31,7 @@ import json,sys
 n=json.load(open('$G/reference-notes.json'))
 sys.exit(0 if (n.get('flow_refs') or n.get('composition_notes') or (n.get('notes') or '').strip()) else 1)" 2>/dev/null \
   && pass "참조 노트 내용 존재(flow_refs/composition_notes/notes ≥1)" || fail "참조 노트 비어있음"
-# fail-closed(Codex P1 H2): 참조 노트에 효능·절대어(한/영) → validate-stage 거부(룰엔진 한국어 갭 봉인)
+# fail-closed(외부리뷰 P1 H2): 참조 노트에 효능·절대어(한/영) → validate-stage 거부(룰엔진 한국어 갭 봉인)
 cp "$G/reference-notes.json" "$G/reference-notes.json.bak"
 _rn_blocked=1
 for _bad in '"whitening effect, No.1 anti-aging"' '"미백 효과 최고"'; do
@@ -48,7 +48,7 @@ a=json.load(open('$G/examples/ex1/example-analysis.json'))
 sys.exit(0 if a['why_good'] and all(x['grounded_in'] for x in a['why_good']) else 1)" 2>/dev/null \
   && pass "why_good 전부 측정신호 grounded(fail-closed)" || fail "why_good grounded 위반"
 
-# ── M2(G3): 감각 reference_images 캡처 + fail-closed (코덱스 M2 R1/R2 반영) ──
+# ── M2(G3): 감각 reference_images 캡처 + fail-closed (외부리뷰 M2 R1/R2 반영) ──
 EA="$G/examples/ex1/example-analysis.json"
 python3 -c "
 import json,sys; sys.path.insert(0,'$ROOT/scripts/lib')
@@ -74,7 +74,7 @@ mutate_reject "why 효능·절대어(영문 포함)"    "a['reference_images'][0
 mutate_reject "id 형식 위반(비 ex1#NN)"      "a['reference_images'][0]['id']='hero#1'"
 mutate_reject "src 가 디자인 자산(저작권)"    "a['reference_images'][0]['src']='inputs/assets/x.jpg'"
 rm -f "$EA.bak"
-# why deny 도메인-aware + 우회 강건성(코덱스 M2 R3): drug lexicon(치료/예방) + 영문 우회 차단, 정상어 오탐 0
+# why deny 도메인-aware + 우회 강건성(외부리뷰 M2 R3): drug lexicon(치료/예방) + 영문 우회 차단, 정상어 오탐 0
 python3 -c "
 import sys; sys.path.insert(0,'$ROOT/scripts/lib')
 from examples_analysis import why_violations as wv
@@ -100,7 +100,7 @@ sys.exit(0 if (blocked and clean) else 1)" 2>/dev/null \
 ( cd "$ROOT" && bash scripts/approve.sh "$RID" --ra-ok ) >/dev/null 2>&1
 [ "$(jq_phase "$RID" gate)" = "review" ] && pass "승인 → 심의 게이트 전이" || fail "심의 게이트 기대(review), 실제 $(jq_phase "$RID" gate)"
 GV="$G/guideline-verdict.json"
-# ── 면제 autopass 회귀 가드(Codex R1 CRITICAL): 면제라도 autopass '전' validate-stage 재검증 → 생성 후 변조된 금지표현은 fail-closed.
+# ── 면제 autopass 회귀 가드(외부리뷰 R1 CRITICAL): 면제라도 autopass '전' validate-stage 재검증 → 생성 후 변조된 금지표현은 fail-closed.
 #   (중복 '심의(크리틱)' 제거가 '검증 우회'가 되면 안 된다 — 빠른 룰엔진 재검증은 유지.)
 cp "$G/reference-notes.json" "$G/reference-notes.json.clean"
 python3 "$ROOT/scripts/lib/harness.py" jset "$G/reference-notes.json" notes '"미백 효과 최고 No.1 anti-aging"' >/dev/null
@@ -117,7 +117,7 @@ mv "$G/reference-notes.json.clean" "$G/reference-notes.json"
   && [ "$(python3 "$ROOT/scripts/lib/harness.py" jget "$GV" review_depth)" = "exempt" ]; } \
   && pass "00g-guideline 심의 면제(engine=review-exempt-autopass · review_depth=exempt)" \
   || fail "00g 심의 면제 미적용(engine=$(python3 "$ROOT/scripts/lib/harness.py" jget "$GV" engine))"
-# L-1(Codex P3 회귀 가드): autopass 심의(면제)도 provenance.jsonl 에 review 기록을 남긴다 — 감사 로그가 면제 경로를 빠뜨리면 안 됨.
+# L-1(외부리뷰 P3 회귀 가드): autopass 심의(면제)도 provenance.jsonl 에 review 기록을 남긴다 — 감사 로그가 면제 경로를 빠뜨리면 안 됨.
 PJG="$ROOT/runs/$RID/.logs/provenance.jsonl"
 { [ -f "$PJG" ] && grep -q '"engine": *"review-exempt-autopass"' "$PJG"; } \
   && pass "(L-1) 면제 autopass 도 provenance review 기록(engine=review-exempt-autopass)" \

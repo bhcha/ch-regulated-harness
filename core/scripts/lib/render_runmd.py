@@ -578,7 +578,7 @@ def main():
         _proj_prefix = preimage_label("proj_prefix")   # '→ 이대로 진행하면' (단일 출처)
         # 04-keyvisual '이고 아직 이미지 생성 전'(image-manifest.json 부재)일 때만 '최종 점검' digest 로:
         #   예정 생성 장수까지 종합해 보여준다. 생성 후(manifest 존재 = gate=select/review)에는 digest 가
-        #   '생성 전' 문구로 사후 노출되면 오해를 주므로(Codex P3) 기존 '보완하면 더 좋아요' 섹션으로 돌아간다.
+        #   '생성 전' 문구로 사후 노출되면 오해를 주므로(외부리뷰 P3) 기존 '보완하면 더 좋아요' 섹션으로 돌아간다.
         _pre_image = (st.get("phase") == "04-keyvisual"
                       and not os.path.exists(os.path.join(rdir, "04-keyvisual", "image-manifest.json")))
         if _pre_image:
@@ -676,7 +676,7 @@ def _reco_reason(rdir, st):
             break
     rationale = rationale.replace("\n", " ").strip()
     rationale = rationale[:60] + ("…" if len(rationale) > 60 else "")
-    # 모델이 쓴 문장이라 내부어(pairwise·claim-basis·verdict 등)가 섞일 수 있다 → 금지어 있으면 사유 미노출(Codex MEDIUM).
+    # 모델이 쓴 문장이라 내부어(pairwise·claim-basis·verdict 등)가 섞일 수 있다 → 금지어 있으면 사유 미노출(외부리뷰 MEDIUM).
     return scrub(rationale)
 
 
@@ -724,7 +724,7 @@ def _recommendation(rdir, st):
     if p and os.path.exists(os.path.join(rdir, p)):
         try:
             top = load_json(os.path.join(rdir, p))["ranked"][0]
-            # 실재 옵션과 교차검증 — phantom 추천 노출 방지(Codex #8)
+            # 실재 옵션과 교차검증 — phantom 추천 노출 방지(외부리뷰 #8)
             od = os.path.join(rdir, optdirs.get(st["phase"], ""))
             if os.path.isdir(od) and top in os.listdir(od):
                 return top

@@ -32,7 +32,7 @@ FORMATS_DIR = os.environ.get("FORMATS_DIR") or os.path.join(PACKS_DIR, "_format"
 
 class _BlockAttrParser(HTMLParser):
     """실제 시작 태그의 data-block 속성값만 수집. 원문 정규식 스캔과 달리 <style> 안 CSS 선택자
-    (예: [data-block="cta"]{})·HTML 주석 안의 data-block 을 태그 속성으로 오인하지 않는다(Codex P2 오탐 차단).
+    (예: [data-block="cta"]{})·HTML 주석 안의 data-block 을 태그 속성으로 오인하지 않는다(외부리뷰 P2 오탐 차단).
 
     ⚠ 의도적 범위: '블록' 판정은 data-block 속성으로만 한다(raw 시맨틱 태그 이름은 보지 않는다). 이유 —
     disallowed 에는 실제 HTML 태그와 겹치는 이름(header/nav)이 있는데, 이를 태그 단위로 잡으면
@@ -40,7 +40,7 @@ class _BlockAttrParser(HTMLParser):
     오탐한다(키비주얼 프롬프트는 블록을 section[data-block] 로만 요구할 뿐 자식 시맨틱 태그를 금지하지 않음).
     이 파이프라인의 블록은 render.py 가 언제나 [data-block] 섹션으로 렌더하므로(전 런 raw header/nav 0건 실측),
     data-block 스캔만으로 '블록' 표현은 결정적으로 잡힌다. 오탐(정상 HTML 차단)이 이 게이트가 못 잡는
-    이론상 raw 크롬 우회보다 나쁘다 — 그래서 data-block-only 로 확정(Codex 5↔6 라운드 상반 지적의 정합 해법)."""
+    이론상 raw 크롬 우회보다 나쁘다 — 그래서 data-block-only 로 확정(외부리뷰 5↔6 라운드 상반 지적의 정합 해법)."""
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.blocks = []   # data-block 속성값
@@ -126,7 +126,7 @@ def check_disallowed_blocks(options_dir, rdir):
 
 # ── 가격 단일출처 가드 (RCA 8-1.5 · AGENTS 6번 절) ────────────────────────────────
 # '숫자+원' 하드코딩 가격을 voc offer.price 와 값-대조: 일치=통과(정식 공급값), 불일치·offer 부재=위반.
-# 판별 기준 = '금액 규모'(Codex P2 오탐/누락을 한 번에 해소 — 한글 조사/어미 lookahead 로는 원칙↔원입니다 를 못 가름):
+# 판별 기준 = '금액 규모'(외부리뷰 P2 오탐/누락을 한 번에 해소 — 한글 조사/어미 lookahead 로는 원칙↔원입니다 를 못 가름):
 #   통화 금액으로 인정 = (a) 천단위 콤마 금액(9,900 / 12,345) 또는 (b) 3자리 이상 정수(9900 / 1000 / 10000).
 #   그 뒤 '원' 이 오면 뒤에 무엇이 붙든(입니다·에·부터·짜리·./공백·끝) 매칭 → '9900원입니다'·'9,900원에' 등 조사/어미형도 잡음.
 #   '3원칙'·'5원칙'(1자리 카운트+단어)·'원료'·'안전관리원'(원 비-숫자선행)·'15g'·'10000ppm'('원' 없음)은 미매치.
@@ -222,7 +222,7 @@ def check_hardcoded_price_html(options_dir, rdir):
             parser.feed(text)
             rel = os.path.relpath(fp, options_dir)
             # 텍스트 노드별로 스캔한다(전체 결합 금지). 결합하면 무관한 인접 노드가 이어져 '큰숫자 + 원-단어' 오탐이
-            #   생긴다(예: '리뷰 9,900' 노드 + '원료' 라벨 노드 → '9,900 원료' → 가격 오검, Codex P2). 한 노드 안의
+            #   생긴다(예: '리뷰 9,900' 노드 + '원료' 라벨 노드 → '9,900 원료' → 가격 오검, 외부리뷰 P2). 한 노드 안의
             #   자연스러운 카피는 '9,900원입니다' 처럼 숫자와 원이 붙어 있어 정상 검출된다. 요소로 쪼갠 가격
             #   (<strong>12,345</strong>원)의 04 검출은 포기하되(희소·HTML 직접작성 한정) 그 값은 03 plan 카피 스캔과
             #   disallowed 게이트가 이미 잡는다(심층 방어라 허용되는 트레이드오프 — RCA 8-2 순서).

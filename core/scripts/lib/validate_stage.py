@@ -109,24 +109,24 @@ def intake_proposal(rdir):
             sys.exit(14)
         if 'kind' in f and f.get('kind') not in KINDS:
             sys.exit(15)
-        # W-2(Codex W4-R3) category↔kind 일관성: 근거 성격의 단일 출처는 category — 불일치(예 evidence_test_report+kind:general)
+        # W-2(외부리뷰 W4-R3) category↔kind 일관성: 근거 성격의 단일 출처는 category — 불일치(예 evidence_test_report+kind:general)
         #   면 승인 전 차단(apply 에서 시험성적서가 general 로 강등돼 test_report pending 흐름을 우회하는 것 방지).
         _c = f.get('category')
         _k = f.get('kind')
         if _c and _c.startswith('evidence_') and _k and CATK.get(_c) and _k != CATK[_c]:
             sys.exit(20)
-        # W-2(Codex W4-R8) category↔route 일관성: apply-intake 는 category 로 라우팅하므로, route 가 category 의 정본 채널과
+        # W-2(외부리뷰 W4-R8) category↔route 일관성: apply-intake 는 category 로 라우팅하므로, route 가 category 의 정본 채널과
         #   다르면(예 evidence_test_report+route:hold, product_image+route:evidence) 승인된 route 가 무시돼 held 파일이 흘러간다 → fail-closed.
         _exp = 'evidence' if (_c or '').startswith('evidence_') else CATROUTE.get(_c)
         if _exp and f.get('route') != _exp:
             sys.exit(21)
-        # W-2(Codex W4-R9) evidence 확장자 화이트리스트 미러(ingest _EVIDENCE_EXTS 와 동일): evidence_* 로 분류된 파일이
+        # W-2(외부리뷰 W4-R9) evidence 확장자 화이트리스트 미러(ingest _EVIDENCE_EXTS 와 동일): evidence_* 로 분류된 파일이
         #   화이트리스트 밖 확장자면 downstream evidence-docs 가 거부해 post-approval 훅에서만 실패(review wedge) → 승인 전 차단.
         if _c and _c.startswith('evidence_'):
             _ext = os.path.splitext(f.get('filename') or '')[1].lstrip('.').lower()
             if _ext not in EVEXTS:
                 sys.exit(22)
-        # W-2(Codex W4-R10) product_image 확장자는 cmd_assets 자사-스캔(jpg/jpeg/png/webp/svg)과 일치해야 한다 — gif 등
+        # W-2(외부리뷰 W4-R10) product_image 확장자는 cmd_assets 자사-스캔(jpg/jpeg/png/webp/svg)과 일치해야 한다 — gif 등
         #   스캔 밖 확장자는 routed 로 복사돼도 assets-manifest 에서 누락돼 자사컷 0(스토리보드/키비주얼 폴백) → 승인 전 차단.
         if _c == 'product_image':
             _ext = os.path.splitext(f.get('filename') or '')[1].lstrip('.').lower()
@@ -142,7 +142,7 @@ def intake_proposal(rdir):
         h = hashlib.sha256(open(fp, 'rb').read()).hexdigest()
         if h != f.get('sha256'):
             sys.exit(17)  # 위변조/스냅샷 불일치
-    # W-2(Codex W4) 워킹백워드 shift-left: 발효(apply-intake)가 요구하는 전제를 '승인 전(validate)'에 검증 —
+    # W-2(외부리뷰 W4) 워킹백워드 shift-left: 발효(apply-intake)가 요구하는 전제를 '승인 전(validate)'에 검증 —
     #   승인 후 apply 에서 fail 하면 gate=review wedge(revise 불가)라, 여기서 막아 gate=user 에서 revise 가능하게 한다.
     #   ① 모든 런은 워킹백워드 필요(사실 원천) → working_backwards 분류 ≥1. ② 그 변환본(에이전트 docx→md)이 실재해야 한다.
     wb_files = [f for f in files if f.get('category') == 'working_backwards']
@@ -192,13 +192,13 @@ def evidence_reflection(rdir):
                 sys.exit(19)
             if not (tr.get('duration') or '').strip():
                 sys.exit(20)
-            # Codex 3R-2: 다중 페이지 image_ref 는 apply 단계 추출에서 hard-fail(항목당 image_path 1슬롯) → 승인 전 여기서 차단.
+            # 외부리뷰 3R-2: 다중 페이지 image_ref 는 apply 단계 추출에서 hard-fail(항목당 image_path 1슬롯) → 승인 전 여기서 차단.
             for it in (tr.get('test_items') or []):
                 ir = it.get('image_ref') if isinstance(it, dict) else None
                 if isinstance(ir, dict) and len(ir.get('pages') or []) > 1:
                     sys.exit(22)
         elif kind in GEN_KINDS:
-            # Codex 3R-2: 사람이 kind:test_report 로 선언한 pending 문서를 일반 kind 제안으로 '강등' 금지 — 승인 전 차단(apply 는 백스톱).
+            # 외부리뷰 3R-2: 사람이 kind:test_report 로 선언한 pending 문서를 일반 kind 제안으로 '강등' 금지 — 승인 전 차단(apply 는 백스톱).
             if m.get('kind') == 'test_report' and m.get('spec_status') == 'pending':
                 sys.exit(21)
         else:
@@ -323,7 +323,7 @@ def plan_art_direction(rdir):
     if not os.path.exists(ad_fp):
         sys.exit(2)
     ad = json.load(open(ad_fp))
-    # 공백/빈문자열 색은 무효(Codex 2R HIGH: ['']·[' '] 우회 차단) — strip 후 비어있지 않은 것만 유효 색으로.
+    # 공백/빈문자열 색은 무효(외부리뷰 2R HIGH: ['']·[' '] 우회 차단) — strip 후 비어있지 않은 것만 유효 색으로.
     master = set(c.strip() for c in (ad.get('master_palette') or []) if isinstance(c, str) and c.strip())
     if not master:
         sys.exit(3)
@@ -334,7 +334,7 @@ def plan_art_direction(rdir):
             continue   # visual.concept 자체 누락은 위 (sys.exit 2/3) 게이트가 이미 차단
         pal = [c.strip() for c in (con.get('palette') or []) if isinstance(c, str) and c.strip()]
         if not pal:
-            sys.exit(5)   # 블록 palette 누락/빈/공백뿐 = 전역 상속 안 함(빈 palette 우회 차단, Codex HIGH)
+            sys.exit(5)   # 블록 palette 누락/빈/공백뿐 = 전역 상속 안 함(빈 palette 우회 차단, 외부리뷰 HIGH)
         extra = [c for c in pal if c not in master]
         if extra:
             sys.exit(4)     # 블록이 전역 팔레트 밖 색 사용 = 분열

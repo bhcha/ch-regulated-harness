@@ -97,7 +97,7 @@ print(a == b)
 ")"
 check "(rf-det) 릴리프 voc.json 결정적(2회 동일)" "[ \"$DET_OK\" = 'True' ]"
 
-# (rf-pct) 함량 % 포맷 추출(Codex P2 회귀 — '\b' 가 '%' 뒤에서 매칭 안 되던 문제)
+# (rf-pct) 함량 % 포맷 추출(외부리뷰 P2 회귀 — '\b' 가 '%' 뒤에서 매칭 안 되던 문제)
 PCT_WB="$TMPDIR_RF/wb-pct.md"
 cat > "$PCT_WB" <<'MD'
 유효성분으로 나이아신아마이드 5% 함유되어 있습니다.
@@ -112,7 +112,7 @@ print(any(x['name']=='나이아신아마이드' and x['amount']=='5%' for x in k
 ")"
 check "(rf-pct) % 함량 포맷 추출(나이아신아마이드 5%)" "[ \"$PCT_OK\" = 'True' ]"
 
-# (rf-edge) generic 구조 추출 엣지케이스(Codex P2 회귀) — 소수 함량·라벨 뒤 성분명·부정/계획 매수.
+# (rf-edge) generic 구조 추출 엣지케이스(외부리뷰 P2 회귀) — 소수 함량·라벨 뒤 성분명·부정/계획 매수.
 EDGE_WB="$TMPDIR_RF/wb-edge.md"
 cat > "$EDGE_WB" <<'MD'
 유효성분: 티트리잎 오일 10000ppm 함유
@@ -137,7 +137,7 @@ print(ok, ki, pf['pack_count'], pf['components'])
 check "(rf-edge) 소수·라벨성분명·부정매수·마케팅어 generic 추출 정확" "echo \"$EDGE\" | grep -q '^True'"
 
 # (WS1-adv) 적대: 임상시험 절 직후 인접 절이 '계획(진행 중)'·'부정(확인되지 않음)'이면
-#   개선 표지가 있어도 evidence 로 승격하지 말 것(fail-closed; Codex P1 회귀).
+#   개선 표지가 있어도 evidence 로 승격하지 말 것(fail-closed; 외부리뷰 P1 회귀).
 ADV_WB="$TMPDIR_RF/wb-adv.md"
 cat > "$ADV_WB" <<'MD'
 제품은 인체적용시험 결과 적합한 것으로 확인되었습니다. 피지량 개선은 진행 중입니다. 유분량 개선은 확인되지 않았습니다.
@@ -146,7 +146,7 @@ python3 "$ROOT/scripts/lib/ingest.py" claim-basis "$ADV_WB" "$TMPDIR_RF/cb-adv.j
 ADV_EV="$(python3 -c "import json;print(len(json.load(open('$TMPDIR_RF/cb-adv.json'))['evidence_on_file']))")"
 check "(WS1-adv) 계획·부정 인접 개선절은 evidence 미승격(evidence=1)" "[ \"$ADV_EV\" = '1' ]"
 
-# (WS1-adv2) 적대: 측정대상(유분량) 단순 언급(결과 표지 없음)은 evidence 미승격(Codex P2 회귀).
+# (WS1-adv2) 적대: 측정대상(유분량) 단순 언급(결과 표지 없음)은 evidence 미승격(외부리뷰 P2 회귀).
 ADV2_WB="$TMPDIR_RF/wb-adv2.md"
 cat > "$ADV2_WB" <<'MD'
 제품은 인체적용시험 결과 적합한 것으로 확인되었습니다. 유분량이 많은 지성 피부에 추천합니다.
@@ -155,7 +155,7 @@ python3 "$ROOT/scripts/lib/ingest.py" claim-basis "$ADV2_WB" "$TMPDIR_RF/cb-adv2
 ADV2_EV="$(python3 -c "import json;print(len(json.load(open('$TMPDIR_RF/cb-adv2.json'))['evidence_on_file']))")"
 check "(WS1-adv2) 결과 표지 없는 단순 언급은 evidence 미승격(evidence=1)" "[ \"$ADV2_EV\" = '1' ]"
 
-# (rf-neg) 적대: 부정된 성분 함량은 product_facts 에 적재 안 함(Codex P2 회귀).
+# (rf-neg) 적대: 부정된 성분 함량은 product_facts 에 적재 안 함(외부리뷰 P2 회귀).
 NEG_WB="$TMPDIR_RF/wb-neg.md"
 cat > "$NEG_WB" <<'MD'
 나이아신아마이드 5%는 함유하지 않습니다.
@@ -166,7 +166,7 @@ python3 "$ROOT/scripts/lib/ingest.py" voc \
 NEG_KI="$(python3 -c "import json;print(len(json.load(open('$TMPDIR_RF/voc-neg.json'))['product_facts']['key_ingredients']))")"
 check "(rf-neg) 부정된 성분 함량 미적재(key_ingredients=0)" "[ \"$NEG_KI\" = '0' ]"
 
-# (rf-comp-neg) 적대: 배제/예정 구성품은 components 에 노출 안 함(Codex P2 회귀).
+# (rf-comp-neg) 적대: 배제/예정 구성품은 components 에 노출 안 함(외부리뷰 P2 회귀).
 #   단 무관한 부정("닿지 않도록 … 핀셋 동봉")은 정상 구성품을 떨구지 않아야 함.
 COMP_WB="$TMPDIR_RF/wb-comp.md"
 cat > "$COMP_WB" <<'MD'
@@ -182,7 +182,7 @@ print('위생 핀셋' in c and '지퍼파우치' not in c)
 ")"
 check "(rf-comp-neg) 무관 부정엔 핀셋 유지·미포함 파우치는 제외" "[ \"$COMP_RES\" = 'True' ]"
 
-# (WS1-kind) 인체외시험 트리거의 인접 evidence 는 clinical_trial 로 오표기 안 함(Codex P2 회귀).
+# (WS1-kind) 인체외시험 트리거의 인접 evidence 는 clinical_trial 로 오표기 안 함(외부리뷰 P2 회귀).
 VITRO_WB="$TMPDIR_RF/wb-vitro.md"
 cat > "$VITRO_WB" <<'MD'
 제품은 인체외시험 결과 보유. 피지량 개선 확인.

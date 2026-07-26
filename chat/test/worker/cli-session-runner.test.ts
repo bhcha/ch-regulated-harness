@@ -578,7 +578,7 @@ describe("runJobSession — 조립 → 스폰(supervisor) → 전이확인 → �
 
   // (d') 경계 바로 위 예산(gen=151s): 선확보 killAt = claimed+31s 라 스폰 여유(하드킬 −30s)는 통과하지만
   //      termAt(SIGTERM) 까지는 0s — hasSpawnRoom 만으로 폴백을 정하면 주 세션이 뜨자마자 SIGTERM 을 받아
-  //      작업 창이 전부 증발한다(Codex W2R2 P2). 폴백 경계가 'SIGTERM 전 가용 ≥ RECOVERY_BUDGET(90s)' 임을 잠근다.
+  //      작업 창이 전부 증발한다(외부리뷰 W2R2 P2). 폴백 경계가 'SIGTERM 전 가용 ≥ RECOVERY_BUDGET(90s)' 임을 잠근다.
   test("(d') 경계 예산(gen=151s) → 선확보 termAt 여유 0 → 주 세션이 잡 스케줄로 폴백(즉시-SIGTERM 방지)", async () => {
     const EDGE_GEN = 151_000; // 선확보 killAt = claimed+31s → 스폰 여유 30s 는 통과, termAt 여유는 0s
     const edgeDeadline = CLAIMED + EDGE_GEN + 100_000; // 마감은 예산보다 멀다 → jobKillAt = claimed + gen

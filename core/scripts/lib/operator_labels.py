@@ -216,7 +216,7 @@ PREIMAGE = {
 }
 
 
-# ── 누수 차단 안전망(Codex 리뷰 HIGH): 미등록 키 폴백이 내부 코드를 '그대로' 흘리지 않게 한다 ──
+# ── 누수 차단 안전망(외부리뷰 HIGH): 미등록 키 폴백이 내부 코드를 '그대로' 흘리지 않게 한다 ──
 #   이 모듈의 존재 이유 = 현업 화면에 내부 코드를 안 보이게 하기. 따라서 어떤 입력이 와도
 #   반환값에 금지 토큰이 섞이면 안 된다. 매핑된 값은 모두 금지 토큰이 없음(설계 + 테스트로 보장).
 #   폴백(미등록 키)만 위험 → raw 대신 '누수 없는 일반 문구'로 치환한다.
@@ -236,8 +236,8 @@ def _safe(value, generic):
 
 
 # 자유 텍스트(LLM 산출 rationale 등) 노출 전 검사용 — run.md 금지토큰 + 현업이 모를 흔한 내부 잭곤(영문 약어/심의 코드).
-#   run.md 금지토큰만으론 claim-basis·verdict·VOC·N축 같은 잭곤을 못 거른다(Codex MEDIUM) → 자유텍스트는 더 넓게 본다.
-#   ⚠ 단어경계(\b)를 쓰지 않는다: 한국어 조사 결합('VOC를'·'RTB가'·'iteration을')은 \w 경계가 안 생겨 \b 가 놓친다(Codex 재리뷰).
+#   run.md 금지토큰만으론 claim-basis·verdict·VOC·N축 같은 잭곤을 못 거른다(외부리뷰 MEDIUM) → 자유텍스트는 더 넓게 본다.
+#   ⚠ 단어경계(\b)를 쓰지 않는다: 한국어 조사 결합('VOC를'·'RTB가'·'iteration을')은 \w 경계가 안 생겨 \b 가 놓친다(외부 재리뷰).
 #   자유텍스트 스크럽은 '과삭제'가 안전(사유 미노출 = 추천키만 표시)이므로, 잭곤은 부분일치로 공격적으로 잡는다.
 #   영문 잭곤은 정상 한국어 사유(전부 한글)엔 안 나타나므로 오탐 위험이 낮다.
 _FREETEXT_JARGON_RE = re.compile(
@@ -248,7 +248,7 @@ _FREETEXT_JARGON_RE = re.compile(
 
 def scrub(text):
     """자유 텍스트(LLM rationale 등)를 현업 화면에 노출하기 전 안전 검사. 내부 잭곤이 섞였으면 ""(노출 안 함).
-       run.md 추천 사유처럼 '모델이 쓴 문장'을 그대로 띄울 때, 금지어 가드를 우회하지 못하게 한다(Codex MEDIUM)."""
+       run.md 추천 사유처럼 '모델이 쓴 문장'을 그대로 띄울 때, 금지어 가드를 우회하지 못하게 한다(외부리뷰 MEDIUM)."""
     return text if text and not _FREETEXT_JARGON_RE.search(text) else ""
 
 
@@ -308,7 +308,7 @@ def risk_as_result(kind):
 
 
 def translate(term):
-    """내부 용어(키) → 현업어. **미등록 키는 그대로 흘리지 않는다**(Codex HIGH): pass-through 하면
+    """내부 용어(키) → 현업어. **미등록 키는 그대로 흘리지 않는다**(외부리뷰 HIGH): pass-through 하면
        max_iterations·gate_type·claim_basis 같은 내부 식별자가 누수된다. 미등록 → 빈 문자열(호출부가 판단).
        다른 reference 헬퍼(gate_text·capability·signal·risk_as_result)와 동일한 'miss=빈문자열' 계약."""
     return _safe(TRANSLATION.get(term, ""), "")

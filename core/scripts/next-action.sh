@@ -74,7 +74,7 @@ revise_available = (gate == "select" and status == "pending") or (gate == "user"
 out = {
     "rid": rid,
     "phase": phase,
-    "phase_label": R.phase_label(phase),   # 안전 라벨(미등록 phase 도 raw 누수 없음 — Codex 리뷰)
+    "phase_label": R.phase_label(phase),   # 안전 라벨(미등록 phase 도 raw 누수 없음 — 외부리뷰)
     "step": step,
     "gate": gate,
     "status": status,

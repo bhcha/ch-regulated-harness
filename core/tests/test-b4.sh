@@ -59,30 +59,75 @@ PV="$ROOT/runs/$RID/03-storyboard/plan-verdict.json"
 check "(b) 강주장+각주부재/가짜근거 → verdict=fail" "[ \"\$(python3 "$ROOT/scripts/lib/harness.py" jget "$PV" verdict)\" = 'fail' ]"
 unset HARNESS_CLI HARNESS_OFFLINE
 
-# enabled_if '활성' 경로: 실증 등록 시 clinicalEvidence/beforeAfter 포함
+# enabled_if '활성' 경로 — 2게이트 계약(stub_stage.gen_storyboard_outline):
+#   ① has_evidence(evidence_on_file != []) → clinicalEvidence 해금
+#   ② has_quant(측정 전/후 수치 쌍 보유) → beforeAfter 해금
+#   즉 '실증 있음'만으로 전후대비 블록이 열리지 않는다. 아래 두 케이스가 그 짝을 잠근다:
+#   (ci-b4ev)  정성-only 근거(자외선차단 보고·인체적용시험 n=32 성적서 — 수치 쌍 없음) → clinicalEvidence O · beforeAfter X
+#   (ci-b4evq) 같은 WB + 측정 전/후 수치 시험성적서 첨부                              → clinicalEvidence O · beforeAfter O
 RID2=ci-b4ev; rm -rf "$ROOT/runs/$RID2"
 export HARNESS_CLI=claude HARNESS_OFFLINE=1
 # 실증 보유 WB(fixture)로 ingest (claim-basis 에 evidence_on_file 채워짐) — HARNESS_WB 로 직접 지정(공유 inputs swap 제거)
 ( cd "$ROOT" && HARNESS_WB="$PACKS_DIR/cosmetic/golden/wb-with-evidence.md" bash scripts/ingest-bundle.sh "$BUNDLE" "$RID2" ) >/dev/null 2>&1
 EVN="$(python3 -c "import json;print(len(json.load(open('$ROOT/runs/$RID2/00-ingest/claim-basis.json'))['evidence_on_file']))")"
 check "(enabled_if) 실증 WB → evidence_on_file ≥1" "[ \"$EVN\" -ge 1 ]"
-# (provenance) evidence source 도 source.from 과 동일하게 run 사본을 가리킴(Codex medium#1 — basename 잔재 제거)
+# (provenance) evidence source 도 source.from 과 동일하게 run 사본을 가리킴(외부리뷰 medium#1 — basename 잔재 제거)
 EVSRC="$(python3 -c "import json;e=json.load(open('$ROOT/runs/$RID2/00-ingest/claim-basis.json'))['evidence_on_file'];print(e[0]['source'] if e else 'NONE')")"
 check "(provenance) evidence source = run 사본 경로(inputs/working-backwards.md)" "[ \"$EVSRC\" = 'inputs/working-backwards.md' ]"
 # M4 순서: 생성 → 승인/선택 → 심의 → 전이. (brief=approve --ra-ok, concept=select)
 ( cd "$ROOT" && bash scripts/run-stage.sh brief "$RID2" && bash scripts/approve.sh "$RID2" --ra-ok && bash scripts/kcia-check.sh "$RID2" &&
   bash scripts/run-stage.sh concept "$RID2" && bash scripts/select.sh "$RID2" B && bash scripts/kcia-check.sh "$RID2" &&
   bash scripts/run-stage.sh storyboard-outline "$RID2" ) >/dev/null 2>&1
-INCL="$(python3 -c "
+TYPES_A="$(python3 -c "
 import json
 sl=json.load(open('$ROOT/runs/$RID2/03-storyboard/outline/options/A/storyline.json'))
-types=[b['type'] for b in sl['blocks']]
-print('OK' if ('clinicalEvidence' in types and 'beforeAfter' in types) else 'BAD:%s'%types)
+print(','.join(b['type'] for b in sl['blocks']))
 ")"
-check "(enabled_if) 실증 등록 시 clinicalEvidence/beforeAfter 포함" "[ \"$INCL\" = 'OK' ]"
+# 3안(A/B/C) 전체를 합쳐서 '어느 안에도 없음'까지 잠근다(A 안만 보면 다른 안 누수를 놓친다).
+TYPES_ALL="$(python3 -c "
+import json, glob
+paths=sorted(glob.glob('$ROOT/runs/$RID2/03-storyboard/outline/options/*/storyline.json'))
+print(','.join(b['type'] for p in paths for b in json.load(open(p))['blocks']))
+")"
+check "(enabled_if) 실증 등록(정성) → clinicalEvidence 포함" "echo \"$TYPES_A\" | grep -q 'clinicalEvidence'"
+check "(enabled_if) 정성-only 근거(측정 전/후 수치 없음) → beforeAfter 제외(3안 전부 · 무측정 전후대비 차단)" \
+  "[ -n \"$TYPES_ALL\" ] && ! echo \"$TYPES_ALL\" | grep -q 'beforeAfter'"
 unset HARNESS_CLI HARNESS_OFFLINE
 
-# (e) 임의 단계 중단 후 다른 CLI 로 재개 성공 (MS1 재개 1회)
+# (enabled_if·정량) 측정 전/후 수치 근거 → beforeAfter 까지 포함. 정성 케이스와 '짝'이라 has_quant 게이트가
+#   항상-제외로 굳어버리는 회귀(제외만 잠그면 못 잡는다)까지 막는다. 근거 채널 = 시험성적서 첨부(index.json 의
+#   test_report.test_items[].before/after) → ingest 가 claim-basis.evidence_on_file 의 doc-NN-tKK 로 승격한다.
+RID2Q=ci-b4evq; rm -rf "$ROOT/runs/$RID2Q"
+EVQ="$(mktemp -d)"; printf '%%PDF-1.4\nsuit\n' > "$EVQ/suit.pdf"
+cat > "$EVQ/index.json" <<'JSONQ'
+{"suit.pdf":{"grade":"인체적용시험","reflect":true,"claim":"피부 수분 개선 확인","verdict_text":"피부 수분 개선에 도움을 줌","test_report":{"institution":"P&K피부임상연구센타","sample_size":22,"duration":"4주","measured_values":null,"test_items":[{"metric":"수분량","unit":"%","before":100,"after":59.5}]}}}
+JSONQ
+export HARNESS_CLI=claude HARNESS_OFFLINE=1
+# 정성 케이스와 같은 WB(변수 하나만 다르게: 정량 근거 첨부 유무) — HARNESS_EVIDENCE_DIR 채널로 인입.
+( cd "$ROOT" && HARNESS_WB="$PACKS_DIR/cosmetic/golden/wb-with-evidence.md" HARNESS_EVIDENCE_DIR="$EVQ" \
+    bash scripts/ingest-bundle.sh "$BUNDLE" "$RID2Q" ) >/dev/null 2>&1
+# 거짓 그린 방지: 게이트를 보기 전에 '측정 전/후 수치 쌍이 실제로 claim-basis 에 실렸음'을 먼저 증명한다.
+QN="$(python3 -c "
+import json
+ev=json.load(open('$ROOT/runs/$RID2Q/00-ingest/claim-basis.json'))['evidence_on_file']
+def num(x): return isinstance(x,(int,float)) and not isinstance(x,bool)
+print(sum(1 for e in ev if isinstance(e,dict) and num(e.get('before')) and num(e.get('after'))))
+" 2>/dev/null || echo 0)"
+check "(enabled_if·정량) 첨부 시험성적서 → evidence_on_file 에 측정 전/후 수치 쌍 ≥1(게이트 입력 실재)" "[ \"$QN\" -ge 1 ]"
+( cd "$ROOT" && bash scripts/run-stage.sh brief "$RID2Q" && bash scripts/approve.sh "$RID2Q" --ra-ok && bash scripts/kcia-check.sh "$RID2Q" &&
+  bash scripts/run-stage.sh concept "$RID2Q" && bash scripts/select.sh "$RID2Q" B && bash scripts/kcia-check.sh "$RID2Q" &&
+  bash scripts/run-stage.sh storyboard-outline "$RID2Q" ) >/dev/null 2>&1
+TYPES_Q="$(python3 -c "
+import json
+sl=json.load(open('$ROOT/runs/$RID2Q/03-storyboard/outline/options/A/storyline.json'))
+print(','.join(b['type'] for b in sl['blocks']))
+" 2>/dev/null || echo '')"
+check "(enabled_if·정량) 측정 전/후 수치 근거 → beforeAfter 포함(항상-제외 회귀 차단)" "echo \"$TYPES_Q\" | grep -q 'beforeAfter'"
+check "(enabled_if·정량) 정량 근거에도 clinicalEvidence 유지(실증 게이트 불변)" "echo \"$TYPES_Q\" | grep -q 'clinicalEvidence'"
+rm -rf "$EVQ"
+unset HARNESS_CLI HARNESS_OFFLINE
+
+# (e) 임의 단계 중단 후 새 프로세스(다른 PC/세션)로 재개 성공 (MS1 재개 1회)
 RID3=ci-b4r; drive_to_storyboard "$RID3"
 export HARNESS_CLI=claude HARNESS_OFFLINE=1
 # M4: 다안 outline = 생성 → select → 심의(전이). 선택 뒤 심의로 substage=plan 전이.
@@ -90,12 +135,12 @@ export HARNESS_CLI=claude HARNESS_OFFLINE=1
 PLAN_MT_DIR="$ROOT/runs/$RID3/03-storyboard/outline/options/A/storyline.json"
 mt() { python3 -c "import os,sys;print(int(os.path.getmtime(sys.argv[1])))" "$1"; }
 OUTLINE_MT1="$(mt "$PLAN_MT_DIR")"; sleep 1
-export HARNESS_CLI=codex   # 다른 CLI 로 재개
+export HARNESS_CLI=claude   # 새 프로세스로 재개
 # M4: 단안 plan = 생성 → approve(--ra-ok 불필요) → 심의 통과해야 04-keyvisual 로 전이.
 ( cd "$ROOT" && bash scripts/run-stage.sh storyboard-plan "$RID3" && bash scripts/approve.sh "$RID3" && bash scripts/kcia-check.sh "$RID3" ) >/dev/null 2>&1
 RC_RES=$?
 unset HARNESS_CLI HARNESS_OFFLINE
-check "(e) 다른 CLI 로 재개해 기획안 완성·승인→04-keyvisual" "[ $RC_RES -eq 0 ] && [ \"\$(jq_phase $RID3 phase)\" = '04-keyvisual' ]"
+check "(e) 새 프로세스로 재개해 기획안 완성·승인→04-keyvisual" "[ $RC_RES -eq 0 ] && [ \"\$(jq_phase $RID3 phase)\" = '04-keyvisual' ]"
 check "(e) 재개 시 완료된 아웃라인 비재생성(mtime 불변)" "[ \"$OUTLINE_MT1\" = \"\$(mt "$PLAN_MT_DIR")\" ]"
 
 # (R2) 동시 approve 시 lock 친절 종료
@@ -105,7 +150,7 @@ OUT_LK="$( ( cd "$ROOT" && bash scripts/run-stage.sh storyboard-outline "$RID4" 
 release_held "$ROOT/runs/$RID4"
 check "(R2) 동시 실행 lock 친절 종료" "[ $RC_LK -ne 0 ] && echo \"\$OUT_LK\" | grep -q '다른 작업이 진행 중'"
 
-# ─────────── [Codex B4 리뷰 수용] 회귀 잠금 ───────────
+# ─────────── [외부리뷰 B4 수용] 회귀 잠금 ───────────
 # #2 A/B 스토리라인 순서가 실제로 다르다
 RID5=ci-b4d; drive_to_storyboard "$RID5"
 export HARNESS_CLI=claude HARNESS_OFFLINE=1

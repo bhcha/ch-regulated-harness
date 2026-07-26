@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-clinical-engine.sh — Phase 2 규칙엔진 단위 테스트(레코드 레벨).
-#   (1) _evidence_satisfies 하드닝(Codex FIX 2): 완전 레코드 충족 / series=[{}] 거부 / 누락요소 거부 +
+#   (1) _evidence_satisfies 하드닝(외부리뷰 FIX 2): 완전 레코드 충족 / series=[{}] 거부 / 누락요소 거부 +
 #       금지 표현("여드름 치료") drug_misperception 여전히 검출
 #   (3) ADK Pass-A 지시문에 경계 문장 포함 확인
 #   (4) _ruleset_grounding(cosmetic) 출력에 허용 형태 라인 포함 확인
@@ -45,7 +45,7 @@ ser_empty = {"id": "ev-ser0", "kind": "clinical_trial", "grade": "인체적용�
              "series": [{}], "institution": "가나다 연구소", "sample_size": 30, "duration": "4주"}
 assert not _eng({"ev-ser0": ser_empty})._evidence_satisfies("ev-ser0"), "series=[{}] must NOT satisfy (hardened)"
 
-# (c2) 하드닝(Codex FIX J): 단일 포인트 series 는 '쌍'이 아님 → 거부(정확 재현).
+# (c2) 하드닝(외부리뷰 FIX J): 단일 포인트 series 는 '쌍'이 아님 → 거부(정확 재현).
 ser_one = {"id": "ev-ser1", "kind": "clinical_trial", "grade": "인체적용시험", "source": "기관",
            "series": [{"timepoint": "4주", "value": 40}],
            "institution": "가나다 연구소", "sample_size": 30, "duration": "4주"}
@@ -157,14 +157,14 @@ def blk(subcopy):
 assert C(blk("가나다 피부과학연구소 인체적용시험, n=52, 4주"), detail), "정상 맥락 노출 인정"
 assert C(blk("가나다 피부과학연구소 / 52명 / 4주"), detail), "'52명'·'4주' 형태 인정"
 assert C(blk("가나다 피부과학연구소 피험자 52명, 4주"), detail), "'피험자 52명, 4주' 인정"
-# 정확 재현 거부(Codex FIX I): n=152 는 52 를 만족시키지 못함
+# 정확 재현 거부(외부리뷰 FIX I): n=152 는 52 를 만족시키지 못함
 assert not C(blk("가나다 피부과학연구소 인체적용시험, n=152, 4주"), detail), "'n=152' → sample_size 52 미충족"
 assert not C(blk("가나다 피부과학연구소 152명 4주"), detail), "'152명' → sample_size 52 미충족"
-# 정확 재현 거부(Codex FIX I): 14주 는 4주 를 만족시키지 못함
+# 정확 재현 거부(외부리뷰 FIX I): 14주 는 4주 를 만족시키지 못함
 assert not C(blk("가나다 피부과학연구소 n=52 14주"), detail), "'14주' → duration 4주 미충족"
-# 정확 재현 거부(Codex FIX N): 단위 불일치 — 4개월 은 duration '4주' 를 만족시키지 못함
+# 정확 재현 거부(외부리뷰 FIX N): 단위 불일치 — 4개월 은 duration '4주' 를 만족시키지 못함
 assert not C(blk("가나다 피부과학연구소 n=52, 4개월"), detail), "'4개월' → duration '4주' 미충족(단위 별칭 한정)"
-# 정확 재현 거부(Codex FIX N): '52%' + 떨어진 '참여' 토큰만으로는 sample_size 52 미충족
+# 정확 재현 거부(외부리뷰 FIX N): '52%' + 떨어진 '참여' 토큰만으로는 sample_size 52 미충족
 assert not C(blk("가나다 피부과학연구소 52% 감소, 임상 참여, 4주"), detail), "'52% … 참여' → sample_size 52 미충족(인접 마커 필요)"
 # 기관 미노출 → 거부
 assert not C(blk("인체적용시험 n=52 4주"), detail), "기관 미노출 거부"
@@ -232,7 +232,7 @@ import sys, os
 root = sys.argv[1]
 sys.path.insert(0, os.path.join(root, "scripts/lib"))
 from clinical_chart import derive_chart
-# 정확 재현(Codex FIX AA): series=[100,90] + before=10/after=20/change_pct=100(혼합·불일치) → None.
+# 정확 재현(외부리뷰 FIX AA): series=[100,90] + before=10/after=20/change_pct=100(혼합·불일치) → None.
 assert derive_chart({"series": [{"timepoint": "0", "value": 100}, {"timepoint": "1", "value": 90}],
                      "before": 10, "after": 20, "change_pct": 100}) is None, "혼합 불일치 소스 → None"
 # change_pct 가 before/after 도출 변화율과 불일치 → None.
@@ -255,7 +255,7 @@ sys.path.insert(0, os.path.join(root, "scripts/lib"))
 from clinical_chart import derive_chart, numbers_consistent
 d = derive_chart({"before": 50.0, "after": 40.0})   # signed_change_pct = -20, allowed_values {50,40}
 def ok(t): return numbers_consistent(t, d)[0]
-# 정확 재현(Codex FIX EE):
+# 정확 재현(외부리뷰 FIX EE):
 assert not ok("수분 +20% 개선"), "'+20%'(명시 +) vs 변화 -20 → 불일치"
 assert not ok("수분 40% 개선"), "'40%'(변화율) vs |−20| → 불일치(after=40 raw value 와 매칭 금지)"
 assert ok("수분 20% 감소"), "'20% 감소'(−20) == −20 → 일치"
@@ -292,7 +292,7 @@ assert dr is not None and dr["signed_change_pct"] == -59.9, "도출 변화율 -5
 assert ok("피지량 102.538에서 41.154로 감소", dr), "실제 fixture 끝점-범위 일치"
 # 화살표 형태도 끝점-범위로 인정.
 assert ok("피지량 48.2 → 31.3", d), "화살표 끝점-범위 48.2→31.3 일치"
-# 정확 재현(Codex FIX NN): 끝점 순서·방향 검증.
+# 정확 재현(외부리뷰 FIX NN): 끝점 순서·방향 검증.
 assert not ok("피지량 31.3%에서 48.2%로 감소", d), "역순(31.3→48.2) → 불일치"
 assert not ok("피지량 48.2%에서 31.3%로 증가", d), "방향어 '증가' vs 실제 감소 → 불일치"
 print("ok")
@@ -310,7 +310,7 @@ from clinical_chart import derive_chart, numbers_consistent
 dinc = derive_chart({"metric": "수분", "before": 40, "after": 50, "change_pct": 25})   # +25 증가
 ddec = derive_chart({"metric": "수분", "before": 50, "after": 40, "change_pct": -20})  # -20 감소
 def ok(t, d): return numbers_consistent(t, d)[0]
-# 정확 재현(Codex FIX PP):
+# 정확 재현(외부리뷰 FIX PP):
 assert not ok("수분 감소 확인", dinc), "'감소'(숫자0) vs +25 → 불일치"
 assert not ok("수분 증가 확인", ddec), "'증가'(숫자0) vs -20 → 불일치"
 assert ok("수분 감소 확인", ddec), "'감소'(숫자0) vs -20 → 방향 일치"
@@ -332,7 +332,7 @@ import sys, os
 root = sys.argv[1]
 sys.path.insert(0, os.path.join(root, "scripts/lib"))
 from clinical_chart import metric_matches_claim as M
-# 정확 재현(Codex FIX QQ):
+# 정확 재현(외부리뷰 FIX QQ):
 assert M("수분량", "수분 20% 개선"), "'수분량' stem '수분' ∈ '수분 20% 개선' → 일치"
 assert M("피지량", "피지 46% 감소"), "'피지량' stem '피지' → 일치"
 assert M("수분량", "수분량 20% 개선"), "정확 부분문자열도 일치"
@@ -356,7 +356,7 @@ root = sys.argv[1]
 sys.path.insert(0, os.path.join(root, "scripts/lib"))
 from clinical_chart import derive_chart, numbers_consistent as N
 d = derive_chart({"metric": "수분", "before": 50, "after": 40, "change_pct": -20, "p_value": 0.05})
-# 정확 재현(Codex FIX RR):
+# 정확 재현(외부리뷰 FIX RR):
 assert N("수분 20% 개선 확인(p<0.05)", d) == (True, 1), "p<0.05 스킵, 20% 변화 매칭"
 assert N("20% 감소 (p<0.05)", d) == (True, 1), "콜아웃 20% 매칭 + p 스킵"
 assert N("p<0.05", d) == (True, 0), "p값 단독 → 측정 수치 0개(콜아웃 바인딩은 FIX HH 가 거부)"
@@ -454,7 +454,7 @@ PYEOF
 check "(15) P-3(a안): 판정문 결박 카피 zero_voc 면제 · 비결박(무ref/비test_report/비부분문자열)·헤드라인·컨셉주축 억제 유지" \
   "[ '$P3_OUT' = 'ok' ]"
 
-# ── 16. P-3(a안 · Codex W1 누수 차단): 결박 문자열이 '동시에' 헤드라인/컨셉주축으로도 등장하면 면제에서 제외(억제 유지) ──
+# ── 16. P-3(a안 · 외부리뷰 W1 누수 차단): 결박 문자열이 '동시에' 헤드라인/컨셉주축으로도 등장하면 면제에서 제외(억제 유지) ──
 #   같은 target_text 가 결박 claim 이자 다른 블록의 headline/subject 로도 쓰이면(occurrence 누수 위험) → field_texts 차감으로
 #   면제가 무효화돼 그 문자열은 flagged 되어야 한다(면제는 '판정 카피 1점'뿐이라는 a안 의도 정밀화).
 P3LEAK_OUT=$(python3 - "$ROOT" <<'PYEOF'
@@ -514,7 +514,7 @@ PYEOF
 check "(16) P-3 누수 차단: 결박 문자열이 헤드라인으로도 등장 시 면제 제외(억제) — occurrence 누수 방지" \
   "[ '$P3LEAK_OUT' = 'ok' ]"
 
-# ── 17. P-3(a안 · Codex W1b P1): 판정문이 '본문(bodyText) + 맥락'으로 렌더된 실제 형태도 면제(판정문 ⊆ 본문) ──
+# ── 17. P-3(a안 · 외부리뷰 W1b P1): 판정문이 '본문(bodyText) + 맥락'으로 렌더된 실제 형태도 면제(판정문 ⊆ 본문) ──
 #   실 렌더는 claim target_text(판정문 부분문자열)가 아니라 '판정문 원문 + 기관·n·기간·디스클레이머'가 bodyText 로 나간다.
 #   이 긴 본문은 target_text 와 정확일치하지 않으므로 exact-match 면제로는 놓쳐 zero_voc(여드름)에 걸렸다(P1). 겹침 면제로 해소.
 P3BODY_OUT=$(python3 - "$ROOT" <<'PYEOF'
@@ -566,13 +566,13 @@ zt = {vio["target_text"] for vio in v["violations"]
       if vio["axis"] == "consumer_deception" and vio["rule"] == ZRULE}
 shutil.rmtree(rdir, ignore_errors=True)
 # 본문(판정문+맥락)은 면제되어야 함(zero_voc 미발동). 훅 헤드라인엔 여드름 없음 → 무관.
-print("ok" if BODY not in zt else "FAIL: verdict rendered as bodyText+context must be EXEMPT (Codex W1b P1)")
+print("ok" if BODY not in zt else "FAIL: verdict rendered as bodyText+context must be EXEMPT (외부리뷰 W1b P1)")
 PYEOF
 )
 check "(17) P-3(a안 W1b): 판정문+맥락 본문 렌더도 면제(판정문 ⊆ 본문) — 실 렌더 형태 P1 해소" \
   "[ '$P3BODY_OUT' = 'ok' ]"
 
-# ── 18. P-3(a안 · Codex W1c a): 결박 요구 — evidence_ref 없는(결박 없는) 블록의 판정문-부분문자열 카피는 면제 안 함(억제) ──
+# ── 18. P-3(a안 · 외부리뷰 W1c a): 결박 요구 — evidence_ref 없는(결박 없는) 블록의 판정문-부분문자열 카피는 면제 안 함(억제) ──
 #   판정문 텍스트가 매니페스트에 존재해도, 그 카피가 든 블록에 'evidence_ref→그 판정문 결박 claim'이 없으면 면제 불가.
 P3BIND_OUT=$(python3 - "$ROOT" <<'PYEOF'
 import sys, os, json, tempfile, shutil
@@ -625,7 +625,7 @@ PYEOF
 check "(18) P-3(a안 W1c a): 결박(evidence_ref) 없는 판정문 부분문자열 카피 → 면제 안 함(억제)" \
   "[ '$P3BIND_OUT' = 'ok' ]"
 
-# ── 19. P-3(a안 · Codex W1c b): 04-keyvisual — heading(h1)=훅=억제 · 비-heading 본문(런-결박 판정문 겹침)=면제 ──
+# ── 19. P-3(a안 · 외부리뷰 W1c b): 04-keyvisual — heading(h1)=훅=억제 · 비-heading 본문(런-결박 판정문 겹침)=면제 ──
 P3KV_OUT=$(python3 - "$ROOT" <<'PYEOF'
 import sys, os, json, tempfile, shutil
 root = sys.argv[1]
@@ -679,7 +679,7 @@ PYEOF
 check "(19) P-3(a안 W1c b): 키비주얼 heading=훅 억제 · 비-heading 본문=런-결박 판정문 겹침 면제" \
   "[ '$P3KV_OUT' = 'ok' ]"
 
-# ── 20. P-3(a안 · Codex 4R b): 판정문 문자열이 '결박 없는 다른 블록'의 본문에도 등장하면 면제 제외(블록-스코프 보수화) ──
+# ── 20. P-3(a안 · 외부리뷰 4R b): 판정문 문자열이 '결박 없는 다른 블록'의 본문에도 등장하면 면제 제외(블록-스코프 보수화) ──
 #   블록1은 결박(evidence_ref→판정문)으로 그 카피를 실었지만, 블록2가 같은 문자열을 결박 없이 본문에 반복 → 면제 무효화(억제).
 P3UB_OUT=$(python3 - "$ROOT" <<'PYEOF'
 import sys, os, json, tempfile, shutil
@@ -733,13 +733,13 @@ zt = {vio["target_text"] for vio in v["violations"]
       if vio["axis"] == "consumer_deception" and vio["rule"] == ZRULE}
 shutil.rmtree(rdir, ignore_errors=True)
 # PHRASE 가 결박 없는 블록2 본문에도 있으므로 면제 무효 → flagged 되어야 한다(per-string 누수 차단).
-print("ok" if PHRASE in zt else "FAIL: phrase repeated in an unbound block must NOT be exempt (Codex 4R b)")
+print("ok" if PHRASE in zt else "FAIL: phrase repeated in an unbound block must NOT be exempt (외부리뷰 4R b)")
 PYEOF
 )
 check "(20) P-3(a안 4R b): 비결박 블록의 판정문 반복 → 면제 제외(블록-스코프 누수 차단)" \
   "[ '$P3UB_OUT' = 'ok' ]"
 
-# ── 21. P-3(a안 · Codex 5R): 판정문 문단에 효능어 끼워넣기(판정문+여드름 완치) → 그 본문은 면제 안 함(스머글링 차단) ──
+# ── 21. P-3(a안 · 외부리뷰 5R): 판정문 문단에 효능어 끼워넣기(판정문+여드름 완치) → 그 본문은 면제 안 함(스머글링 차단) ──
 #   순수 판정문 부분문자열 카피(claim target)는 면제, 하지만 '판정문 뺀 나머지'에 zero_voc 효능어가 붙은 본문은 면제 제외.
 P3SMUG_OUT=$(python3 - "$ROOT" <<'PYEOF'
 import sys, os, json, tempfile, shutil
@@ -798,7 +798,7 @@ PYEOF
 check "(21) P-3(a안 5R): 판정문+효능어 본문=면제 제외(스머글링 차단) · 순수 판정문 카피=면제" \
   "[ '$P3SMUG_OUT' = 'ok' ]"
 
-# ── 22. P-3(a안 · Codex 6R): 난독화 효능어(공백 삽입 '여 드름')도 면제 나머지 검사에서 _match 로 잡아 면제 제외 ──
+# ── 22. P-3(a안 · 외부리뷰 6R): 난독화 효능어(공백 삽입 '여 드름')도 면제 나머지 검사에서 _match 로 잡아 면제 제외 ──
 #   remainder 검사가 scan_text 와 같은 정규화(_match: spaceless)를 써야 '판정문 + 여 드름 완치' 난독화가 면제로 새지 않는다.
 P3OBF_OUT=$(python3 - "$ROOT" <<'PYEOF'
 import sys, os, json, tempfile, shutil
@@ -846,13 +846,13 @@ ZRULE = "리뷰 0건 개념(소비자 수요 근거 없음) — 컨셉 주축 �
 zt = {vio["target_text"] for vio in v["violations"]
       if vio["axis"] == "consumer_deception" and vio["rule"] == ZRULE}
 shutil.rmtree(rdir, ignore_errors=True)
-print("ok" if OBF in zt else "FAIL: obfuscated efficacy in verdict paragraph must be FLAGGED (Codex 6R)")
+print("ok" if OBF in zt else "FAIL: obfuscated efficacy in verdict paragraph must be FLAGGED (외부리뷰 6R)")
 PYEOF
 )
 check "(22) P-3(a안 6R): 난독화 효능어(여 드름) 판정문 문단 → 면제 제외(_match 정규화 일치)" \
   "[ '$P3OBF_OUT' = 'ok' ]"
 
-# ── 23. P-3(a안 · Codex 7R): 키비주얼 비-heading prominent 서브카피(<p class="sub">)의 '짧은 판정문 조각'도 면제 제외 ──
+# ── 23. P-3(a안 · 외부리뷰 7R): 키비주얼 비-heading prominent 서브카피(<p class="sub">)의 '짧은 판정문 조각'도 면제 제외 ──
 #   클래스명 비결정적 → require_full(판정문 전문+맥락 본문만 면제)로 짧은 판정문 훅 조각을 클래스 무관하게 억제.
 #   대조: 같은 옵션의 <p class="body">판정문 전문+맥락</p> 은 면제(정상 임상 캡션).
 P3KVSUB_OUT=$(python3 - "$ROOT" <<'PYEOF'
@@ -899,7 +899,7 @@ zt = {vio["target_text"] for vio in v["violations"]
 shutil.rmtree(rdir, ignore_errors=True)
 errs = []
 if SUBHOOK not in zt:
-    errs.append("keyvisual prominent subcopy short verdict phrase must be FLAGGED (Codex 7R)")
+    errs.append("keyvisual prominent subcopy short verdict phrase must be FLAGGED (외부리뷰 7R)")
 if BODYCAP in zt:
     errs.append("keyvisual body verdict+context must be EXEMPT")
 print("ok" if not errs else "FAIL: " + " | ".join(errs))
@@ -908,7 +908,7 @@ PYEOF
 check "(23) P-3(a안 7R): 키비주얼 서브카피 짧은 판정문 조각=면제 제외 · 본문 전문+맥락=면제(require_full)" \
   "[ '$P3KVSUB_OUT' = 'ok' ]"
 
-# ── 24. P-3(a안 · Codex 8R): 키비주얼 heading 의 '속성'(aria-label/title/alt/data-*)에 실린 판정문+맥락도 hook → 면제 제외 ──
+# ── 24. P-3(a안 · 외부리뷰 8R): 키비주얼 heading 의 '속성'(aria-label/title/alt/data-*)에 실린 판정문+맥락도 hook → 면제 제외 ──
 #   heading 안(자신의 속성 포함) 노출 텍스트는 require_full 을 만족(판정문 ⊆ 속성)해도 hook 이라 억제(속성 우회 차단).
 P3KVATTR_OUT=$(python3 - "$ROOT" <<'PYEOF'
 import sys, os, json, tempfile, shutil
@@ -954,7 +954,7 @@ zt = {vio["target_text"] for vio in v["violations"]
 shutil.rmtree(rdir, ignore_errors=True)
 errs = []
 if HEADATTR not in zt:
-    errs.append("heading aria-label verdict must be FLAGGED (heading attr = hook, Codex 8R)")
+    errs.append("heading aria-label verdict must be FLAGGED (heading attr = hook, 외부리뷰 8R)")
 if BODYCAP in zt:
     errs.append("body verdict+context must be EXEMPT")
 print("ok" if not errs else "FAIL: " + " | ".join(errs))
@@ -963,7 +963,7 @@ PYEOF
 check "(24) P-3(a안 8R): 키비주얼 heading 속성(aria-label) 판정문=hook 억제 · 본문=면제(속성 우회 차단)" \
   "[ '$P3KVATTR_OUT' = 'ok' ]"
 
-# ── 25. P-3(a안 · Codex 9R): 키비주얼 본문 판정문이 인라인 마크업(<strong>)으로 쪼개져도 문단 집계로 면제(오차단 방지) ──
+# ── 25. P-3(a안 · 외부리뷰 9R): 키비주얼 본문 판정문이 인라인 마크업(<strong>)으로 쪼개져도 문단 집계로 면제(오차단 방지) ──
 #   <p>여드름성 피부 <strong>사용에 적합하며…</strong></p> → 노드가 나뉘어도 문단 집계가 판정문 전문을 포함 → 구성 노드 전부 면제.
 P3KVINL_OUT=$(python3 - "$ROOT" <<'PYEOF'
 import sys, os, json, tempfile, shutil
@@ -1008,13 +1008,13 @@ zt = {vio["target_text"] for vio in v["violations"]
       if vio["axis"] == "consumer_deception" and vio["rule"] == ZRULE}
 shutil.rmtree(rdir, ignore_errors=True)
 # 인라인 분할 앞 노드('여드름성 피부')가 문단 집계 면제로 억제되지 않아야(오차단 방지). zero_voc 위반 0.
-print("ok" if not zt else "FAIL: inline-split body verdict must be EXEMPT at paragraph level (Codex 9R); flagged=%r" % zt)
+print("ok" if not zt else "FAIL: inline-split body verdict must be EXEMPT at paragraph level (외부리뷰 9R); flagged=%r" % zt)
 PYEOF
 )
 check "(25) P-3(a안 9R): 인라인 마크업 분할 본문 판정문 → 문단 집계 면제(오차단 방지)" \
   "[ '$P3KVINL_OUT' = 'ok' ]"
 
-# ── 26. P-3(a안 · Codex 11R): bare 효능어 토큰(target_text:"여드름")만 결박 → 면제 안 함(부분문자열이라도 문맥 부족) ──
+# ── 26. P-3(a안 · 외부리뷰 11R): bare 효능어 토큰(target_text:"여드름")만 결박 → 면제 안 함(부분문자열이라도 문맥 부족) ──
 #   판정 카피 전체가 아니라 효능어 하나만 결박해 그 bare 어휘를 통과시키는 우회 차단. 실제 판정 문구는 여전히 면제(대조).
 P3BARE_OUT=$(python3 - "$ROOT" <<'PYEOF'
 import sys, os, json, tempfile, shutil
@@ -1070,7 +1070,7 @@ zt = {vio["target_text"] for vio in v["violations"]
 shutil.rmtree(rdir, ignore_errors=True)
 errs = []
 if BARE not in zt:
-    errs.append("bare efficacy token binding must NOT be exempt (Codex 11R)")
+    errs.append("bare efficacy token binding must NOT be exempt (외부리뷰 11R)")
 if PHRASE in zt:
     errs.append("real verdict phrase must still be EXEMPT")
 print("ok" if not errs else "FAIL: " + " | ".join(errs))
@@ -1079,7 +1079,7 @@ PYEOF
 check "(26) P-3(a안 11R): bare 효능어 토큰 결박=면제 제외(문맥 부족) · 실제 판정 문구=면제" \
   "[ '$P3BARE_OUT' = 'ok' ]"
 
-# ── 27. P-3(a안 · Codex 12R): 키비주얼 짧은 훅 문단에도 등장하는 문자열은 면제 취소(occurrence 누수 대칭 차단) ──
+# ── 27. P-3(a안 · 외부리뷰 12R): 키비주얼 짧은 훅 문단에도 등장하는 문자열은 면제 취소(occurrence 누수 대칭 차단) ──
 #   <p class="sub">짧은판정문구</p> (면제 미자격 훅) + <p>짧은판정문구<strong>…맥락</strong></p> (인라인 본문) →
 #   같은 문자열이 훅 문단에도 있으므로 면제 취소 → 훅의 짧은 판정 조각이 리뷰0 우회로 새지 않음.
 P3KVOCC_OUT=$(python3 - "$ROOT" <<'PYEOF'
@@ -1126,7 +1126,7 @@ zt = {vio["target_text"] for vio in v["violations"]
       if vio["axis"] == "consumer_deception" and vio["rule"] == ZRULE}
 shutil.rmtree(rdir, ignore_errors=True)
 # SHORT 가 훅 문단에도 있으므로 면제 취소 → flagged 되어야(누수 차단).
-print("ok" if SHORT in zt else "FAIL: string appearing in a short hook paragraph must NOT be exempt (Codex 12R)")
+print("ok" if SHORT in zt else "FAIL: string appearing in a short hook paragraph must NOT be exempt (외부리뷰 12R)")
 PYEOF
 )
 check "(27) P-3(a안 12R): 키비주얼 짧은 훅 문단 동일 문자열=면제 취소(occurrence 누수 대칭 차단)" \

@@ -163,7 +163,7 @@ from image_engine import _plan_blocks_with_concept
 blocks_to_generate = []
 for b in _plan_blocks_with_concept(rdir):
     _vis = b.get("visual") or {}
-    # 실제 image_engine 술어와 동일: type ∈ {clinicalEvidence,beforeAfter} AND chart_data 존재(Codex FIX C).
+    # 실제 image_engine 술어와 동일: type ∈ {clinicalEvidence,beforeAfter} AND chart_data 존재(외부리뷰 FIX C).
     if b.get("type") in ("clinicalEvidence", "beforeAfter") and _vis.get("chart_data"):
         continue
     blocks_to_generate.append(b["type"])
@@ -191,7 +191,7 @@ for fn in sorted(os.listdir(pdir)):
     if not ((b.get("visual") or {}).get("concept")):
         continue
     _vis = b.get("visual") or {}
-    # common.sh fallback 술어와 동일(image_engine 와 바이트 동일): chart_data 존재만(Codex FIX C).
+    # common.sh fallback 술어와 동일(image_engine 와 바이트 동일): chart_data 존재만(외부리뷰 FIX C).
     if b.get("type") in ("clinicalEvidence", "beforeAfter") and _vis.get("chart_data"):
         continue
     # per-run 계약: 예측투영 경로 = 런 상대 04-keyvisual/generated/NN-type.ext (rid 하위폴더 없음, common.sh 와 동일).
@@ -1505,7 +1505,7 @@ check "(xxxi) FIX RR: callout 'p<0.05' 단독(측정 수치 없음) → validate
 rm -rf "$ROOT/runs/ci-rr-ponly"
 
 # ── (xxxii) T3: p값 컨텍스트 정규식 확장 — 영문(p-value·pvalue·p value)·한국어 조사(유의확률이/유의수준은/p값은) ──
-# Codex T3 적대리뷰 반영: ① 영문 마커 좌경계(top/group/develop value 오버매칭 거부) ② 실호출 윈도우(12자) 경유로
+# 외부 T3 적대리뷰 반영: ① 영문 마커 좌경계(top/group/develop value 오버매칭 거부) ② 실호출 윈도우(12자) 경유로
 #   띄어쓴 'p-value < 0.05' 인식 검증(함수 직접 호출이 아니라 numbers_consistent 로 윈도우 절단까지 재현).
 T3_OUT=$(python3 - "$ROOT" <<'PYEOF'
 import sys, os

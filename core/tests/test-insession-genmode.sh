@@ -45,7 +45,7 @@ check "(1) 생성 직후 user 게이트(사람 승인 대기)" "[ \"\$(jq_phase 
 check "(1) approve --ra-ok → review 게이트 전이" "[ \"\$(jq_phase $RID gate)\" = review ] && [ \"\$(jq_phase $RID status)\" = pending ]"
 check "(1) history 에 generate:insession:brief:claude 기록" \
   "python3 -c \"import json;h=json.load(open('$ROOT/runs/$RID/state.json'))['history'];import sys;sys.exit(0 if any(e['event']=='generate:insession:brief:claude' for e in h) else 1)\""
-# L-1(Codex P2 회귀 가드): insession(온라인 primary 모드)은 NEED_GENERATE=0 이면서 GEN_SOURCE=insession 이다 —
+# L-1(외부리뷰 P2 회귀 가드): insession(온라인 primary 모드)은 NEED_GENERATE=0 이면서 GEN_SOURCE=insession 이다 —
 #   순수 재개(NEED_GENERATE=0·subprocess)와 달리 provenance 에 generate 기록이 남아야 한다(감사 로그가 주경로를 빠뜨리면 안 됨).
 PJ1="$ROOT/runs/$RID/.logs/provenance.jsonl"
 check "(1/L-1) insession 생성이 provenance.jsonl 에 gen_source=insession 로 기록" \
@@ -96,7 +96,10 @@ check "(9) 전제: 생성+approve 로 review/step=review 도달" "[ \"\$(jq_phas
 OUT9="$( ( cd "$ROOT" && env -u HARNESS_OFFLINE CLAUDECODE=1 HARNESS_GEN_MODE=insession HARNESS_CLI=claude bash scripts/run-stage.sh brief "$RID-2" ) 2>&1 )"; RC9=$?
 check "(9) review 재진입 insession → die(step!=generate, 우회 차단)" "[ $RC9 -ne 0 ] && echo \"\$OUT9\" | grep -q 'generate'"
 
-# ── (11) Codex 활성 마커(CODEX_THREAD_ID)+CLAUDECODE 동시 → detection fail-closed(Codex→claude 오분류 차단) ──
+# ── (11) 다른 CLI 활성 마커(CODEX_THREAD_ID)+CLAUDECODE 동시 → detection fail-closed(엔진 오분류 차단) ──
+#     ★ 유지 케이스(삭제 금지): 생성 엔진이 claude|stub 로 단일화된 뒤에도 필요하다 — 다른 CLI 세션이 Claude 세션
+#       '안에서' 떠 CLAUDECODE 를 상속하면 'claude' 로 오분류되어 위조된 provenance 가 state.json history 에 박힌다.
+#       잠그는 대상 = common.sh detect_insession_engine 의 CODEX_ 활성 마커 deny(그 가드가 없으면 이 케이스가 통과한다).
 setup_at_brief_generate "$RID-2"; write_brief_artifact "$RID-2"
 OUT11="$( ( cd "$ROOT" && env -u HARNESS_OFFLINE CLAUDECODE=1 CODEX_THREAD_ID=test-xyz HARNESS_GEN_MODE=insession HARNESS_CLI=claude bash scripts/run-stage.sh brief "$RID-2" ) 2>&1 )"; RC11=$?
 check "(11) CODEX_THREAD_ID+CLAUDECODE 동시 → die(Codex→claude 오분류 차단)" "[ $RC11 -ne 0 ] && echo \"\$OUT11\" | grep -q '신뢰 마커'"

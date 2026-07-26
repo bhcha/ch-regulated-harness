@@ -355,11 +355,11 @@ async function handleNlSetup(threadId: string, gw: Gateway, intent: NlIntent): P
  */
 async function handleNlIntake(threadId: string, gw: Gateway, intent: NlIntent): Promise<void> {
   await gw.chat.subscribe(threadId);
-  // ⚠ 새 인입 제안은 이전 인입 제안을 즉시 무효화한다(Codex P3 HIGH): 선언이 바뀌었으므로 옛 제안 대기는 폐기.
+  // ⚠ 새 인입 제안은 이전 인입 제안을 즉시 무효화한다(외부리뷰 P3 HIGH): 선언이 바뀌었으므로 옛 제안 대기는 폐기.
   //   아래에서 '전부 통과 + 3필드 완비'일 때만 새 대기(intake)를, 제품명만 미정이면 새 draft(intake_draft)를 심는다 —
   //   거부/불완전이면 대기가 없어, 옛 카드 클릭·옛 draft 완성이 pending 부재로 no-op(거부된 재선언 뒤 옛 자료 확정 차단).
   //   ⚠ intake 뿐 아니라 intake_draft 도 비운다: 거부된 재선언이 옛 draft 를 남기면 뒤이은 제품명 답글이 옛 파일로
-  //     완성돼 버린다(fail-closed 위반 · Codex intake_draft HIGH).
+  //     완성돼 버린다(fail-closed 위반 · 외부리뷰 intake_draft HIGH).
   const prior = await gw.pending.get(threadId);
   if (prior?.kind === "intake" || prior?.kind === "intake_draft") await gw.pending.clear(threadId);
   const roots = gw.nlFileRoots();
@@ -372,7 +372,7 @@ async function handleNlIntake(threadId: string, gw: Gateway, intent: NlIntent): 
     );
     return;
   }
-  // ⚠ 부분 반입 금지(fail-closed · Codex P3 HIGH): 하나라도 거부되면 전체를 보류한다. 규제 인입에서 '현업이 검토한
+  // ⚠ 부분 반입 금지(fail-closed · 외부리뷰 P3 HIGH): 하나라도 거부되면 전체를 보류한다. 규제 인입에서 '현업이 검토한
   //   자료'와 '실제 반입된 자료'가 어긋나면 안 된다(거부분을 조용히 빼고 시작 금지). 거부 사유를 알려 고치게 한다.
   if (v.rejected.length > 0) {
     const lines = v.rejected.map((r) => `· ${r.ref.path}: ${r.reason}`).join("\n");
@@ -427,10 +427,10 @@ async function confirmNlIntake(
   if (!gw.isApprover(actor)) return; // 워커도 재검사하지만 방어적으로(잡 미생성).
   const pending = await gw.pending.get(threadId);
   if (pending?.kind !== "intake") return; // 지난 카드 재클릭 등 — no-op.
-  // ⚠ stale 제안 가드(Codex P3 HIGH): 버튼 도장(nonce)이 현재 대기 제안과 **정확히** 일치해야 확정한다. 옛 카드
+  // ⚠ stale 제안 가드(외부리뷰 P3 HIGH): 버튼 도장(nonce)이 현재 대기 제안과 **정확히** 일치해야 확정한다. 옛 카드
   //   (다른 nonce)·도장 없는/변조 버튼(nonce=undefined)은 전부 거부한다 — 우리 렌더는 항상 nonce 를 싣으므로
   //   nonce 부재 = 옛 포맷/변조. 부재를 허용하면 아무 버튼이나 '현재 대기'를 확정해 버린다(부분·오확정).
-  //   ⚠ 둘 다 '비지 않은 문자열'이어야 한다(Codex P3): 옛 포맷 pending(nonce 없음=undefined)이 도장 없는 버튼과
+  //   ⚠ 둘 다 '비지 않은 문자열'이어야 한다(외부리뷰 P3): 옛 포맷 pending(nonce 없음=undefined)이 도장 없는 버튼과
   //     undefined===undefined 로 통과하던 구멍 차단.
   if (!nonce || !pending.nonce || nonce !== pending.nonce) {
     await gw.chat.render(threadId, progressP(toViewModel(stubNext(makeRunId(threadId))), "새 제안이 있어요 — 최신 카드의 버튼을 눌러 주세요."));
@@ -444,7 +444,7 @@ async function confirmNlIntake(
   }
   const roots = gw.nlFileRoots();
   const v = validateIntakeFiles(pending.files, roots); // 확정 시점 재검증(파일이 사라졌거나 루트가 바뀌었을 수 있음).
-  // 확정 시점도 fail-closed(Codex P3 HIGH): 하나라도 거부되면 진행 안 함(부분 반입 금지).
+  // 확정 시점도 fail-closed(외부리뷰 P3 HIGH): 하나라도 거부되면 진행 안 함(부분 반입 금지).
   if (v.rejected.length > 0 || v.accepted.length === 0) {
     await gw.chat.render(threadId, progressP(toViewModel(stubNext(makeRunId(threadId))), "받은 경로에서 일부 파일을 확인하지 못했어요 — 파일 위치를 다시 확인해 주세요."));
     return;
@@ -607,7 +607,7 @@ const MUTATE_VERB = /(빼|제거|삭제|없이|바꿔|교체|추가)/;
 const MUTATE_VERB_EN = /\b(remove|without|replace|delete|add|drop)\b/i;
 
 /**
- * 답글이 **파일/자료를 바꾸거나 빼려는 의도**를 담고 있는가 — intake_draft 완성 시 fail-closed 판단용(Codex intake_draft
+ * 답글이 **파일/자료를 바꾸거나 빼려는 의도**를 담고 있는가 — intake_draft 완성 시 fail-closed 판단용(외부리뷰 intake_draft
  *   HIGH). 이게 참인데 파서가 파일을 깨끗이 못 잡았으면, 옛 draft 파일로 조용히 완성하지 않고 되묻는다(현업이 바꾸려던
  *   자료가 옛 자료로 확정되는 것 차단). 판정은 두 단계다:
  *
@@ -880,7 +880,7 @@ export async function onReply(ev: TextReply, gw: Gateway): Promise<void> {
     if (!t) return; // 빈 답글 무시(draft 보존)
     const draft = pending; // 평문 답=제품명 경로에서 쓸 파일·도메인·포맷을 파싱 전에 포착
     // ⚠ 경쟁 차단(intake 분기와 동일): 비동기 재파싱 전에 draft 대기를 먼저 비운다.
-    // ⚠ 재선언 대응(Codex intake_draft HIGH #2): 구독 스레드에선 재멘션/재선언도 여기(onReply)로 온다 —
+    // ⚠ 재선언 대응(외부리뷰 intake_draft HIGH #2): 구독 스레드에선 재멘션/재선언도 여기(onReply)로 온다 —
     //   답글을 무조건 제품명으로 삼으면 '거부돼야 할 재선언'이 옛 draft 의 제품명으로 삼켜져 옛 파일이 확정된다.
     //   그래서 먼저 재파싱해 새 선언인지 가른다: 파일 재선언→새 제안(옛 draft 폐기) · 설정 재선언(파일 없음)→draft
     //   파일과 병합 · 그 외(평문)만 → 되물음의 답=제품명으로 draft 완성(자유-파싱 아님이라 rule 8 무관).
@@ -892,7 +892,7 @@ export async function onReply(ev: TextReply, gw: Gateway): Promise<void> {
       return;
     }
     // ② 답글이 파일/자료 변경 의도(경로 토큰·파일 명사·정체불명 변경 지시)를 담았는데 파싱이 깨끗한 파일을 못 냄
-    //    → **fail-closed**. Codex intake_draft HIGH: 공백/미인식/확장자-밖 경로 재선언·파일 제거 의도가 옛 draft
+    //    → **fail-closed**. 외부리뷰 intake_draft HIGH: 공백/미인식/확장자-밖 경로 재선언·파일 제거 의도가 옛 draft
     //    파일 완성으로 새는 것 차단(판정 상세 = replyTargetsFiles).
     if (replyTargetsFiles(t, parsed)) {
       await gw.chat.render(
@@ -933,7 +933,7 @@ export async function onReply(ev: TextReply, gw: Gateway): Promise<void> {
   if (pending.kind === "intake") {
     const t = text.trim();
     if (!t || hasAttachments) return; // 빈/첨부는 무시(대기 보존).
-    // ⚠ 경쟁 차단(Codex P3): 비동기 재파싱(nl.parse — LLM 이면 네트워크 대기) 전에 이전 인입 대기를 **먼저** 비운다.
+    // ⚠ 경쟁 차단(외부리뷰 P3): 비동기 재파싱(nl.parse — LLM 이면 네트워크 대기) 전에 이전 인입 대기를 **먼저** 비운다.
     //   파싱 대기 중 동시 확정 클릭이 옛 대기를 확정하는 레이스를 닫는다(파싱 창 동안 확정 대상이 없음).
     //   fail-closed: 애매한 메시지(잡담 등)면 대기는 비운 채 두고, 사람이 다시 선언하게 한다(옛 카드 확정 불가).
     await gw.pending.clear(threadId);

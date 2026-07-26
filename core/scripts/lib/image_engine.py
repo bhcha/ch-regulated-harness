@@ -361,7 +361,7 @@ def _is_png(b):
 
 def _is_valid_png(b):
     """PNG 구조 검증 — 매직 + 첫 청크 IHDR(len=13) + IDAT(픽셀데이터) ≥1 + 종결 IEND(len=0, 파일 끝). 8바이트 매직만 보는 것보다 강함:
-       매직만/헤더만/IDAT없는 '잘린·부분·비렌더 PNG' 와 IEND 뒤 잡바이트를 fail-closed 로 거부(Codex 최종리뷰 MEDIUM — 빈/부분 산출 금지).
+       매직만/헤더만/IDAT없는 '잘린·부분·비렌더 PNG' 와 IEND 뒤 잡바이트를 fail-closed 로 거부(외부 최종리뷰 MEDIUM — 빈/부분 산출 금지).
        CRC 는 검사하지 않는다(구조 무결성만; 전송 잘림은 청크 길이 경계·IEND 종결로 포착). 실 PNG(IHDR…[ancillary]…IDAT…IEND)는 통과."""
     if not isinstance(b, (bytes, bytearray)) or len(b) < 8 or bytes(b[:8]) != _PNG_MAGIC:
         return False
@@ -545,7 +545,7 @@ def _call_nanobanana(prompt_obj, out_path, rdir, model=None):
 
 
 def _redact_key(text, api_key):
-    """예외/로그로 나가는 문자열에서 API 키(raw·URL인코딩)를 마스킹. 키 유출 최후방어(Codex HIGH)."""
+    """예외/로그로 나가는 문자열에서 API 키(raw·URL인코딩)를 마스킹. 키 유출 최후방어(외부리뷰 HIGH)."""
     if not text or not api_key:
         return text
     masked = text.replace(api_key, "***REDACTED***")
@@ -575,7 +575,7 @@ def _parse_aspect(aspect):
         return None
     if w > 0 and h > 0:
         ratio = w / h
-        # DoS 방지(Codex): plan-block.schema 는 aspect_ratio 를 문자열로만 요구하므로 스키마상 유효한 극단값
+        # DoS 방지(외부리뷰): plan-block.schema 는 aspect_ratio 를 문자열로만 요구하므로 스키마상 유효한 극단값
         #   (예 "100000:1")이 _normalize_png_aspect 에서 거대 캔버스(h*target 폭) 할당 → OOM/행을 유발할 수 있다.
         #   현실적 상세페이지 aspect 범위(1:10 ~ 10:1) 밖이면 규격화를 생략(None) — 표시 크롭 제거는 CSS 자연비율(F3-a)이
         #   이미 담당하므로 안전하게 no-op 한다.
@@ -619,7 +619,7 @@ def _normalize_png_aspect(png_path, aspect, bg=_LETTERBOX_BG):
         new_w, new_h = max(new_w, w), max(new_h, h)   # 절대 축소(크롭)하지 않는다
         canvas = Image.new("RGB", (new_w, new_h), bg)
         off = ((new_w - w) // 2, (new_h - h) // 2)
-        # 알파 보존(Codex): 투명/반투명 PNG(누끼 등)를 그냥 convert("RGB")하면 알파가 버려져 저장된 RGB 로 구워지며
+        # 알파 보존(외부리뷰): 투명/반투명 PNG(누끼 등)를 그냥 convert("RGB")하면 알파가 버려져 저장된 RGB 로 구워지며
         #   검은/색 halo·배경이 생긴다. 알파가 있으면 RGBA 로 변환해 **알파를 마스크로** bg 위에 합성한다(투명 픽셀=bg,
         #   halo 없음). 알파 없으면 RGB 로 직접 붙인다. 최종은 RGB(불투명 레터박스) — 상세페이지 자산 규격에 적합.
         _has_alpha = ("A" in base.mode) or (base.mode == "P" and "transparency" in base.info)
@@ -778,7 +778,7 @@ def _assert_under(path, root, what):
 
 def _existing_is_valid(abs_out, engine):
     """기존 산출물이 '유효'(skip 가능)한지. 0바이트·손상은 False → 재생성(부분파일 복구·fail-closed).
-    nanobanana(.png): PNG 구조 검증(매직+IHDR+IEND — 매직만 있는 부분파일도 거부, Codex 최종 MEDIUM). stub(.svg): 비어있지 않고 SVG/XML 헤더로 시작."""
+    nanobanana(.png): PNG 구조 검증(매직+IHDR+IEND — 매직만 있는 부분파일도 거부, 외부리뷰 최종 MEDIUM). stub(.svg): 비어있지 않고 SVG/XML 헤더로 시작."""
     if not os.path.isfile(abs_out) or os.path.getsize(abs_out) <= 0:
         return False
     if engine == "nanobanana":

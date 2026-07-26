@@ -121,7 +121,7 @@ describe("driveLoop(순수 라이브 구동 루프)", () => {
 
   it("②b Failure→reconcile(recover)→GenerateRetry(생성 미완료)→stop:human-input: 자동 유료 재생성 없음(중복 과금 차단)", async () => {
     // 상태 재확인 후에도 '생성 차례'로 남으면(=생성 미완료) 드라이버는 [다시 만들기]를 자동 발화하지 않고 멈춘다 —
-    //   모호한 Bridge 타임아웃 창에서의 두 번째 유료 생성·run 경합을 사람 판단으로 게이트한다(Codex P1 수정).
+    //   모호한 Bridge 타임아웃 창에서의 두 번째 유료 생성·run 경합을 사람 판단으로 게이트한다(외부리뷰 P1 수정).
     const w = makeWorld([failure(), generateRetry("02-concept")]); // sticky GenerateRetry.
     const res = await driveLoop(w.deps, BASE_OPTS);
     expect(res.reached).toBe(false);

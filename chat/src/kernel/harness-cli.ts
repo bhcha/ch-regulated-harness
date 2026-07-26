@@ -43,7 +43,7 @@ const MAX_OUTPUT_BYTES = 32 * 1024 * 1024;
 function run(script: string, args: string[], envOverride?: Record<string, string>): Promise<HarnessResult> {
   const root = harnessRoot();
   const scriptPath = join(root, "scripts", script);
-  // 최소권한: 챗 레이어 비밀(config.chatSecretEnvNames)을 core 및 그 하위 생성 서브프로세스(claude/codex)로
+  // 최소권한: 챗 레이어 비밀(config.chatSecretEnvNames)을 core 및 그 하위 생성 서브프로세스(claude)로
   //   전파하지 않는다 — 하네스는 이 값을 쓰지 않는다(비밀 노출면 축소). 어느 플랫폼의 비밀인지는 config 만 안다.
   //   ⚠ delete(unset)가 아니라 **빈 문자열로 set** 한다 — core/common.sh 의 .env 로더가 'set-if-unset'이라
   //     unset 하면 자식이 .env 에서 비밀을 되읽어 스크럽이 무력화된다(빈값이면 '설정됨'으로 스킵).

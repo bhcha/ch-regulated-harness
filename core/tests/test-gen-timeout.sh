@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-gen-timeout.sh — 생성 watchdog(run_llm) 회귀 가드: 행/좀비 방지 3중 처방을 결정론적으로 검증.
-#   배경: claude -p / codex exec 가 산출물을 다 쓰고도 종료 안 하면(좀비/행) 포그라운드 대기가 무한 → 마무리 전이 정지.
+#   배경: 생성 CLI 가 산출물을 다 쓰고도 종료 안 하면(좀비/행) 포그라운드 대기가 무한 → 마무리 전이 정지.
 #   처방: ⓐ 출력 완료감지(watch 파일 → 더 안 기다림) ⓑ 하드 상한(GEN_TIMEOUT) ⓒ 미종료 자식 트리 종료(kill_proc_tree).
 #   실 LLM 없이 '가짜 claude'(PATH 선점)로 좀비/행을 모사한다. JSON 스키마 의존을 피하려 watch 파일은 .html(존재만 판정).
 #   ⚠ 개편(세션 밖 헤드리스 subprocess 실엔진 생성 폐기) 후에도 run_llm() 함수 자체는 보존된다(in-session 미감지 경로의

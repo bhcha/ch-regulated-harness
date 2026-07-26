@@ -393,11 +393,11 @@ describe("fail-closed — 규칙 도출이 애매하면 규칙을 만들지 않�
   });
 
   /**
-   * `HARNESS_CLI=codex` 는 하네스 자체로는 유효한 생성 엔진이지만(AGENTS 2번 절), **무인 워커가 띄우는 건
-   *   `claude` 세션**이고 지원 단계의 원문은 이 접두를 쓰지 않는다. 허용 목록이 값까지 고정하므로 규칙이 되지 않는다.
-   *   '유효한 env = 허용'이 아니라 '실측된 접두 = 허용'임을 못박는다.
+   * `HARNESS_CLI=codex` 는 **하네스가 받지 않는 엔진 값**이고(생성 엔진은 `claude|stub` 단일화 — AGENTS 2번 절),
+   *   무인 워커가 띄우는 것도 `claude` 세션이라 지원 단계의 원문은 이 접두를 쓰지 않는다. 허용 목록이 값까지
+   *   고정하므로 임의의 다른 접두는 규칙이 되지 않는다 — '그럴싸한 env = 허용'이 아니라 '실측된 접두 = 허용'임을 못박는다.
    */
-  it("타 엔진 접두(HARNESS_CLI=codex)는 하네스에 유효해도 규칙이 아니다", () => {
+  it("타 엔진 접두(HARNESS_CLI=codex)는 규칙이 아니다", () => {
     const md = [
       "```bash",
       "HARNESS_CLI=claude HARNESS_GEN_MODE=insession bash scripts/run-stage.sh brief <RUN>",

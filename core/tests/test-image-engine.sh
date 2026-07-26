@@ -41,7 +41,7 @@ ENG_DEFAULT="$( cd "$ROOT" && NANOBANANA_API_KEY=dummy bash -c 'unset HARNESS_IM
 check "(가드1) 엔진 미설정 + 키 + 온라인 → nanobanana(운영 기본)" "[ \"$ENG_DEFAULT\" = nanobanana ]"
 
 # ── 2~4) 순수 함수 단위테스트 (Python, 네트워크 0회) ──
-# 기본상수 단정은 오버라이드 env 가 없는 깨끗한 환경에서(호출자 env 로 인한 spurious fail 방지 — Codex LOW).
+# 기본상수 단정은 오버라이드 env 가 없는 깨끗한 환경에서(호출자 env 로 인한 spurious fail 방지 — 외부리뷰 LOW).
 mkdir -p "$SCRATCH"
 PURE_OUT="$( cd "$ROOT" && env -u HARNESS_NANOBANANA_MODEL -u HARNESS_IMAGE_TIMEOUT -u NANOBANANA_API_KEY \
   python3 - "$SCRATCH" "$ASSET_FIX" "$RDIR" <<'PY'
@@ -106,7 +106,7 @@ for ext, mime, payload in ((".webp", "image/webp", WEBP), (".jpg", "image/jpeg",
         ok(rr is not None and rr["inlineData"]["mimeType"] == mime, "reference_part %s mime" % ext)
     finally:
         os.remove(p)
-# 확장자위장(.png 인데 내용은 SVG/텍스트) → None (내용검증 — Codex MEDIUM)
+# 확장자위장(.png 인데 내용은 SVG/텍스트) → None (내용검증 — 외부리뷰 MEDIUM)
 spoof = asset_fix + ".spoof.png"   # inputs/assets/ 안 + .png 확장 + 내용은 비래스터
 with open(spoof, "wb") as f:
     f.write(b"<svg xmlns='http://www.w3.org/2000/svg'/>")
@@ -125,7 +125,7 @@ ok(ie._reference_part(None, rdir) is None, "reference_part None not None")
 ok(ie._reference_part("", rdir) is None, "reference_part empty not None")
 
 # (2b) 경계 강제(fail-closed) — inputs/assets/ '밖' 래스터는 존재해도 절대 전송 안 함(None).
-#   ★ 유효한 PNG 페이로드를 써서 '경계 검사' 단독으로 거부됨을 검증(내용검사로 가려지지 않게 — Codex MEDIUM).
+#   ★ 유효한 PNG 페이로드를 써서 '경계 검사' 단독으로 거부됨을 검증(내용검사로 가려지지 않게 — 외부리뷰 MEDIUM).
 VALID_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 12
 outside_png = os.path.join(scratch, "outside.png")
 with open(outside_png, "wb") as f:
@@ -195,7 +195,7 @@ try:
     ok(False, "parse_image empty did not raise")
 except RuntimeError:
     pass
-# 잘못된 base64(검증 실패) → RuntimeError (부분/손상 산출 금지 — Codex MEDIUM)
+# 잘못된 base64(검증 실패) → RuntimeError (부분/손상 산출 금지 — 외부리뷰 MEDIUM)
 bad = {"candidates": [{"content": {"parts": [{"inlineData": {"data": "!!!not-base64!!!"}}]}}]}
 try:
     ie._parse_image(bad)
@@ -209,21 +209,21 @@ try:
     ok(False, "parse_image zero-byte did not raise")
 except RuntimeError:
     pass
-# 비이미지 junk(유효 b64이지만 매직 불일치) → RuntimeError (손상 산출 금지 — Codex MEDIUM)
+# 비이미지 junk(유효 b64이지만 매직 불일치) → RuntimeError (손상 산출 금지 — 외부리뷰 MEDIUM)
 junk = {"candidates": [{"content": {"parts": [{"inlineData": {"data": base64.b64encode(b"NOT-AN-IMAGE-PAYLOAD").decode()}}]}}]}
 try:
     ie._parse_image(junk)
     ok(False, "parse_image non-raster did not raise")
 except RuntimeError:
     pass
-# 매직만 있고 IHDR/IEND 구조가 없는 '잘린 PNG' → RuntimeError (구조검증 fail-closed — Codex 최종 MEDIUM)
+# 매직만 있고 IHDR/IEND 구조가 없는 '잘린 PNG' → RuntimeError (구조검증 fail-closed — 외부리뷰 최종 MEDIUM)
 truncpng = {"candidates": [{"content": {"parts": [{"inlineData": {"data": base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"\x00" * 12).decode()}}]}}]}
 try:
     ie._parse_image(truncpng)
     ok(False, "parse_image magic-only truncated png did not raise")
 except RuntimeError:
     pass
-# 비정상 형태 응답(비-dict/비-list 노드) → AttributeError 가 아니라 통제된 RuntimeError(Codex LOW)
+# 비정상 형태 응답(비-dict/비-list 노드) → AttributeError 가 아니라 통제된 RuntimeError(외부리뷰 LOW)
 for bad_shape in (
     None, [], "string", 42,
     {"candidates": "not-a-list"},
@@ -241,7 +241,7 @@ for bad_shape in (
         pass
     except Exception as e:
         ok(False, "parse_image malformed raised %s (not RuntimeError): %r" % (type(e).__name__, bad_shape))
-# 응답 PNG 전용 — generate_all 이 .png 로 쓰므로 JPEG/WebP 응답은 거부(확장자-내용 일치 보증, Codex MEDIUM)
+# 응답 PNG 전용 — generate_all 이 .png 로 쓰므로 JPEG/WebP 응답은 거부(확장자-내용 일치 보증, 외부리뷰 MEDIUM)
 jpg = b"\xff\xd8\xff" + b"\x00" * 12
 jpg_resp = {"candidates": [{"content": {"parts": [{"inlineData": {"data": base64.b64encode(jpg).decode()}}]}}]}
 try:
@@ -251,11 +251,11 @@ except RuntimeError:
     pass
 # 매직 판정 헬퍼 — _is_png(PNG만 True) / _magic_mime(내용 MIME)
 ok(ie._is_png(raw) and not ie._is_png(jpg), "_is_png png-only")
-# 구조 검증 _is_valid_png — 완전한 PNG(IHDR+IEND) 통과 / 매직만·헤더절단 거부(Codex 최종 MEDIUM)
+# 구조 검증 _is_valid_png — 완전한 PNG(IHDR+IEND) 통과 / 매직만·헤더절단 거부(외부리뷰 최종 MEDIUM)
 ok(ie._is_valid_png(raw), "_is_valid_png accepts structural png")
 ok(not ie._is_valid_png(b"\x89PNG\r\n\x1a\n" + b"\x00" * 12), "_is_valid_png rejects magic-only")
 ok(not ie._is_valid_png(b"\x89PNG\r\n\x1a\n"), "_is_valid_png rejects bare magic")
-# IDAT 없는 IHDR+IEND(비렌더) → 거부 / IEND 뒤 잡바이트 → 거부 (Codex 최종 MEDIUM)
+# IDAT 없는 IHDR+IEND(비렌더) → 거부 / IEND 뒤 잡바이트 → 거부 (외부리뷰 최종 MEDIUM)
 _ihdr = (13).to_bytes(4, "big") + b"IHDR" + b"\x00" * 13 + b"\x00\x00\x00\x00"
 _iend = (0).to_bytes(4, "big") + b"IEND" + b"\x00\x00\x00\x00"
 ok(not ie._is_valid_png(b"\x89PNG\r\n\x1a\n" + _ihdr + _iend), "_is_valid_png rejects no-IDAT")
@@ -266,7 +266,7 @@ ok(ie._magic_mime(jpg) == "image/jpeg", "_magic_mime jpeg")
 ok(ie._magic_mime(webp) == "image/webp", "_magic_mime webp")
 ok(ie._magic_mime(b"NOT-AN-IMAGE") is None, "_magic_mime rejects junk")
 
-# (4b) 키 마스킹(_redact_key) — raw·URL인코딩 키가 예외/로그에 절대 안 남는다(Codex HIGH).
+# (4b) 키 마스킹(_redact_key) — raw·URL인코딩 키가 예외/로그에 절대 안 남는다(외부리뷰 HIGH).
 import urllib.parse as _up
 secret = "AIza-secret/with+special=chars"
 echoed = "error referencing https://host/x?key=%s and raw %s" % (_up.quote(secret, safe=""), secret)
@@ -283,7 +283,7 @@ try:
 except RuntimeError as e:
     # 키 부재 사유 + 키 문자열 미노출
     ok("NANOBANANA_API_KEY" in str(e), "_call_nanobanana no-key message")
-# (방어) HARNESS_OFFLINE=1 이면 키가 있어도 네트워크 진입 금지(삼중가드 우회 직접호출 차단 — Codex MEDIUM).
+# (방어) HARNESS_OFFLINE=1 이면 키가 있어도 네트워크 진입 금지(삼중가드 우회 직접호출 차단 — 외부리뷰 MEDIUM).
 os.environ["NANOBANANA_API_KEY"] = "DUMMY-offline-guard"
 os.environ["HARNESS_OFFLINE"] = "1"
 try:
@@ -294,7 +294,7 @@ except RuntimeError as e:
        "_call_nanobanana offline guard")
 os.environ.pop("HARNESS_OFFLINE", None)
 os.environ.pop("NANOBANANA_API_KEY", None)
-# (4b+) 타임아웃 env 비정상이어도 import/stub 안 깨짐(폴백 양수) — _nb_timeout 견고성(Codex MEDIUM)
+# (4b+) 타임아웃 env 비정상이어도 import/stub 안 깨짐(폴백 양수) — _nb_timeout 견고성(외부리뷰 MEDIUM)
 os.environ["HARNESS_IMAGE_TIMEOUT"] = "not-a-number"
 ok(ie._nb_timeout() == 120, "_nb_timeout bad value fallback")
 os.environ["HARNESS_IMAGE_TIMEOUT"] = "-5"
@@ -303,7 +303,7 @@ os.environ["HARNESS_IMAGE_TIMEOUT"] = "45"
 ok(ie._nb_timeout() == 45, "_nb_timeout valid override")
 os.environ.pop("HARNESS_IMAGE_TIMEOUT", None)
 
-# (4c) generate_all 엔진/경로 가드 — 알 수 없는 엔진·run_id 경로탈출 → 예외(fail-closed, Codex)
+# (4c) generate_all 엔진/경로 가드 — 알 수 없는 엔진·run_id 경로탈출 → 예외(fail-closed, 외부리뷰)
 try:
     ie.generate_all("ci-imgeng-guard-$$", scratch, "bogus-engine")
     ok(False, "generate_all unknown engine did not raise")
@@ -328,7 +328,7 @@ else
   fail "(순수2-4) 순수함수 단위테스트 실패 :: ${PURE_OUT:-(출력 없음)}"
 fi
 
-# ── (4d) 비정상 모델명 키-비노출(Codex HIGH): _NB_MODEL 은 import-time 상수 → 별 프로세스로 검증.
+# ── (4d) 비정상 모델명 키-비노출(외부리뷰 HIGH): _NB_MODEL 은 import-time 상수 → 별 프로세스로 검증.
 #   더미키 + 제어문자 모델명. urllib InvalidURL 이 '키 포함 URL' 을 담더라도 키가 예외에 안 남아야 한다.
 #   네트워크 0회 — 모델명 사전검증이 URL 구성 전에 차단하거나, 구성 예외도 마스킹되므로 호출이 전송에 못 감.
 SECRET="DUMMYSECRET-do-not-leak-12345"
@@ -353,7 +353,7 @@ else
   pass "(4d) 비정상 모델명 예외에 API 키 미노출(키-비노출 보증)"
 fi
 
-# ── (4e) 비정상 HARNESS_IMAGE_TIMEOUT 이어도 import/stub 가 안 깨진다(import-time 견고성 — Codex MEDIUM).
+# ── (4e) 비정상 HARNESS_IMAGE_TIMEOUT 이어도 import/stub 가 안 깨진다(import-time 견고성 — 외부리뷰 MEDIUM).
 IMPORT_OUT="$( cd "$ROOT" && HARNESS_IMAGE_TIMEOUT="garbage" python3 -c "import sys;sys.path.insert(0,'scripts/lib');import image_engine as ie;print('IMPORT_OK', ie._NB_TIMEOUT)" 2>&1 )"
 echo "$IMPORT_OUT" | grep -q "IMPORT_OK 120" \
   && pass "(4e) 비정상 타임아웃 env 여도 import 정상 + 기본 120 폴백" \
@@ -395,13 +395,13 @@ python3 -c "import json,sys;m=json.load(open('$MANIFEST'));sys.exit(0 if m.get('
 H2="$( sha "$FIRST_SVG" )"
 check "(회귀5) 재실행해도 SVG 바이트 불변(결정적·멱등)" "[ -n \"$H1\" ] && [ \"$H1\" = \"$H2\" ]"
 
-# (회귀5b) 0바이트(중단된 부분파일)는 skipped 가 아니라 재생성된다(Codex MEDIUM — 부분파일 복구).
+# (회귀5b) 0바이트(중단된 부분파일)는 skipped 가 아니라 재생성된다(외부리뷰 MEDIUM — 부분파일 복구).
 if [ -n "$FIRST_SVG" ]; then
   : > "$FIRST_SVG"   # 기존 산출물을 0바이트로 손상
   run_stub
   NB="$(python3 -c "import sys;print(len(open(sys.argv[1],'rb').read()))" "$FIRST_SVG" 2>/dev/null)"
   check "(회귀5b) 0바이트 부분파일은 재생성(skipped 아님, 크기>0)" "[ \"${NB:-0}\" -gt 0 ]"
-  # (회귀5c) 비어있지 않지만 손상(SVG/XML 아닌 쓰레기) 기존 파일도 재생성(유효성 검사 — Codex MEDIUM).
+  # (회귀5c) 비어있지 않지만 손상(SVG/XML 아닌 쓰레기) 기존 파일도 재생성(유효성 검사 — 외부리뷰 MEDIUM).
   printf 'CORRUPT-NOT-SVG' > "$FIRST_SVG"
   run_stub
   python3 -c "import sys;h=open(sys.argv[1],'rb').read().lstrip();sys.exit(0 if h.startswith(b'<svg') or h.startswith(b'<?xml') else 1)" "$FIRST_SVG" \
@@ -515,7 +515,7 @@ check "(6c) image_manifest_complete: incomplete:true → 실패(비0)" "[ $MC_I 
 check "(6c) image_manifest_complete: stub → 실패(비0)" "[ $MC_S -ne 0 ]"
 check "(6c) image_manifest_complete: 부재 → 실패(비0)" "[ $MC_A -ne 0 ]"
 
-# (6c-2) image_manifest_incomplete(Codex W1c c fail-closed): 실엔진 incomplete:true 만 성공(0) — 완전·stub·부재는 실패(비0).
+# (6c-2) image_manifest_incomplete(외부리뷰 W1c c fail-closed): 실엔진 incomplete:true 만 성공(0) — 완전·stub·부재는 실패(비0).
 #   run-stage 가 이걸로 미완결 이미지를 fail-closed 하고 validate·advance 로 새지 않게 막는다.
 mi_check() { ( cd "$ROOT" && HARNESS_ROOT="$ROOT" bash -c 'source scripts/lib/common.sh >/dev/null 2>&1; image_manifest_incomplete "$1"' _ "$1" ) >/dev/null 2>&1; }
 mi_check "$P1DIR/mc-incomplete"; MI_I=$?

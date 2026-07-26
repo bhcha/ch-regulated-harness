@@ -1,6 +1,6 @@
 /**
  * keyvisual-reader.test.ts — 다안 이미지(04-keyvisual) 미리보기 경로 읽기 검증.
- *   핵심 회귀(Codex P2 HIGH): kvDir 밖 임의 로컬 파일이 미리보기로 새어 Slack 에 업로드되는 것을 막는다.
+ *   핵심 회귀(외부리뷰 P2 HIGH): kvDir 밖 임의 로컬 파일이 미리보기로 새어 Slack 에 업로드되는 것을 막는다.
  *     · 심링크 탈출(파일/상위 디렉터리) → realpath 봉쇄로 배제(대상이 유효 PNG 라도 kvDir 밖이면 배제).
  *     · 하드링크·위조 콘텐츠(비밀 파일을 full.png 로 하드링크) → PNG 시그니처 불일치로 배제.
  *   정상 PNG(진짜 이미지 · kvDir 안)는 그대로 돌려준다.

@@ -22,7 +22,7 @@ if [ -d "$RDIR/03-storyboard/plan" ] && [ -n "$(ls -A "$RDIR/03-storyboard/plan"
 fi
 
 # ── P0-① 존재성 fail-closed: HTML/CSS 가 참조하는 '04-keyvisual/generated/' 이미지가 실제로 존재하는지 확인 ──
-#   실엔진(nanobanana) 실패로 .png 미생성인데 HTML 이 .png 를 참조하는 등 '깨진 <img>'를 렌더가 조용히 통과시키지 않게(Codex HIGH).
+#   실엔진(nanobanana) 실패로 .png 미생성인데 HTML 이 .png 를 참조하는 등 '깨진 <img>'를 렌더가 조용히 통과시키지 않게(외부리뷰 HIGH).
 #   ★ 옛 검사는 ref 의 ../ 깊이를 버리고 파일명(tail)만 고정 베이스에 붙여 봐서, 깊이가 틀린 경로(../×4 vs 정답 ../×5)도
 #     거짓 통과시켰다(실런 사고 = 깨진 이미지가 done 까지 샘). 이제 렌더(file://)와 똑같이 'ref 가 든
 #     파일의 디렉터리 기준'으로 절대경로를 풀어 디스크 존재를 확인한다 → 깊이 오류로 깨질 이미지를 렌더 전에 fail-closed 로 잡는다.

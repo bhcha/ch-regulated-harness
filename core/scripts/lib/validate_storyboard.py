@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""validate_storyboard.py — 스토리보드 의미 검증 (B4 enabled_if/캐논 강제, Codex B4 #1/#9).
+"""validate_storyboard.py — 스토리보드 의미 검증 (B4 enabled_if/캐논 강제, 외부리뷰 B4 #1/#9).
 
 스키마(구조)로 못 막는 의미 규칙을 결정적으로 강제한다:
  - 실증 미등록(claim-basis.evidence_on_file == [])이면 storyline/plan 에
@@ -38,10 +38,10 @@ def _vals_equal(a, b):
 
 def _check_chart_evidence_binding(b, evidence_by_id, where, errs):
     """chart_data 를 '그 차트를 실증하는 단일 강주장'의 evidence 도출(derive_chart)에 '정확 일치'로 결박한다(절대규칙 5).
-    ⚠ Codex FIX GG: chart_data 는 clinicalEvidence/beforeAfter 블록에만 허용(다른 type 은 image_engine 이 이미지 생성).
-    ⚠ Codex FIX BB/FF: footnote_ref 가 가리키는 강주장들의 'distinct evidence_ref'가 정확히 1개여야 함(0/복수 → 오류).
-    ⚠ Codex FIX CC: series 는 도출 (label, value) 쌍을 '순서까지' 정확히 일치.
-    ⚠ Codex FIX EE: 콜아웃 숫자는 clinical_chart.numbers_consistent 단일 규칙으로 검증(% = 변화율, 맨숫자 = 값).
+    ⚠ 외부리뷰 FIX GG: chart_data 는 clinicalEvidence/beforeAfter 블록에만 허용(다른 type 은 image_engine 이 이미지 생성).
+    ⚠ 외부리뷰 FIX BB/FF: footnote_ref 가 가리키는 강주장들의 'distinct evidence_ref'가 정확히 1개여야 함(0/복수 → 오류).
+    ⚠ 외부리뷰 FIX CC: series 는 도출 (label, value) 쌍을 '순서까지' 정확히 일치.
+    ⚠ 외부리뷰 FIX EE: 콜아웃 숫자는 clinical_chart.numbers_consistent 단일 규칙으로 검증(% = 변화율, 맨숫자 = 값).
     chart_data 없으면 no-op."""
     vis = b.get("visual") or {}
     cd = vis.get("chart_data")
@@ -79,7 +79,7 @@ def _check_chart_evidence_binding(b, evidence_by_id, where, errs):
         errs.append("%s: '%s' 참조 evidence 정량필드가 불일치/불완전해 차트 도출 불가(fail-closed)" % (where, btype))
         return
     # FIX JJ: 차트 owner 강주장 target_text 가 evidence metric 을 명시해야 함(metric 있을 때).
-    #   ⚠ Codex FIX QQ: 정확 부분문자열이 아니라 metric_matches_claim(접미 '량' stem) 으로 — '수분량' vs '수분 개선' 허용.
+    #   ⚠ 외부리뷰 FIX QQ: 정확 부분문자열이 아니라 metric_matches_claim(접미 '량' stem) 으로 — '수분량' vs '수분 개선' 허용.
     if d.get("metric") and not any(metric_matches_claim(d["metric"], c.get("target_text") or "") for c in strong_claims):
         errs.append("%s: '%s' 차트 metric 불일치: 강주장이 evidence metric('%s')을 명시하지 않음"
                     % (where, btype, d["metric"]))
@@ -171,7 +171,7 @@ def _check_verdict_binding(blocks, docs_by_id, errs):
 
 def _block_copy_blob(b):
     """블록의 '본문 카피'(headline/subcopy/bodyText/claims.target_text) 결합. ⚠ footnotes 는 제외한다 —
-    반영 포인트는 블록 '카피'에 있어야 하고 각주는 doc-NN '인용'만(각주에만 포인트가 있으면 반영 아님, Codex)."""
+    반영 포인트는 블록 '카피'에 있어야 하고 각주는 doc-NN '인용'만(각주에만 포인트가 있으면 반영 아님, 외부리뷰)."""
     parts = [b.get("headline", ""), b.get("subcopy", "")]
     parts += list(b.get("bodyText") or [])
     parts += [(c.get("target_text") or "") for c in (b.get("claims") or []) if isinstance(c, dict)]
@@ -255,7 +255,7 @@ def _disallowed(fmt):
 #   처방: 블록 카피의 '측정·설문 단위' 수치가 승인 근거(voc 단일출처 + claim-basis evidence 도출값)에서
 #   유도되지 않으면 반려. ⚠ **좁은 단위 화이트리스트로 시작**(false-positive 관리) — 가격[원]·매수[매]·각주
 #   번호·%(차트 콜아웃은 chart_data 결박이 이미 커버) 등은 대상이 아니다. 점진 확대(설계 B-4).
-#   ⚠ 보수적 시작의 알려진 한계(점진 확대 백로그, Codex 검토): (a) 정확 일치라 반올림 카피("4.1점" vs 근거
+#   ⚠ 보수적 시작의 알려진 한계(점진 확대 백로그, 외부 검토): (a) 정확 일치라 반올림 카피("4.1점" vs 근거
 #   4.091)는 유도 실패로 처리(마케팅 반올림 허용 시 재검토) (b) derivable 풀이 voc 전체 숫자라 정수 점수(예 "4점")는
 #   4주·매수 등과 우연 일치해 약하게 검사됨 — 실제 리스크인 소수 설문·측정값(4.091점·0.187㎟)은 강하게 잡힌다.
 _CLINICAL_NUM_RE = re.compile(r'(\d+(?:\.\d+)?)\s*(점|㎟|㎜|㎣)')
@@ -320,9 +320,9 @@ def check_blocks(blocks, has_evidence, where, errs, canon, req_root, evidence_by
         # 실증 등록 상태 + plan 단계에서만: beforeAfter 블록의 비주얼은 측정치 차트여야 한다(WS⑤ 본래 의도).
         #   kind=="graph" 또는 chart_data 존재여야 하며, kind=="photo"/"nukki" 단독(chart_data 없음 = 연출컷)은 오류.
         #   이는 측정 수치 전후대비를 단정 연출 이미지로 대체하는 환각을 차단한다.
-        # ⚠ Codex FIX C: clinicalEvidence 는 정성적 사진(예: "피부 적합성 테스트 완료" 인증컷)도 정당하므로
+        # ⚠ 외부리뷰 FIX C: clinicalEvidence 는 정성적 사진(예: "피부 적합성 테스트 완료" 인증컷)도 정당하므로
         #   차트 강제 대상에서 제외한다 — 'beforeAfter' 만 차트 강제(기존 정성 clinicalEvidence photo 블록 보존).
-        # ⚠ Codex FIX 3: outline(storyline) 블록은 visual 슬롯이 없어 kind=None 오탐 → where=="plan" 한정 +
+        # ⚠ 외부리뷰 FIX 3: outline(storyline) 블록은 visual 슬롯이 없어 kind=None 오탐 → where=="plan" 한정 +
         #   visual dict 가 실제 있는 블록만 검사(outline-safe).
         for b in blocks:
             if b.get("type") != "beforeAfter":
@@ -337,7 +337,7 @@ def check_blocks(blocks, has_evidence, where, errs, canon, req_root, evidence_by
                     "%s: 실증 등록 상태인데 'beforeAfter' 블록의 visual 이 측정치 차트가 아님 "
                     "(kind=%r, chart_data 없음) — 전후대비 블록은 graph 또는 chart_data 필수" % (where, kind)
                 )
-    # chart_data 결박 검증(Codex FIX Q) — plan 단계, chart_data 보유 블록만(has_evidence 무관: 미참조 시도 차단).
+    # chart_data 결박 검증(외부리뷰 FIX Q) — plan 단계, chart_data 보유 블록만(has_evidence 무관: 미참조 시도 차단).
     #   차트 수치는 실재 evidence 정량필드에서만 도출돼야 한다(환각 차단). chart_data 없으면 no-op → 골든-중립.
     if where == "plan":
         for b in blocks:

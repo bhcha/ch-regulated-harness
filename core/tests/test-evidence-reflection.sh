@@ -157,7 +157,7 @@ pkg = json.load(open(os.path.join(sys.argv[1], "04-keyvisual/export/kcia-package
 d = next((e for e in pkg.get("evidence_documents", []) if e.get("id") == "doc-01"), None)
 sys.exit(0 if d and d.get("reflect") is True and d.get("reflected_in") else 1)
 PY
-# (gen-neg) 반영 포인트 원문이 최종 HTML 에서 사라지면(doc-id 각주만 남아도) 게이트 차단 — 내용 생존 필수(Codex)
+# (gen-neg) 반영 포인트 원문이 최종 HTML 에서 사라지면(doc-id 각주만 남아도) 게이트 차단 — 내용 생존 필수(외부리뷰)
 python3 - "$HG" <<'PY'
 import sys
 p = sys.argv[1]; html = open(p, encoding="utf-8").read()

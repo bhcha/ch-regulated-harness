@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from harness import atomic_write_json, load_json, ROOT, deliverable_format  # noqa: E402
 
 # K-1 값-불변: render 는 FORMATS_DIR 를 repo packs/_format 로 해석(옛 동작 보존 · PACKS_DIR 무시).
-#   PACKS_DIR 파생 일원화(split-brain 제거)는 값-불변 계약 밖 → 별도 의도적 변경으로 분리(Codex Medium).
+#   PACKS_DIR 파생 일원화(split-brain 제거)는 값-불변 계약 밖 → 별도 의도적 변경으로 분리(외부리뷰 Medium).
 FORMATS_DIR = os.environ.get("FORMATS_DIR") or os.path.join(os.path.dirname(ROOT), "packs", "_format")
 DPR = 1
 DPI = 96
@@ -68,7 +68,7 @@ def render_option(page, kvdir, opt, width):
             shot_ok = False
         visible_text = (el.inner_text() or "").strip()
         # 캡처 실패·0높이·내용 없음 섹션은 매니페스트에서 제외 — 보이지 않는 placeholder 가
-        # 구성요소 커버리지를 만족시키는 것을 차단(Codex coverage #2).
+        # 구성요소 커버리지를 만족시키는 것을 차단(외부리뷰 coverage #2).
         if not shot_ok or box["height"] <= 0 or not visible_text:
             continue
         within = box["x"] >= -1 and (box["x"] + box["width"]) <= width + _LAYOUT_TOL_PX

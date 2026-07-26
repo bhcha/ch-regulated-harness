@@ -5,7 +5,7 @@
 #   사용법: bash scripts/run-report.sh <run_id>
 set -euo pipefail
 RID="${1:?사용법: run-report.sh <run_id>}"
-# 경로 traversal 방지(Codex High) — run_id 는 안전 문자만 + '..' 금지(runs/ 밖 파일 노출 차단).
+# 경로 traversal 방지(외부리뷰 High) — run_id 는 안전 문자만 + '..' 금지(runs/ 밖 파일 노출 차단).
 [[ "$RID" =~ ^[A-Za-z0-9._-]+$ && "$RID" != *".."* ]] || { echo "잘못된 run_id: $RID (영숫자·.·-·_ 만, .. 금지)" >&2; exit 1; }
 HARNESS_ROOT="${HARNESS_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 export HARNESS_ROOT
@@ -46,7 +46,7 @@ if os.path.exists(tj):
                 r = json.loads(line)
             except Exception:
                 continue
-            if not isinstance(r, dict):   # 유효 JSON 이라도 dict 아니면 스킵(Codex High: []·"x"·null 크래시 방지)
+            if not isinstance(r, dict):   # 유효 JSON 이라도 dict 아니면 스킵(외부리뷰 High: []·"x"·null 크래시 방지)
                 continue
             st = r.get("stage") or ""
             if not st:

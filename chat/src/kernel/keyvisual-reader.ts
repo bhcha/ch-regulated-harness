@@ -76,7 +76,7 @@ export function keyvisualDir(rid: string): string | null {
 }
 
 /**
- * 후보 경로가 **kvDir 안에 실재하는 일반 파일**인지 — 심볼릭 링크 탈출 차단(Codex P2 HIGH).
+ * 후보 경로가 **kvDir 안에 실재하는 일반 파일**인지 — 심볼릭 링크 탈출 차단(외부리뷰 P2 HIGH).
  *   `runs/<rid>/04-keyvisual/` 안의 파일은 core 산출물이지만, 심링크(예 `full.png -> ~/.env`)나 심링크된 상위
  *   디렉터리(`shots -> /secrets`)로 임의 로컬 파일을 가리킬 수 있다. 이 경로를 그대로 읽어 Slack 에 올리면
  *   비밀 유출이다. 그래서 **realpath 로 심링크를 모두 해소한 뒤 kvDir 실경로 하위에 있는지** 강제한다

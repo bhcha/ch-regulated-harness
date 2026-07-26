@@ -98,7 +98,7 @@ COV3="$(python3 "$ROOT/scripts/lib/check_canon_coverage.py" "$ROOT/runs/$RID3" -
 SCI="$(echo "$COV3" | python3 -c "import sys,json;d=json.load(sys.stdin);print(next(c['status'] for c in d['components'] if c['id']=='scienceEvidence'))" 2>/dev/null)"
 check "(g) 실증 등록 시 scienceEvidence=covered(clinicalEvidence)" "[ \"$SCI\" = 'covered' ]"
 
-# [Codex coverage 리뷰 수용] 회귀 잠금
+# [외부리뷰 coverage 수용] 회귀 잠금
 # #5 추천 타겟 질환 타겟팅 차단
 RID4=ci-cmp4; drive_to_plan "$RID4"
 python3 - "$ROOT/runs/$RID4/03-storyboard/plan" <<'PYEOF'

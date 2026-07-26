@@ -59,7 +59,7 @@ seed_kv_primary() {  # seed_kv_primary <rid> <claim-basis-json>
 }
 # 온라인 insession 호출(레시피 고정): 라이브 키 차단 + codex 마커 언셋 + Claude 세션 모사.
 #   ⚠ 라이브 키 차단은 HARNESS_NO_DOTENV=1(.env 미로드)만으로는 부족하다 — 이미 export 된 NANOBANANA_API_KEY 가
-#     override(ACK) 경로에서 실제 유료 Nano Banana REST 를 호출할 수 있다(Codex). 그래서 env -u 로 키 자체를 제거한다.
+#     override(ACK) 경로에서 실제 유료 Nano Banana REST 를 호출할 수 있다(외부리뷰). 그래서 env -u 로 키 자체를 제거한다.
 run_online() {  # run_online <args...>  (예: bash scripts/run-stage.sh keyvisual <id>)
   ( cd "$ROOT" && env -u HARNESS_OFFLINE -u CODEX_THREAD_ID -u CODEX_SANDBOX -u NANOBANANA_API_KEY \
       HARNESS_NO_DOTENV=1 CLAUDECODE=1 HARNESS_GEN_MODE=insession HARNESS_CLI=claude "$@" ) 2>&1
@@ -140,7 +140,7 @@ if trust_skip "(9) 실엔진 manifest 재진입" "$OUT9"; then :; else
   check "(9) 실엔진(nanobanana) manifest 존재 → 멈춤 문구 없음(점검 건너뜀)" "! printf '%s' \"\$OUT9\" | grep -q '지금은 멈췄어요'"
 fi
 
-# ── (9b) 통합: 'stub' 매니페스트(오프라인 산출, 실생성 전) + 온라인 임계 → preflight 가 돌아 멈춤(stub→online 우회 차단, Codex) ──
+# ── (9b) 통합: 'stub' 매니페스트(오프라인 산출, 실생성 전) + 온라인 임계 → preflight 가 돌아 멈춤(stub→online 우회 차단, 외부리뷰) ──
 seed_kv_primary ci-gic-i9b "$CRIT_CB"
 echo '{"engine":"stub","assets":[]}' > "$ROOT/runs/ci-gic-i9b/04-keyvisual/image-manifest.json"
 OUT9B="$(run_online bash scripts/run-stage.sh keyvisual ci-gic-i9b)"

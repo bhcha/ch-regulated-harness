@@ -6,7 +6,7 @@ kcia-check.sh 의 Pass-A/B critic 호출체(로컬 CLI claude/codex)를 '원격 
   - passa: 전체(선택안) 산출물 심의 → verdict.json 스키마를 `--out`($PASSA)에 작성.
   - passb: 후보 1건 적대검증 → {"refuted": <bool>, "reason": "<한 줄>"} 를 `--out`($PBF)에 작성.
 
-설계 근거: docs/adk-critic-build-plan.md · scratchpad adk-critic-replacement-plan.md(v6, Codex CLEAN).
+설계 근거: docs/adk-critic-build-plan.md · scratchpad adk-critic-replacement-plan.md(v6, 외부리뷰 CLEAN).
 
 도메인별 엔드포인트(개편): 단일 ADK_CRITIC_URL/ADK_CRITIC_APP 폐기 → 도메인 packs/<dom>/domain.json 의 adk_critic
 블록({url_env,host_env,app,author})이 'ADK 구현됨' 마커다. URL/host 는 그 url_env/host_env 가 가리키는 환경변수에서 읽는다.
@@ -142,7 +142,7 @@ def _resolve_endpoint(domain):
             _die("%s host DNS 해석 실패: %s" % (url_env, e))
         for info in infos:
             ip = ipaddress.ip_address(info[4][0])
-            # is_global 만 허용(Codex 9R): 사설·loopback·link-local·예약·CGNAT(100.64/10)·메타데이터 등 비-글로벌 전부 거부.
+            # is_global 만 허용(외부리뷰 9R): 사설·loopback·link-local·예약·CGNAT(100.64/10)·메타데이터 등 비-글로벌 전부 거부.
             if not ip.is_global or ip.is_multicast:
                 _die("%s host 가 글로벌 라우팅 불가 IP(%s) 로 해석됩니다 — 거부(SSRF/사설/CGNAT/rebinding 방지, fail-closed)." % (url_env, ip))
     base = "%s://%s%s" % (scheme, host, (":" + port) if port else "")
@@ -295,7 +295,7 @@ def _final_text(events):
 
 
 # ── outbound allowlist(egress 경계): 선택안 '광고 카피 텍스트'만 외부(GCP)로 보낸다 ────────────────
-#   3중 방어(Codex CRITICAL): ① 내부/근거/메타 '컨테이너 키' 아래로는 내려가지 않는다(구조적 차단 — 그 아래
+#   3중 방어(외부리뷰 CRITICAL): ① 내부/근거/메타 '컨테이너 키' 아래로는 내려가지 않는다(구조적 차단 — 그 아래
 #   카피처럼 보이는 내부 텍스트도 비전송), ② id/경로/근거 '참조 키' 값은 건너뛴다, ③ 값 자체가 내부 출처 토큰
 #   (claim-basis·voc.json·func-*·사후검수·option_distribution·inputs/ 등)을 포함하면 통째로 버린다(값 백스톱).
 #   → claim-basis/VOC/근거 id/RA 메모/경로/PII 가 외부 심의기로 새지 않는다(완전성보다 안전 우선).
@@ -311,9 +311,9 @@ _SKIP_CONTAINERS = {
 }
 _INTERNAL_TOKEN = re.compile(
     r"claim[- _]?basis|voc\.json|\bvoc\b|evidence|\bev-\w|option_distribution|\bfunc-[a-z0-9]|"
-    r"unsupported|not_claimed|사후검수|inputs/|claim_strength|review_status", re.I)  # 대소문자 무시(Codex 2R)
+    r"unsupported|not_claimed|사후검수|inputs/|claim_strength|review_status", re.I)  # 대소문자 무시(외부리뷰 2R)
 _MAX_TEXT = 40000  # 텍스트 상한(대용량 덤프 금지 — 추출된 카피 단위)
-# ★ positive allowlist(default-deny, Codex 6R): 문자열은 '광고 카피 키' 아래에 있을 때만 수집한다.
+# ★ positive allowlist(default-deny, 외부리뷰 6R): 문자열은 '광고 카피 키' 아래에 있을 때만 수집한다.
 #   denylist 추적(visual.concept.reference.direction·voc_phrase 등 스키마-합법 비카피 필드 누수)을 근본 차단.
 _COPY_KEYS = {
     "headline", "subhead", "subheadline", "sub_headline", "subheading", "subheading_copy",
@@ -340,7 +340,7 @@ def _collect_copy(obj, acc, under_copy=False, depth=0):
                 continue
             if _DENY_KEYS.search(kl):
                 continue  # id/경로/근거 참조 값
-            # leaf-only(Codex 7R): under_copy 를 '전파'하지 않는다 — 중첩 dict 의 키마다 새로 판정.
+            # leaf-only(외부리뷰 7R): under_copy 를 '전파'하지 않는다 — 중첩 dict 의 키마다 새로 판정.
             #   {"copy":{"internal_note":"내부 가격"}} → 'copy' 아래로 내려가도 'internal_note' 는 카피 키가 아니라 미수집.
             _collect_copy(v, acc, (kl in _COPY_KEYS), depth + 1)
     elif isinstance(obj, list):
@@ -359,11 +359,11 @@ def _collect_copy(obj, acc, under_copy=False, depth=0):
         acc.append(s)
 
 
-_META_FILES = re.compile(  # 카피가 아닌 메타데이터/근거/심의/매니페스트 파일 — 파일 단위 차단(Codex 3R)
+_META_FILES = re.compile(  # 카피가 아닌 메타데이터/근거/심의/매니페스트 파일 — 파일 단위 차단(외부리뷰 3R)
     r"(?i)(verdict|manifest|decision|sensitive[-_]?confirmation|\bvoc\b|claim[-_]?basis|"
     r"\bproduct\b|sources|results|canon[-_]?coverage|reference[-_]?notes|assets|recommendation|"
     r"self[-_]?review|report|\bstate\b|feedback|example[-_]?analysis|analysis|provenance)")
-# ★ positive FILE allowlist(default-deny, Codex 7R): 디렉터리 모드에서 '알려진 카피 산출물 파일'만 읽는다.
+# ★ positive FILE allowlist(default-deny, 외부리뷰 7R): 디렉터리 모드에서 '알려진 카피 산출물 파일'만 읽는다.
 #   임의로 심어진 비카피 .json(예 options/A/leak.json) 인입 차단. 페이즈 카피 파일: brief / key-message /
 #   storyline / NN-<type>(스토리보드 블록) / index.html(키비주얼 렌더).
 _COPY_FILES = re.compile(r"(?i)^(brief|key[-_]?message|storyline|index|\d+[-_]\w+)\.(json|html)$")
@@ -400,11 +400,11 @@ class _CopyHTMLParser(HTMLParser):
 
 def _selected_copy_text(target):
     """선택안 경로(파일 또는 디렉터리)의 JSON 산출물에서 광고 카피 텍스트만 수집(메타데이터 파일·심링크 차단)."""
-    # 최상위 심링크 차단(Codex 8R HIGH): 디렉터리 심링크면 os.walk 가 그대로 따라가 작업영역 밖 파일을 egress 할 수 있다.
+    # 최상위 심링크 차단(외부리뷰 8R HIGH): 디렉터리 심링크면 os.walk 가 그대로 따라가 작업영역 밖 파일을 egress 할 수 있다.
     if os.path.islink(target):
         _die("심의 대상 경로가 심링크입니다(거부, 작업영역 탈출 방지): %s" % target)
     root_real = os.path.realpath(target)   # realpath 봉쇄 기준(조상 심링크까지 정규화됨)
-    # 신뢰 루트 봉쇄(Codex 9R HIGH): root_real(조상 심링크 정규화 후)이 작업영역(HARNESS_ROOT) 밖이면 거부 —
+    # 신뢰 루트 봉쇄(외부리뷰 9R HIGH): root_real(조상 심링크 정규화 후)이 작업영역(HARNESS_ROOT) 밖이면 거부 —
     #   조상 경로 심링크로 root_real 이 외부를 가리켜도 여기서 fail-closed. (kcia-check 가 HARNESS_ROOT 를 export.)
     _ws = os.environ.get("HARNESS_ROOT")
     if _ws:
@@ -414,12 +414,12 @@ def _selected_copy_text(target):
     files = []
     if os.path.isfile(target):
         if _META_FILES.search(os.path.basename(target)):
-            _die("단일 심의 대상이 메타데이터 파일입니다(카피 아님, 거부): %s" % target)   # Codex 4R: 단일파일 우회 차단
+            _die("단일 심의 대상이 메타데이터 파일입니다(카피 아님, 거부): %s" % target)   # 외부리뷰 4R: 단일파일 우회 차단
         files = [target]
     elif os.path.isdir(target):
         skip_dirs = {"bundle", "images", "rejected", "shots", "export"}
         for root, _dirs, names in os.walk(target):  # followlinks=False(기본) → 디렉터리 심링크 미추적(탈출 차단)
-            # 하위 descent 자체를 막는다(prune) — continue 만으론 skip 디렉터리의 '하위'가 traverse 됨(Codex 5R HIGH).
+            # 하위 descent 자체를 막는다(prune) — continue 만으론 skip 디렉터리의 '하위'가 traverse 됨(외부리뷰 5R HIGH).
             _dirs[:] = [d for d in _dirs if d not in skip_dirs and not os.path.islink(os.path.join(root, d))]
             base = os.path.basename(root)
             if base in skip_dirs:
@@ -431,8 +431,8 @@ def _selected_copy_text(target):
                 if _META_FILES.search(n):
                     continue  # 메타데이터/근거/심의 파일 — 카피 아님(방어 1)
                 if not _COPY_FILES.match(n):
-                    continue  # 알려진 카피 산출물 파일만(default-deny) — 임의 .json/.html 인입 차단(Codex 7R)
-                rp = os.path.realpath(p)   # realpath 봉쇄(Codex 8R): 실제 경로가 대상 루트 밖이면 제외(탈출 방지)
+                    continue  # 알려진 카피 산출물 파일만(default-deny) — 임의 .json/.html 인입 차단(외부리뷰 7R)
+                rp = os.path.realpath(p)   # realpath 봉쇄(외부리뷰 8R): 실제 경로가 대상 루트 밖이면 제외(탈출 방지)
                 if rp != root_real and not rp.startswith(root_real + os.sep):
                     continue
                 files.append(p)
@@ -692,7 +692,7 @@ def _do_emit_instruction(args):
 
 def _do_preflight(args):
     """도메인별 엔드포인트 설정 사전검증(부모가 실심의 전 호출): offline·URL·host allowlist·https·공인IP·auth 모드.
-    유효=exit0, 무효=_die(exit2). 자식 실패 후 '조용한 강등'(REQUIRED 우회)을 부모에서 선차단(Codex 2R HIGH)."""
+    유효=exit0, 무효=_die(exit2). 자식 실패 후 '조용한 강등'(REQUIRED 우회)을 부모에서 선차단(외부리뷰 2R HIGH)."""
     base, host = _resolve_endpoint(args.domain)   # adk_critic 미존재/공백/형식오류/비-allowlist/비-https/사설IP 모두 여기서 die
     _auth_header()                                # auth 모드(none|oidc) 유효성
     sys.stderr.write("adk_critic: preflight OK (%s)\n" % host)

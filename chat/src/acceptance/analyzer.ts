@@ -48,7 +48,7 @@ export interface AnalyzerInput {
   /**
    * 게이트웨이가 사람의 **답글/입력**을 기다리는 상태인가(pending 설정됨 · driver.awaitingReply()로 조회).
    *   true 면 dead-end 를 내지 않는다 — 보완([보완]) 뒤 "고칠 내용을 답글로" Progress 나 WB 붙여넣기 안내처럼,
-   *   버튼 affordance 는 0 이어도 **출구가 '답글 타이핑'** 인 정당한 대기 상태이기 때문(Codex S3 리뷰 P2 회귀).
+   *   버튼 affordance 는 0 이어도 **출구가 '답글 타이핑'** 인 정당한 대기 상태이기 때문(외부리뷰 S3 P2 회귀).
    *   미지정(기본)이면 종전대로 버튼-출구 없음만 본다.
    */
   awaitingReply?: boolean;
@@ -175,11 +175,11 @@ export function analyze(input: AnalyzerInput): Finding[] {
   //   미완 판정: 최종 na 가 있고 done 이 아니면 '아직 갈 길이 남음'.
   //   ⚠ 단, 게이트웨이가 사람의 답글을 기다리는 중(awaitingReply)이면 dead-end 가 아니다 — 출구는 '버튼'이 아니라
   //     '답글 타이핑'이다(보완 사유 요청·WB 붙여넣기 안내 Progress 등). 이 억제가 없으면 정당한 답글-대기를 막다른
-  //     화면으로 오탐한다(Codex S3 리뷰 P2). 답글-대기 여부는 gateway pending 에서 오며 driver.awaitingReply()가 낸다.
+  //     화면으로 오탐한다(외부리뷰 S3 P2). 답글-대기 여부는 gateway pending 에서 오며 driver.awaitingReply()가 낸다.
   const runUnfinished = input.finalNa != null && input.finalNa.action !== "done";
   if (runUnfinished && input.awaitingReply !== true) {
     if (presentations.length === 0) {
-      // 표면 누락(Codex S2 P2): 화면을 하나도 렌더하지 않았는데 run 은 미완 — 사람이 진행할 어떤 출구도 없다.
+      // 표면 누락(외부리뷰 S2 P2): 화면을 하나도 렌더하지 않았는데 run 은 미완 — 사람이 진행할 어떤 출구도 없다.
       //   final=null 로 아래 분기를 건너뛰면 이 '출구 없는 미완'이 clean 으로 새어 나간다 → 여기서 명시 검출.
       findings.push({
         kind: "dead-end",

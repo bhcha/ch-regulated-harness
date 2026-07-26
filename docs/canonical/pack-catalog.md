@@ -9,7 +9,7 @@
 
 ## 1. 도메인 팩 — 심의 참조 매트릭스
 
-**심의 메커니즘:** 운영 심의 엔진 = **원격 ADK(`adk-http`) 단일** — 생성과 **다른 벤더(Gemini)·원격 세션**이라 같은 스레드 자가비판이 구조적으로 불가능하다(로컬 헤드리스 크리틱 `claude-subagent`/`codex`/`KCIA_CRITIC_CMD`·self-grading substring 가드는 **폐기**; `KCIA_CRITIC_ENGINE` 은 비우거나 `adk-http` 만 허용). 1차 결정적 룰엔진(`kcia_engine.py`, ruleset 축) + 2차 원격 ADK 2-pass(`scripts/lib/adk_critic.py`: Pass-A 선택안 카피만 외부 전송, Pass-B 건별 적대검증).
+**심의 메커니즘:** 운영 심의 엔진 = **원격 ADK(`adk-http`) 단일** — 생성과 **다른 벤더(Gemini)·원격 세션**이라 같은 스레드 자가비판이 구조적으로 불가능하다(로컬 헤드리스 크리틱 `claude-subagent`/`KCIA_CRITIC_CMD`·self-grading substring 가드는 **폐기**; `KCIA_CRITIC_ENGINE` 은 비우거나 `adk-http` 만 허용). 1차 결정적 룰엔진(`kcia_engine.py`, ruleset 축) + 2차 원격 ADK 2-pass(`scripts/lib/adk_critic.py`: Pass-A 선택안 카피만 외부 전송, Pass-B 건별 적대검증).
 
 **ADK 엔드포인트는 도메인별이다.** `packs/<도메인>/domain.json` 의 **`adk_critic` 블록**(`url_env`/`host_env`/`app`/`author` + 선택 `author_aliases`·`retry`)이 'ADK 구현됨' 마커다. URL/host 는 그 `url_env`/`host_env` 가 가리키는 환경변수에서 읽는다(예: 화장품 = `ADK_COSMETICS_CRITIC_URL` + `ADK_COSMETICS_CRITIC_ALLOWED_HOST`, app `cosmetics_agent` · author `cosmetics_review_agent`). 단일 `ADK_CRITIC_URL`/`ADK_CRITIC_ALLOWED_HOST`/`ADK_CRITIC_APP` 은 **폐기**. 새 도메인 = `domain.json` 에 `adk_critic` 블록 + `.env` 에 그 env 추가만(core 코드 무수정). **응답 provenance(author) 안전 슈퍼셋은 하드코딩이 아니라 등록 전 도메인의 `author`+선택 `author_aliases` 합집합에서 조립한다**(`adk_critic._known_authors`; 특정 도메인에 매이지 않는 `guideline_review_agent` 는 cosmetic `author_aliases` 가 홈). `kcia-check.sh` 가 `adk_critic.py resolve --domain <d>`(네트워크 없음)로 분기한다:
 - **블록 + URL env 둘 다 있음** → 원격 ADK 강제(`KCIA_CRITIC_REQUIRED=1` 자동, 조용한 강등 금지, `preflight` 로 엔드포인트 사전검증). 도메인 전용 에이전트 파일은 없고 — 원격 ADK 에 도메인별 룰셋·가이드 발췌(금지표현 요약)를 instruction 으로 주입한다(참조 문서만 도메인별로 갈림).
