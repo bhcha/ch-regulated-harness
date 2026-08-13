@@ -76,22 +76,27 @@ def _reg_query(dom, field):
         return ""
 
 
-def _pack_gen_fragment(dom):
-    """packs/<도메인>/gen-fragment.md 내용(없으면 None) — Seam B 도메인 생성 규칙 조각.
-       전 팩 공통·도메인 중립(PACKS_DIR/<dom>/gen-fragment.md; cosmetic 하드코딩 없음).
-       **파일 부재 = no-op**(TBD 팩은 방출 안 함 → ctx 골든 바이트 불변). PACKS_DIR 은 kcia_engine 단일 출처."""
+def _pack_fragment_file(dom, fname):
+    """packs/<도메인>/<fname> 내용(없으면 None) — 팩 소유 생성 참조 조각 공용 리더.
+       전 팩 공통·도메인 중립(cosmetic 하드코딩 없음). **파일 부재 = no-op**(방출 안 함 → ctx 골든
+       바이트 불변). PACKS_DIR 은 kcia_engine 단일 출처."""
     if not dom:
         return None
     try:
         from kcia_engine import PACKS_DIR
     except Exception:
         return None
-    p = os.path.join(PACKS_DIR, dom, "gen-fragment.md")
+    p = os.path.join(PACKS_DIR, dom, fname)
     try:
         with open(p, "r", encoding="utf-8") as f:
             return f.read()
     except Exception:
         return None
+
+
+def _pack_gen_fragment(dom):
+    """packs/<도메인>/gen-fragment.md — Seam B 도메인 생성 규칙 조각(부재=no-op)."""
+    return _pack_fragment_file(dom, "gen-fragment.md")
 
 
 def _pack_learned_deny(dom, stage):
@@ -447,6 +452,14 @@ def build_context(rid, stage):
     if _genfrag:
         print("DOMAIN_GEN_RULES(도메인 생성 규칙 — 심의 기지 규칙 선주입; soft 권고, 법=RULESET 우선):")
         print(_genfrag.rstrip("\n"))
+    # DOMAIN_RTB_GUIDE — 팩 소유 RTB 작성 가이드(rtb-writing-guide.md, 강제 게이트가 아니라 참조 예시).
+    #   RTB·키메시지를 저작하는 concept 단계에만 주입(ctx 비대 방지 — 좋은/나쁜 문장 예시가 길다).
+    #   부재 팩=무방출(ctx 골든 불변; cosmetic 미저작 → 기존 골든 바이트 불변). 법·근거 하드게이트가 항상 우선.
+    if stage == "concept":
+        _rtbg = _pack_fragment_file(dom, "rtb-writing-guide.md")
+        if _rtbg:
+            print("DOMAIN_RTB_GUIDE(도메인 RTB 작성 가이드 — 참조 예시; 법·근거 하드게이트 우선):")
+            print(_rtbg.rstrip("\n"))
     # LEARNED_DENY(Seam F) — 과거 심의에서 일관 반려돼 사람 승인 승격된 학습 금지어를 생성 선차단. 부재=무방출(ctx
     #   골든 불변). soft 권고(법=RULESET 우선); 심의-측은 룰셋 lexicon 병합으로 이중 집행(kcia_engine).
     _ldeny = _pack_learned_deny(dom, stage)

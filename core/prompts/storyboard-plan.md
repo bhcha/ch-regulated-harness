@@ -12,7 +12,7 @@
 - **참조 문서 반영(REFERENCE_DOCS — 첨부=반영, 일반 참조 필수)**: `REFERENCE_DOCS` 에 `doc-NN` 항목이 있으면 그 문서의 **반영 포인트(원문)를 내용에 가장 맞는 블록**(성분자료→`ingredientTech`, 브랜드스토리→`brandBanner`, 수상·인증→`socialProof`, 가이드→`howToUse` 등)의 카피(headline/subcopy/bodyText)에 **원문 그대로** 넣고, 그 블록 **각주(`footnotes[].text`)에 `doc-NN` 을 인용**한다(반영 누락 시 done 게이트 차단). ⚠ 일반 참조 문서는 실증셋(claim-basis)이 아니므로 `claims[].evidence_ref` 로 인용하지 마라(가짜 인용으로 심의 반려) — **각주 인용만**. 반영 포인트 원문 밖 내용을 지어내지 말 것(환각 금지).
 
 ## 전역 아트디렉션(먼저 — 이슈4 P0-ⓠ, 톤 일관성 선결)
-- 블록보다 **먼저** `03-storyboard/art-direction.json` 을 1회 작성한다: `master_palette`(전 블록 공통 팔레트)·`color_temp`·`lighting`·`typography` + `master_reference` = **선택한 제품의 실제 사진**(ASSETS_MANIFEST 의 자사 제품컷, `inputs/assets/`). 모든 블록 이미지가 이 한 장을 공통 첫 입력으로 써 '바로 그 제품'을 일관 유지한다. ⚠ PoC 샘플 시드(`product-main.jpg` 등 다른 제품)나 일반 도형을 master_reference 로 쓰지 마라.
+- 블록보다 **먼저** `03-storyboard/art-direction.json` 을 1회 작성한다: `master_palette`(전 블록 공통 팔레트)·`color_temp`·`lighting`·`typography` + `master_reference` = **선택한 제품의 실제 사진**(ASSETS_MANIFEST 의 자사 제품컷, `inputs/assets/`). 톤의 기본값은 디자인 토큰이 정한다 — REGULATORY_DOMAIN 팩에 `design-tokens-overlay.json` 이 있으면 **그 `tone_directions`·`visual_guidance` 를 우선 반영**한다(도메인 축; 없으면 포맷 토큰 `packs/_format/design-tokens.json`). 모든 블록 이미지가 이 한 장을 공통 첫 입력으로 써 '바로 그 제품'을 일관 유지한다. ⚠ PoC 샘플 시드(`product-main.jpg` 등 다른 제품)나 일반 도형을 master_reference 로 쓰지 마라.
   - **master_reference 선택 힌트(soft)**: ASSETS_MANIFEST 에 `role=package_front` 자산이 있으면 그것을 master_reference 로 우선 선택하라(제품 정면컷이 브랜드·패키지 식별에 가장 강함). 게이트가 아니라 권고다 — 없으면 기존대로 자사 제품컷 중 대표 1장을 고른다.
 - 이후 모든 블록 `visual.concept` 는 이 아트디렉션을 **상속**한다 — 블록은 `composition`·`subject`·`aspect_ratio` 등 **고유만** 둔다. 블록 `palette` 는 `master_palette` 의 **부분집합**이어야 한다(검증 fail-closed). 블록마다 다른 경쟁사 스타일/무드에 앵커하지 말 것.
 - `mood_keywords`·`master_reference` 등 아트디렉션 텍스트에도 효능·질환·권위·절대 표현 금지.
@@ -24,7 +24,7 @@
 - `claims[]` 의 `claim_strength` 가 superlative/efficacy/speed 면 **대응 footnote 필수** + `evidence_ref` 가 실재 근거 id.
   근거가 없으면 표현을 factual/emotional 로 절제하라.
 - socialProof(순위/판매)는 기준일·출처 각주 필수.
-- **(multipage_bm) 구매전환 블록 금지**: DELIVERABLE_FORMAT 이 `multipage_bm`(세로 상세페이지)이면 `cta`(구매하기·가격·장바구니)·`header`·`nav` 블록을 만들지 않는다 — 상세페이지는 판매채널 구매 UI '앞'의 콘텐츠다. CTA·가격 블록은 `one_pager` 전용이다(검증에서 강제 — 있으면 반려된다). `footer`(의약품 필수기재)·품목 심화(`mainPositioning`·`ingredientDetail`) 블록은 금지 대상이 아니다.
+- **(multipage_bm) 구매전환 블록 금지**: DELIVERABLE_FORMAT 이 `multipage_bm`(세로 상세페이지)이면 `cta`(구매하기·가격·장바구니)·`header`·`nav` 블록을 만들지 않는다 — 상세페이지는 판매채널 구매 UI '앞'의 콘텐츠다. CTA·가격 블록은 `one_pager` 전용이다(검증에서 강제 — 있으면 반려된다). `footer`(도메인 필수기재 컨테이너)·품목 심화(`mainPositioning`·`ingredientDetail`) 블록은 금지 대상이 아니다.
 - 위반 블록만 부분 재생성(전체 재생성 금지 — 비용·이력 보존).
 - 사람이 읽을 `plan/NN-<type>.md` 도 함께.
 

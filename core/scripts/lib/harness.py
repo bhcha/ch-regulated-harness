@@ -73,6 +73,50 @@ def regulatory_domain(state):
     return (state.get("product") or {}).get("regulatory_domain")
 
 
+def design_tokens(domain=None):
+    """디자인 토큰 단일 리더 — 포맷 토큰 정본(packs/_format/design-tokens.json) + 도메인 오버레이 병합
+    (캐논 오버레이와 동형의 도메인 축). packs/<도메인>/design-tokens-overlay.json 이 있으면 최상위 키를
+    통째 교체(accent_default·tone_directions 등; 오버레이에 없는 키는 포맷 정본 상속 — 신규 키는 가법).
+    오버레이 부재/도메인 미지정 = 포맷 토큰 그대로(no-op — 오버레이 없는 도메인 바이트 불변).
+    오버레이 파일이 존재하는데 파싱 불가면 예외 전파(fail-closed — 조용한 강등 금지)."""
+    base = load_json(os.path.join(FORMATS_DIR, "design-tokens.json"))
+    if not domain:
+        return base
+    op = os.path.join(PACKS_DIR, domain, "design-tokens-overlay.json")
+    if not os.path.exists(op):
+        return base
+    ov = load_json(op)
+    merged = dict(base)
+    for k, v in ov.items():
+        if not k.startswith("_"):
+            merged[k] = v
+    return merged
+
+
+def export_package_profile(domain):
+    """수출(export) 패키지 도메인 축 — packs/<domain>/domain.json 의 export_package 값으로
+    {kind, dir, label} 을 결정한다(캐논 오버레이와 동형의 데이터-주도 분기).
+    kcia-advisory(화장품 광고자문)는 레거시 디렉터리명 `kcia-package` 를 유지(후방호환 — 경로 소비자·골든 불변),
+    그 외 kind 는 kind 그대로가 디렉터리명(예 drug-ad-review). 새 도메인 = domain.json 필드만 추가(core 무수정).
+    파일/필드 부재·오류 → 레거시(kcia-advisory) 폴백 — 경로 결정은 게이트가 아니라 fail-safe 다(심의 게이트 무관)."""
+    kind = "kcia-advisory"
+    try:
+        if domain:
+            v = (load_json(os.path.join(PACKS_DIR, domain, "domain.json")) or {}).get("export_package")
+            if isinstance(v, str) and v.strip():
+                kind = v.strip()
+    except Exception:
+        kind = "kcia-advisory"
+    labels = {
+        "kcia-advisory": "협회 광고자문 제출 패키지",
+        "drug-ad-review": "의약품 광고 사전심의 제출 참고 패키지",
+        "hff-pre-review": "건강기능식품 광고 사전심의 제출 참고 패키지",
+    }
+    return {"kind": kind,
+            "dir": "kcia-package" if kind == "kcia-advisory" else kind,
+            "label": labels.get(kind, "%s 제출 참고 패키지" % kind)}
+
+
 def canon_json(fmt, domain=None):
     """캐논 단일 리더 — 포맷 캐논 정본 + 도메인 캐논 오버레이 병합(캐논 도메인 축).
 

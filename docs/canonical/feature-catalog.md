@@ -94,6 +94,8 @@
 | 스토리보드 의미검증 | (내부) | `scripts/lib/validate_storyboard.py` | enabled_if·캐논 강제(캐논 = `harness.canon_json` 병합 결과 — 포맷 정본 + 도메인 오버레이). | 🟡 |
 | 구성요소 커버리지 | `bash scripts/check-components.sh` | `scripts/check-components.sh` · `scripts/lib/check_canon_coverage.py` | 상세페이지 주요 구성요소 커버리지 검사(커버리지 SSoT = `harness.canon_json` 병합 결과의 components). | 🟡 |
 | 캐논 단일 리더(도메인 오버레이 병합) | (내부) | `scripts/lib/harness.py:canon_json` | 포맷 캐논 정본(`packs/_format/<fmt>/canon.json`) + 도메인 오버레이(`packs/<도메인>/canon-overlay.json` — blocks·components 교체·types 가법) 병합. 소비처 = validate_storyboard·check_canon_coverage·stub_stage. 오버레이 부재=no-op(바이트 불변)·손상=fail-closed. | 🟢 |
+| 디자인 토큰 단일 리더(도메인 오버레이 병합) | (내부) | `scripts/lib/harness.py:design_tokens` | 포맷 토큰(`packs/_format/design-tokens.json`) + 도메인 오버레이(`packs/<도메인>/design-tokens-overlay.json` — 최상위 키 교체·신규 키 가법) 병합. stub 아트디렉션 기본 톤·실 LLM 경로(storyboard-plan·keyvisual 프롬프트) 참조. 부재=no-op·손상=fail-closed. | 🟢 |
+| 수출 패키지 도메인 프로파일 | (내부) | `scripts/lib/harness.py:export_package_profile` | `domain.json` `export_package` → 패키지 디렉터리·라벨(화장품 kcia-advisory=`kcia-package` 레거시명 유지 · drug-ad-review=`drug-ad-review`). 소비처 = export_package·advance-phase(04→done 게이트)·render_runmd(done 안내). | 🟢 |
 | HTML 금지블록 스캔 | (내부) | `scripts/lib/check_html_blocks.py` | 포맷 금지 블록(data-block) 결정적 차단. | 🟡 |
 | 이미지 픽셀 금지어 | (내부) | `scripts/lib/image_ocr_scan.py` | 생성 이미지 픽셀-텍스트 금지어 스캔(NARROW). | 🟡 |
 | 자산 경로 안전성 | (내부) | `scripts/lib/check_asset_paths.py` | 저작권 traversal 우회 차단. | 🟢 |
@@ -110,7 +112,7 @@
 |---|---|---|---|---|
 | 로컬 Playwright 렌더 | `bash scripts/render-design.sh <id>` | `scripts/render-design.sh` · `scripts/lib/render.py` | HTML 렌더 + DOM 요소 단위 섹션 PNG 분할 + 저작권 lint. | 🟢 |
 | 임상 차트 도출 | (내부) | `scripts/lib/clinical_chart.py` | 인체적용시험 차트 결정적 도출 단일 출처. | 🟢 |
-| 제출 패키지 | (내부) | `scripts/lib/export_package.py` | 협회 광고자문 제출 패키지 생성. | 🟢 |
+| 제출 패키지 | (내부) | `scripts/lib/export_package.py` | 도메인별 제출 패키지 생성(`export_package_profile` — 화장품=협회 광고자문 `kcia-package` · 의약품=사전심의 제출 참고 `drug-ad-review`). | 🟢 |
 
 ## 8. 관측성 / 운영자 언어
 
@@ -134,7 +136,7 @@
 
 ## 10. 팩 (데이터 SSoT — 로직 아님)
 
-`packs/<도메인>/`(cosmetic·drug·health_food·quasi_drug)와 `packs/_format/` 은 **순수 데이터**다 — `domain.json`(레지스트리 엔트리)·`ruleset.json`·`sources/`·`golden/`·`fixtures/`·`canon.json`·`canon-overlay.json`(도메인 캐논 오버레이 — drug=교육콘텐츠 캐논). 실행코드가 없으며 위 core 기능들이 이 데이터를 읽는다. 새 도메인 = 팩 폴더 추가(레지스트리 자동 조립) + 진입 게이트(new-run·state.schema enum) 통제 추가.
+`packs/<도메인>/`(cosmetic·drug·health_food·quasi_drug)와 `packs/_format/` 은 **순수 데이터**다 — `domain.json`(레지스트리 엔트리)·`ruleset.json`·`sources/`·`golden/`·`fixtures/`·`canon.json`·`canon-overlay.json`(도메인 캐논 오버레이 — drug=교육콘텐츠 캐논[multipage_bm·one_pager])·`design-tokens-overlay.json`(도메인 디자인 토큰 오버레이 — drug=클리니컬·에듀케이션 톤). 실행코드가 없으며 위 core 기능들이 이 데이터를 읽는다. 새 도메인 = 팩 폴더 추가(레지스트리 자동 조립) + 진입 게이트(new-run·state.schema enum) 통제 추가.
 
 ## 11. 기능 동반물 매핑 — 모듈 경계
 

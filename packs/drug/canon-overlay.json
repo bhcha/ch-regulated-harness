@@ -2,6 +2,65 @@
   "_comment": "의약품 캐논 오버레이(도메인 캐논 축) — harness.canon_json 이 포맷 정본(packs/_format/<fmt>/canon.json) 위에 병합한다. 의약품 상세자료는 판매 소구가 아니라 '교육콘텐츠' 구조를 따른다(현업 확정 2026-08): 소비자의 질문에서 시작해 질환 → 원인 → 성분 → 근거 흐름으로 이해시킨 뒤 의약품 정보를 자연스럽게 연결하고, 직접 설득(판매/순위/후기 소구)은 하지 않는다. blocks·components = 통째 교체 · types_add = 포맷 types 에 가법(기존 런 후방호환 — 허용 카탈로그는 좁히지 않고, 시퀀스·필수 구성요소가 교육 구조를 강제한다). 전문용어 나열 대신 핵심 수치·도식·인포그래픽, 과학적 정확성 유지. 예시 워킹백워드: 우루사(UDCA) × GLP-1 다이어트 담석 위험.",
   "domain": "drug",
   "formats": {
+    "one_pager": {
+      "types_add": ["mechanism", "faq", "precautions"],
+      "blocks": [
+        {
+          "type": "hero",
+          "intent": "교육 주제 + 핵심 메시지 1~2개(소비자가 궁금해할 질문에서 시작)",
+          "risk_tier": "high",
+          "evidence_required": false
+        },
+        {
+          "type": "rtbSummary",
+          "intent": "핵심 포인트 요약 — 반드시 기억할 내용 3개 내외(1매 압축)",
+          "risk_tier": "medium",
+          "evidence_required": false
+        },
+        {
+          "type": "precautions",
+          "intent": "주의사항 — 과도한 자가판단 방지, 증상 지속 시 의사·약사와 상담 안내",
+          "risk_tier": "high",
+          "evidence_required": false
+        },
+        {
+          "type": "footer",
+          "intent": "필수기재 컨테이너(광고심의필·제조판매원 등 mandatory_inclusion)",
+          "risk_tier": "low",
+          "evidence_required": false
+        }
+      ],
+      "components": [
+        {
+          "id": "keyVisual",
+          "label": "교육 주제/핵심 메시지",
+          "satisfied_by": ["hero"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "keyPoints",
+          "label": "핵심 포인트 요약",
+          "satisfied_by": ["rtbSummary"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "precautions",
+          "label": "주의사항",
+          "satisfied_by": ["precautions"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "mandatoryInclusion",
+          "label": "필수기재(footer)",
+          "satisfied_by": ["footer"],
+          "required": true,
+          "evidence_gated": false
+        }
+      ]
+    },
     "multipage_bm": {
       "types_add": ["mechanism", "faq", "precautions"],
       "blocks": [
