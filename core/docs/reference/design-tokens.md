@@ -1,6 +1,9 @@
 # 디자인 토큰 (키비주얼 프리미티브)
 
 > `prompts/keyvisual.md` + `scripts/render-design.sh` 가 참조. 브랜드별 디자인 시스템(스킬)이 있으면 연계.
+> **토큰 값 정본 = `packs/_format/design-tokens.json` + 도메인 오버레이 `packs/<도메인>/design-tokens-overlay.json`(있으면)** —
+> 병합 단일 리더는 `harness.design_tokens(domain)`(디자인 토큰 도메인 축, 캐논 오버레이와 동형). 오버레이 도메인은
+> 그 `tone_directions`·`visual_guidance` 가 우선하고, 오버레이 없는 도메인은 포맷 토큰 그대로다.
 
 ## 채널 프로파일 (네이버 스마트스토어)
 - 콘텐츠 폭: **860px**, DPR 1, 96dpi. 세로 섹션 스택. gif 허용.

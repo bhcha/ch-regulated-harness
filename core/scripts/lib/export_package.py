@@ -10,7 +10,7 @@
 import sys, os, shutil, json, hashlib, stat, errno
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import load_json, atomic_write_json, now_iso, sha256_file as _sha256_file  # noqa: E402
+from harness import load_json, atomic_write_json, now_iso, regulatory_domain, export_package_profile, sha256_file as _sha256_file  # noqa: E402
 from check_evidence_reflection import reflected_map  # noqa: E402  (반영 블록 라벨 단일 출처 — done 게이트와 공용)
 
 _O_NONBLOCK = getattr(os, "O_NONBLOCK", 0)       # FIFO open 이 writer 대기로 블록되지 않게(정규파일엔 무영향)
@@ -173,7 +173,14 @@ def _reflect_evidence_documents(ev_src_dir, manifest_path, ev_exp_dir, rdir):
 def main():
     rdir = sys.argv[1]
     kv = os.path.join(rdir, "04-keyvisual")
-    exp = os.path.join(kv, "export", "kcia-package")
+    # 수출 도메인 축: 패키지 디렉터리명·표지 라벨은 도메인 domain.json 의 export_package 가 결정
+    #   (화장품 kcia-advisory=레거시 kcia-package 그대로 · drug-ad-review 등은 kind 명 디렉터리).
+    try:
+        _dom = regulatory_domain(load_json(os.path.join(rdir, "state.json")))
+    except Exception:
+        _dom = None
+    _prof = export_package_profile(_dom)
+    exp = os.path.join(kv, "export", _prof["dir"])
 
     sel = None
     dec = os.path.join(kv, "decision.json")
@@ -340,7 +347,7 @@ def main():
         pkg["review_capture_flag"] = review_capture_flag
     atomic_write_json(os.path.join(exp, "package.json"), pkg)
 
-    L = ["# 협회 광고자문 제출 패키지\n\n",
+    L = ["# %s\n\n" % _prof["label"],
          "- 매체: **인터넷 상세페이지**\n- 선택 시안: **%s**\n- 시안 PNG: %d장 (shots/)\n\n" % (sel, len(copied)),
          "## 기능성 표시 상태\n"]
     for k, v in func.items():
@@ -400,8 +407,8 @@ def main():
                  "오인 방지 고지('후기가 아닌 시험대상자 설문'류) 존재: **%s**.\n" % _rc_notice)
     L.append("\n> %s\n" % pkg["disclaimer"])
     open(os.path.join(exp, "README.md"), "w", encoding="utf-8").write("".join(L))
-    print("[export] kcia-package 생성: 시안 %d장 · 근거 %d건%s · 매체=인터넷 상세페이지" % (
-        len(copied), len(evidence), (" · 첨부문서 %d건" % len(evidence_documents)) if has_manifest else ""))
+    print("[export] %s 생성: 시안 %d장 · 근거 %d건%s · 매체=인터넷 상세페이지" % (
+        _prof["dir"], len(copied), len(evidence), (" · 첨부문서 %d건" % len(evidence_documents)) if has_manifest else ""))
 
 
 if __name__ == "__main__":

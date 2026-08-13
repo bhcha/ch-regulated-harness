@@ -7,7 +7,7 @@
 import sys, os, json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import load_json, now_iso, storyboard_substage, ROOT as _ROOT, regulatory_domain  # noqa: E402
+from harness import load_json, now_iso, storyboard_substage, ROOT as _ROOT, regulatory_domain, export_package_profile  # noqa: E402
 # 현업 화면 평이 라벨의 단일 출처(개선계획 1부 단계1). PHASE_LABEL·헬퍼를 여기서 재노출 →
 #   next-action.sh 의 R.PHASE_LABEL / R.phase_label 재사용이 그대로 동작(불일치 차단).
 from operator_labels import (  # noqa: E402
@@ -239,8 +239,10 @@ def next_command(rid, st, rdir):
         return ("bash scripts/run-stage.sh raise-limit %s" % rid,
                 signal("stuck"), files, "표현을 직접 고치거나, 운영자·담당자에게 알려 주세요.")
     if phase == "done":
-        return ("ls runs/%s/04-keyvisual/export/kcia-package" % rid,
-                "모든 단계 완료", files, "협회 자문 패키지를 검토·제출하세요.")
+        # 수출 도메인 축: 패키지 디렉터리·안내 라벨은 도메인 export_package 프로파일이 결정(화장품=kcia-package 불변).
+        _prof = export_package_profile(regulatory_domain(st))
+        return ("ls runs/%s/04-keyvisual/export/%s" % (rid, _prof["dir"]),
+                "모든 단계 완료", files, "%s를 검토·제출하세요." % _prof["label"])
     if phase == "00-ingest":
         return ("bash scripts/ingest-bundle.sh <자료폴더> %s" % rid, "자료 불러오기 대기", files,
                 "<자료폴더>를 실제 자료 폴더 경로로 바꾸세요.")

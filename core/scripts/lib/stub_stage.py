@@ -13,7 +13,7 @@
 import sys, os, json, re
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import atomic_write_json, load_json, ROOT, PACKS_DIR, FORMATS_DIR, canon_json, is_number as _isnum, sha256_file as _sha256_file, html_escape  # noqa: E402
+from harness import atomic_write_json, load_json, ROOT, PACKS_DIR, FORMATS_DIR, canon_json, design_tokens, is_number as _isnum, sha256_file as _sha256_file, html_escape  # noqa: E402
 import openalex as _openalex  # noqa: E402  # B-4: 근거검색 배선(오프라인 결정적 stub = search_stub). import 부작용 0(순수 라이브러리).
 
 
@@ -431,6 +431,16 @@ def _bp_blocks(rdir):
 _DEFAULT_STYLE = TONE_DIRECTIONS[0]
 
 
+def _style():
+    """기본 톤 = 도메인 오버레이 병합 토큰의 tone_directions[0](디자인 토큰 도메인 축 — harness.design_tokens).
+    오버레이 없는 도메인 = 포맷 토큰 그대로(_DEFAULT_STYLE 과 동일 값 → cosmetic 골든 불변).
+    수요 시점 평가라 import 시 HARNESS_DOMAIN 불요(도메인 미선언·오류 → 포맷 기본 톤 fail-safe)."""
+    try:
+        return design_tokens(os.environ.get("HARNESS_DOMAIN"))["tone_directions"][0]
+    except Exception:
+        return _DEFAULT_STYLE
+
+
 # ───────────────────── 전역 아트디렉션(P0-ⓠ: 톤 일관성 선결 조건) ─────────────────────
 def _art_direction(rdir):
     """현재 run 의 전역 아트디렉션(03-storyboard/art-direction.json). 없으면 기본 톤(_DEFAULT_STYLE)에서 파생.
@@ -443,11 +453,12 @@ def _art_direction(rdir):
         except Exception:
             pass
     product, _svgs = _own_assets(rdir)
+    sty = _style()   # 도메인 오버레이 병합 기본 톤(오버레이 없는 도메인 = 기존 값 그대로)
     return {
-        "master_palette": _DEFAULT_STYLE["palette"],
-        "color_temp": _DEFAULT_STYLE["mood"]["color_temp"],
-        "lighting": _DEFAULT_STYLE["mood"]["lighting"],
-        "typography": _DEFAULT_STYLE["typography"],
+        "master_palette": sty["palette"],
+        "color_temp": sty["mood"]["color_temp"],
+        "lighting": sty["mood"]["lighting"],
+        "typography": sty["typography"],
         "master_reference": product or "inputs/assets/product-main.jpg",
     }
 
@@ -458,11 +469,12 @@ def gen_art_direction(rdir):
     product, _svgs = _own_assets(rdir)
     out = os.path.join(rdir, "03-storyboard")
     os.makedirs(out, exist_ok=True)
+    sty = _style()   # 도메인 오버레이 병합 기본 톤(오버레이 없는 도메인 = 기존 값 그대로)
     ad = {
-        "master_palette": _DEFAULT_STYLE["palette"],
-        "color_temp": _DEFAULT_STYLE["mood"]["color_temp"],
-        "lighting": _DEFAULT_STYLE["mood"]["lighting"],
-        "typography": _DEFAULT_STYLE["typography"],
+        "master_palette": sty["palette"],
+        "color_temp": sty["mood"]["color_temp"],
+        "lighting": sty["mood"]["lighting"],
+        "typography": sty["typography"],
         "master_reference": product or "inputs/assets/product-main.jpg",
         "mood_keywords": ["데일리", "정돈된"],
         "notes": "전 블록 공통 톤앤매너(브랜드킷). 블록은 composition·subject·aspect_ratio 등 고유만 둔다.",
@@ -479,14 +491,15 @@ def _build_concept(rdir, order, typ):
     bpb = bp.get(typ)
     direction = bpb["composition_note"] if bpb else _DIRECTION_DEFAULT
     ad = _art_direction(rdir)   # 전역 상속(master_palette ⊇ 블록 palette 가 항상 성립)
+    sty = _style()   # 폴백 톤도 도메인 오버레이 병합값(오버레이 없는 도메인 = 기존 값 그대로)
     return {
         "subject": "%s 제품컷" % _product_name(),
         "composition": _COMPOSITION_DEFAULT,
-        "mood": {"color_temp": ad.get("color_temp", _DEFAULT_STYLE["mood"]["color_temp"]),
-                 "lighting": ad.get("lighting", _DEFAULT_STYLE["mood"]["lighting"]),
-                 "texture": _DEFAULT_STYLE["mood"]["texture"]},
-        "palette": ad.get("master_palette", _DEFAULT_STYLE["palette"]),
-        "typography": ad.get("typography", _DEFAULT_STYLE["typography"]),
+        "mood": {"color_temp": ad.get("color_temp", sty["mood"]["color_temp"]),
+                 "lighting": ad.get("lighting", sty["mood"]["lighting"]),
+                 "texture": sty["mood"]["texture"]},
+        "palette": ad.get("master_palette", sty["palette"]),
+        "typography": ad.get("typography", sty["typography"]),
         "aspect_ratio": "1:1",
         "handoff_note": "누끼 경계 깔끔하게, 그림자 자연스럽게",
         "reference": {

@@ -8,7 +8,7 @@
 - **Outputs** (스키마 harness/*.schema.json): `02-concept/concept-axes.json`(concept-axes) · `options/<axis>/{rtb.json(rtb),key-message.json(key-message)}` · `recommendation.json`(recommendation)
 
 ## 절차
-1. 먼저 `02-concept/concept-axes.json` 에 서로 다른 축을 정의한다(화장품 예: A-efficacy/B-emotional/C-science). **광고 제한 도메인(의약품 등)·소비자 리뷰(VOC) 없는 제품은 감성 VOC 축(B-emotional) 대신 안전성·정보 축(B-safety: 허가사항·복약·주의)을 둔다** — 빈 VOC 로 감성 축을 강제하지 말 것.
+1. 먼저 `02-concept/concept-axes.json` 에 서로 다른 축을 정의한다(예: A-efficacy/B-emotional/C-science). **소비자 리뷰(VOC) 없는 제품은 감성 VOC 축(B-emotional) 대신 안전성·정보 축(B-safety: 허가·표시사항 등 사실 정보)을 둔다** — 빈 VOC 로 감성 축을 강제하지 말 것. 도메인이 감성 소구를 제한하면 그 규칙은 `DOMAIN_GEN_RULES`(팩 소유 생성 규칙 조각)로 주입된다 — core 프롬프트는 도메인을 열거하지 않는다.
 2. **각 축을 별도 호출로** 생성한다. 축마다 `02-concept/options/<axis-id>/{rtb.json,key-message.json}`.
 
 ## 규칙 (환각 방지 / 심의 통과)

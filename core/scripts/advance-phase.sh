@@ -76,8 +76,18 @@ except Exception: print('')" 2>/dev/null || true)"
   [ "$(jget "$_ADV_VP" escalate 2>/dev/null || true)" != "true" ] \
     || die "verdict.escalate=true — 자동 전이 불가(에스컬레이션은 사람 개입). 부록A-9."
   if [ "$_ADV_PHASE" = "04-keyvisual" ]; then
-    [ -f "$(run_dir "$RID")/04-keyvisual/export/kcia-package/package.json" ] \
-      || die "04→done 은 gate.sh review-pass(export finalize)에서만 — 협회 export 패키지 부재(직접 advance 로 export 우회 금지, 부록A-9)."
+    # 수출 도메인 축: 패키지 디렉터리명은 도메인 domain.json 의 export_package 가 결정(harness.export_package_profile 단일 리더).
+    _ADV_EXPDIR="$("$PY" -c '
+import sys, os
+sys.path.insert(0, os.path.join(sys.argv[1], "scripts", "lib"))
+from harness import load_json, regulatory_domain, export_package_profile
+try:
+    dom = regulatory_domain(load_json(os.path.join(sys.argv[2], "state.json")))
+except Exception:
+    dom = None
+print(export_package_profile(dom)["dir"])' "$HARNESS_ROOT" "$(run_dir "$RID")")"
+    [ -f "$(run_dir "$RID")/04-keyvisual/export/${_ADV_EXPDIR}/package.json" ] \
+      || die "04→done 은 gate.sh review-pass(export finalize)에서만 — export 패키지(${_ADV_EXPDIR}) 부재(직접 advance 로 export 우회 금지, 부록A-9)."
   fi
   # 03-storyboard outline 심의통과는 gate.sh review-pass 가 **intra-phase 로 outline→plan** 전이한다(라우트 03→04 아님).
   #   no-arg advance 는 라우트 전이(03→04)를 수행해 plan 생성·심의를 통째 건너뛰므로 outline substage 에서는 금지(외부리뷰 3R Critical).

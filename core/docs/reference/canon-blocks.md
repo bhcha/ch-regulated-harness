@@ -19,12 +19,16 @@
 구성요소)가 **통째로 교체**되고, `types` 는 **가법**(포맷 카탈로그 ∪ `types_add` — 기존 런 후방호환)이다.
 오버레이 부재 도메인(화장품 등)은 포맷 캐논 그대로(no-op).
 
-- **drug(의약품) × multipage_bm = 교육콘텐츠 캐논**: `packs/drug/canon-overlay.json` — 11블록 시퀀스
-  (hero 교육주제/핵심메시지 → problem 문제 인식 → mechanism 발생 원리 → ingredientTech 성분 이해 →
-  ingredientDetail 작용 원리 → rtbSummary 핵심 포인트 → clinicalEvidence 연구 근거[실증 게이트] →
-  targetAudience 이런 분들은 알아두세요 → faq → precautions 주의사항 → footer 필수기재) + 11대 구성요소.
-  판매/순위/후기 직접 설득 블록(socialProof·reviewCapture·buyingGuide 등)은 시퀀스에 없다(질환→원인→성분→근거 흐름).
-  신규 블록 type = `mechanism`·`faq`·`precautions`.
+- **drug(의약품) = 교육콘텐츠 캐논**: `packs/drug/canon-overlay.json`
+  - **multipage_bm** — 11블록 시퀀스(hero 교육주제/핵심메시지 → problem 문제 인식 → mechanism 발생 원리 →
+    ingredientTech 성분 이해 → ingredientDetail 작용 원리 → rtbSummary 핵심 포인트 → clinicalEvidence 연구
+    근거[실증 게이트] → targetAudience 이런 분들은 알아두세요 → faq → precautions 주의사항 → footer 필수기재)
+    + 11대 구성요소.
+  - **one_pager** — 4블록 1매 압축(hero → rtbSummary 핵심 포인트 → precautions → footer 필수기재) + 4구성요소.
+    포맷 캐논의 CTA 필수를 대체한다(의약품 한장 홍보물에 구매전환 블록 없음).
+  - 판매/순위/후기 직접 설득 블록(socialProof·reviewCapture·buyingGuide 등)은 시퀀스에 없다(질환→원인→성분→근거 흐름).
+    신규 블록 type = `mechanism`·`faq`·`precautions`.
+  - 디자인 언어 짝: `packs/drug/design-tokens-overlay.json`(클리니컬·에듀케이션 톤 — `harness.design_tokens` 병합).
 
 블록 목록·intent·risk_tier·구성요소 매핑은 위 canon.json/canon-overlay.json 파일을 직접 본다. 스키마
 (`harness/storyline.schema.json`·`plan-block.schema.json`)의 `type` 은 4단계에서 닫힌 enum → 구조적 패턴으로
