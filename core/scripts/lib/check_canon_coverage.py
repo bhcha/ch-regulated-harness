@@ -14,7 +14,7 @@ packs/_format/<format>/canon.json(정본 1개, format 팩)의 components 구성�
 import sys, os, json, re
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import load_json, atomic_write_json, PACKS_DIR, FORMATS_DIR, deliverable_format  # noqa: E402
+from harness import load_json, atomic_write_json, PACKS_DIR, FORMATS_DIR, deliverable_format, regulatory_domain, canon_json  # noqa: E402
 
 # PACKS_DIR·FORMATS_DIR: harness 에서 import (K-1 일원화 — 경로 해석 단일화)
 
@@ -194,19 +194,19 @@ def out_path_for(rdir, scope):
 
 
 def coverage_spec(rdir):
-    """4단계: 구성요소 커버리지 SSoT = 포맷 캐논 정본 canon.json 의 components(packs/_format/<fmt>/canon.json).
-       canon-components.<format>.json 는 canon.json 으로 흡수됨. 미정의/부재 포맷 → multipage_bm 캐논 폴백."""
-    fmt = "multipage_bm"
+    """4단계: 구성요소 커버리지 SSoT = 캐논 정본 canon.json 의 components(harness.canon_json 위임 —
+       포맷 정본 + 도메인 오버레이 병합[예: drug 교육콘텐츠 캐논]). 미정의/부재 포맷 → multipage_bm 캐논 폴백.
+       오버레이 없는 도메인은 포맷 정본 그대로(기존 바이트 불변)."""
+    fmt, dom = "multipage_bm", None
     sf = os.path.join(rdir, "state.json")
     if os.path.exists(sf):
         try:
-            fmt = deliverable_format(load_json(sf))
+            st = load_json(sf)
+            fmt = deliverable_format(st)
+            dom = regulatory_domain(st)
         except Exception:
-            fmt = "multipage_bm"
-    p = os.path.join(FORMATS_DIR, fmt, "canon.json")
-    if not os.path.exists(p):
-        p = os.path.join(FORMATS_DIR, "multipage_bm", "canon.json")
-    return load_json(p)["components"]
+            fmt, dom = "multipage_bm", None
+    return canon_json(fmt, dom)["components"]
 
 
 def _eval_one(spec, present, has_evidence, has_brand, has_sales_claim):

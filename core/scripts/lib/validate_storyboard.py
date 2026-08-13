@@ -10,7 +10,8 @@
 import sys, os, json, re
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import load_json, ROOT, deliverable_format, is_number as _is_num  # noqa: E402
+from harness import load_json, ROOT, deliverable_format, regulatory_domain, canon_json  # noqa: E402
+from harness import is_number as _is_num  # noqa: E402
 from clinical_chart import derive_chart, numbers_consistent, metric_matches_claim  # noqa: E402  (도출·숫자·지표 단일 출처)
 
 # ROOT: harness.ROOT 를 import (K-1 일원화 — 3단 dirname 재계산 제거)
@@ -205,27 +206,27 @@ def _check_reference_binding(blocks, docs_by_id, errs):
                                 "reflection_points 중 하나를 블록 카피에 원문 그대로 반영하세요(각주 인용만으로는 반영 아님)." % tok)
 
 
-def _canon_json(fmt):
-    """포맷 캐논 정본(packs/_format/<fmt>/canon.json) 로드. 미정의/부재 포맷 → multipage_bm 폴백."""
-    p = os.path.join(FORMATS_DIR, fmt, "canon.json")
-    if not os.path.exists(p):
-        p = os.path.join(FORMATS_DIR, "multipage_bm", "canon.json")
-    return load_json(p)
+def _canon_json(fmt, dom=None):
+    """캐논 로드 — harness.canon_json 위임(포맷 정본 + 도메인 오버레이 병합, 캐논 도메인 축).
+    도메인 오버레이 부재/미지정 = 포맷 정본 그대로(기존 도메인 바이트 불변)."""
+    return canon_json(fmt, dom)
 
 
-def _canon(fmt):
-    """캐논 유효 블록 카탈로그 = 정본 canon.json 의 types(4단계: storyline 스키마 enum 대신 정본 1개).
-    로드 실패 = 미완 캐논 fail-closed(빈 집합 → check_blocks 가 모든 블록을 '캐논 외'로 거부; 옛 무음 폴백 폐지)."""
+def _canon(fmt, dom=None):
+    """캐논 유효 블록 카탈로그 = 정본 canon.json 의 types(4단계: storyline 스키마 enum 대신 정본 1개)
+    + 도메인 오버레이 types(가법). 로드 실패 = 미완 캐논 fail-closed(빈 집합 → check_blocks 가
+    모든 블록을 '캐논 외'로 거부; 옛 무음 폴백 폐지 — 손상 오버레이도 동일하게 fail-closed)."""
     try:
-        return set(_canon_json(fmt).get("types") or [])
+        return set(_canon_json(fmt, dom).get("types") or [])
     except Exception:
         return set()
 
 
-def _required_root(fmt):
-    """포맷별 필수 루트 블록 = 정본 canon.json 의 required_root. 로드/키 부재 → ['hero'](BM 후방호환)."""
+def _required_root(fmt, dom=None):
+    """포맷별 필수 루트 블록 = 정본 canon.json 의 required_root(도메인 오버레이 병합 후).
+    로드/키 부재 → ['hero'](BM 후방호환)."""
     try:
-        rr = _canon_json(fmt).get("required_root")
+        rr = _canon_json(fmt, dom).get("required_root")
         return rr if rr else ["hero"]
     except Exception:
         return ["hero"]
@@ -236,6 +237,14 @@ def _format(rdir):
         return deliverable_format(load_json(os.path.join(rdir, "state.json")))
     except Exception:
         return "multipage_bm"
+
+
+def _domain(rdir):
+    """run 의 규제도메인(state.product.regulatory_domain). 부재/오류 → None(오버레이 미적용)."""
+    try:
+        return regulatory_domain(load_json(os.path.join(rdir, "state.json")))
+    except Exception:
+        return None
 
 
 def _disallowed(fmt):
@@ -351,8 +360,9 @@ def main():
     has_evidence = len(cb.get("evidence_on_file", [])) > 0
     evidence_by_id = {e["id"]: e for e in cb.get("evidence_on_file", []) if isinstance(e, dict) and e.get("id")}
     fmt = _format(rdir)
-    canon = _canon(fmt)
-    req_root = _required_root(fmt)
+    dom = _domain(rdir)
+    canon = _canon(fmt, dom)
+    req_root = _required_root(fmt, dom)
     disallowed = _disallowed(fmt)
     errs = []
     sb = os.path.join(rdir, "03-storyboard")

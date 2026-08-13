@@ -2,7 +2,7 @@
 > **이 문서의 지위:** "어떤 규제도메인/산출물 포맷이 있고, 각각 어떤 심의 룰셋·1차 출처·ADK 엔드포인트·캐논을 갖는가"의 사람용 조회 정본.
 > **관계:** 규칙 SSoT = [`../AGENTS.md`](../../core/AGENTS.md)(3·8번 절). 도메인 데이터 SSoT = 형제 [`../../packs/<도메인>/`](../../packs/). 워크플로우 정본 = [`workflow-ssot.md`](workflow-ssot.md). 기능 인벤토리 = [`feature-catalog.md`](feature-catalog.md).
 > **본문 원칙:** 현재 존재하는 팩만 담는다(변경 이력 서술 금지). 이력은 git.
-> 작성 2026-07-10 · 최신 갱신 2026-07-10
+> 작성 2026-07-10 · 최신 갱신 2026-08-13
 > **유지보수(keep-in-sync):** 이 문서는 AGENTS.md 4번 절 D-1 동반갱신 대상이다 — 도메인/포맷 팩을 추가하거나, `domain.json` status 를 전환하거나, 룰셋/캐논 구조가 바뀌면 같은 변경에서 이 문서 해당 행을 갱신한다.
 
 ---
@@ -27,7 +27,7 @@
 | **건강기능식품**(health_food) | ready-only | 없음 | **파일 부재**(`packs/health_food/ruleset.json` 없음 → 로더가 미완 룰셋 반환 = fail-closed) | **없음** | **placeholder-autopass** — 자료 대기 |
 
 - ⚠️ active 2개도 **1차 추출 초안**(cosmetic=2025 PDF 실입수 후 별표 재대조, drug=전문/일반 구분·허가사항 초과·필수기재 적용범위 현업 확인 의존). 카탈로그 완전성 미검증. *(각 `packs/<도메인>/ruleset.json` 의 meta.note)*
-- **팩 소유 부가 파일(도메인별, core 무수정으로 자동 배선)**: `ruleset.json`·`domain.json`·`sources/` 외에 — `ingest-profile.json`(도메인별 추출 프로파일 — VOC·페르소나·기능성/인증 어휘·form_factors 등, `ingest.py`·`form_factor.py` 가 읽음; 4개 도메인 모두 보유, 부재 시 공집합 추출 fail-safe) · `gen-fragment.md`(도메인 생성 규칙, `build_context` 가 `DOMAIN_GEN_RULES` 로 주입·Seam B; cosmetic·drug 저작됨) · `critic-fragment.md`(심의 참조·미배선) · `rtb-writing-guide.md`(도메인 RTB 작성 가이드·미배선; drug 저작됨) · `common-terms.json`(보편어 가드 입력, 스키마 `common-terms.schema.json`·Seam F; cosmetic·drug 시드) · `learned/deny.json`(학습 승격 금지어, 스키마 `learned-lexicon.schema.json`·Seam F, **사람 승인 승격 시에만 생성**, 부재=no-op) · `learned/brands/<브랜드>.json`(선택 유래 선호, 브랜드 스코프). 부재 파일은 전부 no-op(골든 불변). *(생성=`/learn-analyze`→`apply-learnings.sh`; 자동 승격 없음)*
+- **팩 소유 부가 파일(도메인별, core 무수정으로 자동 배선)**: `ruleset.json`·`domain.json`·`sources/` 외에 — `ingest-profile.json`(도메인별 추출 프로파일 — VOC·페르소나·기능성/인증 어휘·form_factors 등, `ingest.py`·`form_factor.py` 가 읽음; 4개 도메인 모두 보유, 부재 시 공집합 추출 fail-safe) · `canon-overlay.json`(**도메인 캐논 오버레이** — 포맷 캐논 위에 도메인×포맷 blocks 시퀀스·components 커버리지를 통째 교체하고 types 는 가법, `harness.canon_json` 이 병합해 스토리보드 생성·검증·커버리지가 소비; **drug 저작됨 = multipage_bm 교육콘텐츠 캐논**[hero 교육주제→problem→mechanism→ingredientTech→ingredientDetail→rtbSummary→clinicalEvidence→targetAudience→faq→precautions→footer 필수기재; 신규 블록 mechanism·faq·precautions], 부재 도메인=포맷 캐논 그대로 no-op) · `gen-fragment.md`(도메인 생성 규칙, `build_context` 가 `DOMAIN_GEN_RULES` 로 주입·Seam B; cosmetic·drug 저작됨) · `critic-fragment.md`(심의 참조·미배선) · `rtb-writing-guide.md`(도메인 RTB 작성 가이드·미배선; drug 저작됨) · `common-terms.json`(보편어 가드 입력, 스키마 `common-terms.schema.json`·Seam F; cosmetic·drug 시드) · `learned/deny.json`(학습 승격 금지어, 스키마 `learned-lexicon.schema.json`·Seam F, **사람 승인 승격 시에만 생성**, 부재=no-op) · `learned/brands/<브랜드>.json`(선택 유래 선호, 브랜드 스코프). 부재 파일은 전부 no-op(골든 불변). *(생성=`/learn-analyze`→`apply-learnings.sh`; 자동 승격 없음)*
 - ⚠️ **ADK 구현/미구현 = `adk_critic` 블록 유무**(status 와 직교): 현재 **화장품·의약품 둘 다 블록이 있어 원격 ADK 실심의가 돈다**(URL env 미설정 시 fail-closed). `adk_critic` 블록이 없는 도메인은 룰엔진-단독 + 사람 확인 권장으로 가시화한다(조용한 강등 금지). 추후 다른 도메인도 엔드포인트를 받으면 `packs/<도메인>/domain.json` 에 `adk_critic` 블록 + `.env` 에 `ADK_<도메인>_CRITIC_URL`/`_ALLOWED_HOST` 추가만으로 자동 활성(core 무수정).
 - ⚠️ `status != active`(의약외품 tbd · 건기식 ready-only)는 `kcia-check.sh` 가 evaluate 이전에 `placeholder-autopass`(verdict=pass+note)로 무조건 통과시킨다(데드엔드 방지). 자료 입수·`active` 전환 시 자동 실심의.
 - ⚠️ 레거시 폴백(`harness/regulatory-domains.json` · `docs/regulation/ruleset.json`=`LEGACY_RULESET` · `default→cosmetic` 메커니즘)은 **폐지**됐다 — `packs/` 가 유일 레지스트리 SSoT다. 등록은 됐는데 ruleset 파일이 없으면(health_food) '미완 룰셋'(빈 축)을 반환해 fail-closed 하고, **미선언·미등록 도메인도 cosmetic 으로 조용히 폴백하지 않고 fail-closed** 한다.
@@ -54,7 +54,8 @@
 | [`design-tokens.json`](../../packs/_format/design-tokens.json) | 렌더 디자인 토큰(색·타이포·간격 등) 공용 정본 |
 
 - **캐논(canon) 정본 위치 = `packs/_format/<포맷>/canon.json`.** 각 canon.json 은 `blocks`(생성 시퀀스: order·intent·risk_tier·evidence_required) · `evidence_gated`/`brand_gated`(조건부 제외 집합) · `required_root`(필수 루트 블록) · `types`(전역 유효 블록 카탈로그) · `components`(커버리지)로 구성된다.
-- **사람용 파생 설명 = [`canon-blocks.md`](../../core/docs/reference/canon-blocks.md)** — 캐논 블록의 사람용 해설이며, 정본은 어디까지나 `canon.json` 이다(불일치 시 canon.json 우선). 디자인 토큰의 사람용 설명은 [`design-tokens.md`](../../core/docs/reference/design-tokens.md).
+- **도메인 캐논 오버레이 = `packs/<도메인>/canon-overlay.json`(있으면).** 캐논은 포맷×도메인 2축이다 — 도메인 팩에 오버레이가 있으면 그 도메인×포맷 조합에서 `blocks`·`components` 가 통째 교체되고 `types` 는 가법(`types_add`; 허용 카탈로그는 좁히지 않음 — 기존 런 후방호환), 병합은 `harness.canon_json(fmt, domain)` 단일 리더가 한다. 현재 저작: **drug × multipage_bm = 교육콘텐츠 캐논**(질환→원인→성분→근거 흐름 11블록 + 11대 구성요소[필수기재 footer 포함]; 판매/순위/후기 직접 설득 블록은 시퀀스에 없음). 오버레이 부재 도메인(cosmetic 등)=포맷 캐논 그대로(no-op·바이트 불변).
+- **사람용 파생 설명 = [`canon-blocks.md`](../../core/docs/reference/canon-blocks.md)** — 캐논 블록의 사람용 해설이며, 정본은 어디까지나 `canon.json`(+오버레이 병합 결과)이다(불일치 시 canon.json 우선). 디자인 토큰의 사람용 설명은 [`design-tokens.md`](../../core/docs/reference/design-tokens.md).
 
 ---
 

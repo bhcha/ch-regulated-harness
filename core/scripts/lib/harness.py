@@ -73,6 +73,41 @@ def regulatory_domain(state):
     return (state.get("product") or {}).get("regulatory_domain")
 
 
+def canon_json(fmt, domain=None):
+    """캐논 단일 리더 — 포맷 캐논 정본 + 도메인 캐논 오버레이 병합(캐논 도메인 축).
+
+    base = packs/_format/<fmt>/canon.json (미정의/부재 포맷 → multipage_bm 폴백 — 기존 소비처 3곳
+    [validate_storyboard·check_canon_coverage·stub_stage] 의 폴백과 동형; 이 헬퍼가 그 산재 로더를 흡수).
+    domain 팩에 canon-overlay.json 이 있고 formats.<fmt> 항목이 있으면 병합한다(예: drug 교육콘텐츠 캐논):
+      - blocks·components·evidence_gated·brand_gated·required_root: 오버레이에 있으면 통째 교체(도메인 캐논 분리)
+      - types: 가법(base types ∪ types_add ∪ 오버레이 blocks 의 type) — 기존 런·스텁 산출물 후방호환(허용 카탈로그는 좁히지 않음)
+    오버레이 부재/도메인 미지정 = 병합 없음(no-op — 오버레이 없는 도메인[cosmetic 등]은 바이트 불변).
+    오버레이 파일이 존재하는데 파싱 불가면 예외 전파(fail-closed — 조용히 포맷 기본 캐논으로 강등하지 않는다)."""
+    p = os.path.join(FORMATS_DIR, fmt, "canon.json")
+    if not os.path.exists(p):
+        fmt = "multipage_bm"
+        p = os.path.join(FORMATS_DIR, fmt, "canon.json")
+    base = load_json(p)
+    if not domain:
+        return base
+    op = os.path.join(PACKS_DIR, domain, "canon-overlay.json")
+    if not os.path.exists(op):
+        return base
+    ov = (load_json(op).get("formats") or {}).get(fmt)
+    if not isinstance(ov, dict):
+        return base
+    merged = dict(base)
+    for k in ("blocks", "components", "evidence_gated", "brand_gated", "required_root"):
+        if k in ov:
+            merged[k] = ov[k]
+    types = list(base.get("types") or [])
+    for t in list(ov.get("types_add") or []) + [b.get("type") for b in (ov.get("blocks") or []) if isinstance(b, dict)]:
+        if t and t not in types:
+            types.append(t)
+    merged["types"] = types
+    return merged
+
+
 def storyboard_substage(rdir):
     """03-storyboard 서브스테이지: outline(스토리라인) → plan(기획안).
     M4(C2): **state.storyboard_substage 명시 커서**가 단일 진실(gate.sh review-pass 만 전진).

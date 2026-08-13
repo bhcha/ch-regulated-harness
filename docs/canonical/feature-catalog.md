@@ -91,8 +91,9 @@
 | 기능 | 진입점 | 구현 | 한 줄 설명 | 결합 |
 |---|---|---|---|---|
 | 산출물 스키마 검증 | (run-stage 내부) | `scripts/validate-stage.sh` · `scripts/lib/validate_stage.py` | 산출물 JSON 을 harness/*.schema.json 로 검증(친절한 반려). | 🟢 |
-| 스토리보드 의미검증 | (내부) | `scripts/lib/validate_storyboard.py` | enabled_if·캐논 강제. | 🟡 |
-| 구성요소 커버리지 | `bash scripts/check-components.sh` | `scripts/check-components.sh` · `scripts/lib/check_canon_coverage.py` | 상세페이지 주요 구성요소 커버리지 검사. | 🟡 |
+| 스토리보드 의미검증 | (내부) | `scripts/lib/validate_storyboard.py` | enabled_if·캐논 강제(캐논 = `harness.canon_json` 병합 결과 — 포맷 정본 + 도메인 오버레이). | 🟡 |
+| 구성요소 커버리지 | `bash scripts/check-components.sh` | `scripts/check-components.sh` · `scripts/lib/check_canon_coverage.py` | 상세페이지 주요 구성요소 커버리지 검사(커버리지 SSoT = `harness.canon_json` 병합 결과의 components). | 🟡 |
+| 캐논 단일 리더(도메인 오버레이 병합) | (내부) | `scripts/lib/harness.py:canon_json` | 포맷 캐논 정본(`packs/_format/<fmt>/canon.json`) + 도메인 오버레이(`packs/<도메인>/canon-overlay.json` — blocks·components 교체·types 가법) 병합. 소비처 = validate_storyboard·check_canon_coverage·stub_stage. 오버레이 부재=no-op(바이트 불변)·손상=fail-closed. | 🟢 |
 | HTML 금지블록 스캔 | (내부) | `scripts/lib/check_html_blocks.py` | 포맷 금지 블록(data-block) 결정적 차단. | 🟡 |
 | 이미지 픽셀 금지어 | (내부) | `scripts/lib/image_ocr_scan.py` | 생성 이미지 픽셀-텍스트 금지어 스캔(NARROW). | 🟡 |
 | 자산 경로 안전성 | (내부) | `scripts/lib/check_asset_paths.py` | 저작권 traversal 우회 차단. | 🟢 |
@@ -133,7 +134,7 @@
 
 ## 10. 팩 (데이터 SSoT — 로직 아님)
 
-`packs/<도메인>/`(cosmetic·drug·health_food·quasi_drug)와 `packs/_format/` 은 **순수 데이터**다 — `domain.json`(레지스트리 엔트리)·`ruleset.json`·`sources/`·`golden/`·`fixtures/`·`canon.json`. 실행코드가 없으며 위 core 기능들이 이 데이터를 읽는다. 새 도메인 = 팩 폴더 추가(레지스트리 자동 조립) + 진입 게이트(new-run·state.schema enum) 통제 추가.
+`packs/<도메인>/`(cosmetic·drug·health_food·quasi_drug)와 `packs/_format/` 은 **순수 데이터**다 — `domain.json`(레지스트리 엔트리)·`ruleset.json`·`sources/`·`golden/`·`fixtures/`·`canon.json`·`canon-overlay.json`(도메인 캐논 오버레이 — drug=교육콘텐츠 캐논). 실행코드가 없으며 위 core 기능들이 이 데이터를 읽는다. 새 도메인 = 팩 폴더 추가(레지스트리 자동 조립) + 진입 게이트(new-run·state.schema enum) 통제 추가.
 
 ## 11. 기능 동반물 매핑 — 모듈 경계
 
