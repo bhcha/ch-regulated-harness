@@ -13,7 +13,7 @@
 import sys, os, json, re
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import atomic_write_json, load_json, ROOT, PACKS_DIR, FORMATS_DIR, is_number as _isnum, sha256_file as _sha256_file, html_escape  # noqa: E402
+from harness import atomic_write_json, load_json, ROOT, PACKS_DIR, FORMATS_DIR, canon_json, is_number as _isnum, sha256_file as _sha256_file, html_escape  # noqa: E402
 import openalex as _openalex  # noqa: E402  # B-4: 근거검색 배선(오프라인 결정적 stub = search_stub). import 부작용 0(순수 라이브러리).
 
 
@@ -312,11 +312,10 @@ def _concept_axis_content(axis_id, top, approved, cb):
 # 캐논 정본 = packs/_format/<format>/canon.json(4단계, SSoT 1개). blocks 시퀀스(포맷별 intent/risk_tier/evidence_required —
 #   스텁이 storyline.json 으로 방출)·evidence_gated(clinicalEvidence/beforeAfter)·brand_gated(brandBanner, 브랜드 미선언 시
 #   자동 제외 — 하드코딩 배너 강제 금지) 를 담는다. 미정의 포맷 → multipage_bm 폴백(현행 CANON_BY_FORMAT 폴백과 동형).
-def _load_canon(fmt):
-    p = os.path.join(FORMATS_DIR, fmt, "canon.json")
-    if not os.path.exists(p):
-        p = os.path.join(FORMATS_DIR, "multipage_bm", "canon.json")
-    c = load_json(p)
+def _load_canon(fmt, dom=None):
+    """캐논 로드 — harness.canon_json 위임(포맷 정본 + 도메인 오버레이 병합).
+    dom 미지정/오버레이 부재 = 포맷 정본 그대로(기존 도메인 바이트 불변; 예 drug=교육콘텐츠 캐논)."""
+    c = canon_json(fmt, dom)
     seq = [(b["type"], b["intent"], b["risk_tier"], bool(b.get("evidence_required", False))) for b in c["blocks"]]
     return seq, set(c.get("evidence_gated") or []), set(c.get("brand_gated") or [])
 
@@ -366,7 +365,7 @@ def gen_storyboard_outline(rdir):
     has_brand = bool(_brand())   # 제품명에 '[브랜드 …]' 접두가 있을 때만 브랜드 배너 포함
     out = os.path.join(rdir, "03-storyboard")
     profile = _channel()   # 누수#5: 포맷별 채널을 format-profiles 에서(하드코딩 제거). multipage_bm=naver_smartstore/860(불변).
-    canon = _load_canon(_format())[0]   # M7/4단계: 포맷별 캐논 정본(packs/_format/<format>/canon.json, 미정의 포맷 → multipage_bm 폴백)
+    canon = _load_canon(_format(), _domain())[0]   # M7/4단계: 포맷별 캐논 정본 + 도메인 오버레이(예: drug 교육콘텐츠 캐논; 오버레이 없는 도메인=포맷 정본 그대로)
     for opt in ("A", "B", "C"):   # 이슈3a: 최소 3안
         odir = os.path.join(out, "outline", "options", opt)
         os.makedirs(odir, exist_ok=True)
@@ -698,6 +697,15 @@ def _plan_block(blk, top, cb, evdocs=None):
         #   기존엔 default photo 로 떨어져 validate_storyboard 수치차트 가드와 충돌. graph 로 명시.
         #   골든-안전: 실증 미등록 골든 런엔 beforeAfter 블록 자체가 없다(evidence-gated 제외, stub_stage 8행).
         headline = "사용 전후 비교(절제 표현)"; visual_kind = "graph"
+    elif typ == "footer":
+        # 필수기재 컨테이너(캐논 도메인 축) — 최종 페이지 mandatory_inclusion 게이트가 요구하는 신호를
+        #   결정적으로 기재: 정확한 제품명(독립 노출)·소비자 주의문구·광고심의필·회사명(자리표시).
+        #   footer 는 도메인 오버레이 캐논(예: drug 교육콘텐츠 캐논)에만 시퀀스로 등장 → cosmetic 골든 무영향.
+        #   실엔진 경로는 DOMAIN_GEN_RULES(gen-fragment)·keyvisual 프롬프트가 채운다.
+        return _block(typ, blk, _product_name(), blk["intent"],
+                      ["부작용이 있을 수 있으니 첨부된 '사용상의 주의사항'을 잘 읽고, 의사·약사와 상의하십시오.",
+                       "광고심의필 : 심의번호 기재(자리표시)",
+                       "제조판매원 : 회사명 기재(자리표시)"], "photo")
     else:
         headline = "%s — %s" % (typ, blk["intent"])
     return {

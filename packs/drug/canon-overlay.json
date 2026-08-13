@@ -1,0 +1,156 @@
+{
+  "_comment": "의약품 캐논 오버레이(도메인 캐논 축) — harness.canon_json 이 포맷 정본(packs/_format/<fmt>/canon.json) 위에 병합한다. 의약품 상세자료는 판매 소구가 아니라 '교육콘텐츠' 구조를 따른다(현업 확정 2026-08): 소비자의 질문에서 시작해 질환 → 원인 → 성분 → 근거 흐름으로 이해시킨 뒤 의약품 정보를 자연스럽게 연결하고, 직접 설득(판매/순위/후기 소구)은 하지 않는다. blocks·components = 통째 교체 · types_add = 포맷 types 에 가법(기존 런 후방호환 — 허용 카탈로그는 좁히지 않고, 시퀀스·필수 구성요소가 교육 구조를 강제한다). 전문용어 나열 대신 핵심 수치·도식·인포그래픽, 과학적 정확성 유지. 예시 워킹백워드: 우루사(UDCA) × GLP-1 다이어트 담석 위험.",
+  "domain": "drug",
+  "formats": {
+    "multipage_bm": {
+      "types_add": ["mechanism", "faq", "precautions"],
+      "blocks": [
+        {
+          "type": "hero",
+          "intent": "교육 주제 + 핵심 메시지 1~2개(성분 설명이 아니라 소비자가 궁금해할 질문에서 시작)",
+          "risk_tier": "high",
+          "evidence_required": false
+        },
+        {
+          "type": "problem",
+          "intent": "문제 인식 — 소비자가 자신의 상황과 연결해 인지(공포 소구 금지)",
+          "risk_tier": "high",
+          "evidence_required": false
+        },
+        {
+          "type": "mechanism",
+          "intent": "발생 원리 — 문제가 왜 생기는지 쉬운 도식으로 설명",
+          "risk_tier": "medium",
+          "evidence_required": false
+        },
+        {
+          "type": "ingredientTech",
+          "intent": "성분 이해 — 어떤 성분이고 어떤 역할인지 쉽게 설명(허가 적응증 범위 안)",
+          "risk_tier": "high",
+          "evidence_required": false
+        },
+        {
+          "type": "ingredientDetail",
+          "intent": "작용 원리 — 성분과 문제 관리의 연결고리를 쉬운 인포그래픽으로",
+          "risk_tier": "high",
+          "evidence_required": false
+        },
+        {
+          "type": "rtbSummary",
+          "intent": "핵심 포인트 요약 — 반드시 기억할 내용 3개 내외로 각인",
+          "risk_tier": "medium",
+          "evidence_required": false
+        },
+        {
+          "type": "clinicalEvidence",
+          "intent": "연구 결과·과학적 근거 — 핵심 수치 중심(실증 그래프)",
+          "risk_tier": "high",
+          "evidence_required": true
+        },
+        {
+          "type": "targetAudience",
+          "intent": "이런 분들은 알아두세요 — 자신과의 관련성 판단 안내(권유 아님)",
+          "risk_tier": "high",
+          "evidence_required": false
+        },
+        {
+          "type": "faq",
+          "intent": "궁금한 점 FAQ — 주요 오해와 궁금증 해소",
+          "risk_tier": "high",
+          "evidence_required": false
+        },
+        {
+          "type": "precautions",
+          "intent": "주의사항 — 연구 적용 범위·한계 명시, 과도한 자가판단 방지, 증상 지속 시 의사·약사와 상담 안내",
+          "risk_tier": "high",
+          "evidence_required": false
+        },
+        {
+          "type": "footer",
+          "intent": "필수기재 컨테이너(광고심의필·제조판매원 등 mandatory_inclusion)",
+          "risk_tier": "low",
+          "evidence_required": false
+        }
+      ],
+      "components": [
+        {
+          "id": "keyVisual",
+          "label": "교육 주제/핵심 메시지",
+          "satisfied_by": ["hero"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "problemAwareness",
+          "label": "문제 인식",
+          "satisfied_by": ["problem"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "mechanism",
+          "label": "발생 원리",
+          "satisfied_by": ["mechanism"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "ingredientUnderstanding",
+          "label": "성분 이해",
+          "satisfied_by": ["ingredientTech"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "actionMechanism",
+          "label": "작용 원리",
+          "satisfied_by": ["ingredientDetail"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "keyPoints",
+          "label": "핵심 포인트 요약",
+          "satisfied_by": ["rtbSummary"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "scienceEvidence",
+          "label": "연구 결과/과학적 근거",
+          "satisfied_by": ["clinicalEvidence"],
+          "required": true,
+          "evidence_gated": true
+        },
+        {
+          "id": "audienceGuide",
+          "label": "이런 분들은 알아두세요",
+          "satisfied_by": ["targetAudience"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "faq",
+          "label": "궁금한 점 FAQ",
+          "satisfied_by": ["faq"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "precautions",
+          "label": "주의사항",
+          "satisfied_by": ["precautions"],
+          "required": true,
+          "evidence_gated": false
+        },
+        {
+          "id": "mandatoryInclusion",
+          "label": "필수기재(footer)",
+          "satisfied_by": ["footer"],
+          "required": true,
+          "evidence_gated": false
+        }
+      ]
+    }
+  }
+}
