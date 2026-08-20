@@ -39,7 +39,11 @@ _QUERY_FILTERS = {"grade": ["SCI/SCIE", "전문학회지"], "lang": ["ko", "en"]
 
 # 라틴 토큰 폴백이 훑는 '카피 본문' 필드. 키가 아니라 값만 본다 — 스키마 키(claim_strength 등)가
 # 질의어로 새지 않게 한다.
-_COPY_FIELDS = ("claim", "headline", "subcopy", "intent", "bodyText")
+# ⚠ `intent` 는 뺀다: 아웃라인 storyline.json 의 intent 는 사람이 쓴 제품 카피가 아니라 포맷 팩 캐논
+#   (packs/_format/*/canon.json)이 소유한 블록 목적 문구("핵심 RTB 요약 3-4개")이고, A·B·C 3안에 그대로
+#   복제돼 'RTB'·'VOC' 같은 하네스 용어가 빈도로 제품 성분어를 눌렀다(실측: 질의 대부분이 RTB →
+#   "Real-Time Bidding" 무관 논문). 질의어는 제품 카피에서만 뽑는다(스키마상 intent 는 이 캐논 필드뿐).
+_COPY_FIELDS = ("claim", "headline", "subcopy", "bodyText")
 _TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9-]+")
 # 카피 값에 섞여도 검색 질의로는 무의미한 토큰(스키마 enum·옵션키 잔재).
 _TOKEN_STOP = frozenset((
@@ -60,20 +64,29 @@ def _query_doc(claim, triggers, derived_from=None):
 
 def _pack_triggers(rdir):
     """선언 도메인 팩의 실증 트리거 어휘(axes.substantiation_required.triggers).
-    미선언·미등록·빈 어휘면 None → 호출부가 커널 상수로 폴백한다(후방호환)."""
+    미선언(state.json 부재·도메인 없음)이면 (None, None) → 호출부가 커널 상수로 폴백한다(후방호환).
+    ★ 도메인은 선언됐는데 어휘를 못 얻으면(룰셋 부재·손상·로더 실패) None 이 아니라 **빈 어휘 []** 를
+      돌려준다 — None 은 _detect_triggers 기본값을 타고 화장품 커널 상수(RULE_TRIGGERS)로 조용히
+      치환돼 비-화장품 런에 화장품 어휘가 적용된다(AGENTS 8절 '조용한 cosmetic 폴백 금지' 위반).
+      빈 어휘면 그 경로가 원천 차단되고, 감사 한 줄로 '어휘를 못 얻음'이 '어휘 무일치'와 구분된다."""
     try:
         domain = regulatory_domain(load_json(os.path.join(rdir, "state.json")))
     except Exception:
-        return None, None
+        domain = None
     if not domain:
         return None, None
     try:
         import kcia_engine   # 지연 import(모듈 로드 비용을 실검색 경로에만)
         rs = kcia_engine.load_ruleset(domain)
     except Exception:
-        return domain, None
+        rs = {}
     tg = ((rs.get("axes") or {}).get("substantiation_required") or {}).get("triggers")
-    return domain, (list(tg) if tg else None)
+    if not tg:
+        sys.stderr.write(
+            "[evidence-search] 도메인 '%s' 팩 트리거 어휘를 얻지 못했습니다(룰셋 부재·손상·로더 실패) — "
+            "화장품 커널 어휘로 폴백하지 않고 빈 어휘로 진행합니다.\n" % domain)
+        return domain, []
+    return domain, list(tg)
 
 
 def _copy_strings(node, out):
@@ -138,6 +151,7 @@ def main(argv):
     #     (RULE_TRIGGERS)는 화장품 전용이라 그것만 보면 의약품·건기식 런은 트리거가 영영 안 걸려
     #     실검색이 상시 꺼진다. 팩 어휘가 없으면(미선언·미등록) 종전 상수로 폴백한다.
     domain, vocab = _pack_triggers(rdir)
+    #   vocab = 팩 어휘 | [] 도메인은 선언됐으나 어휘 확보 실패(커널 상수 폴백 원천 차단) | None 미선언(후방호환).
     triggers = stub_stage._detect_triggers(rdir, vocab=vocab, include_outline=True)
     claim = triggers[0] if triggers else None
     derived_from = "vocab" if claim else None
