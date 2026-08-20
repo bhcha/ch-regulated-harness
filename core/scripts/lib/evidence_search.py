@@ -63,7 +63,15 @@ def _query_doc(claim, triggers, derived_from=None):
 
 
 def _pack_triggers(rdir):
-    """선언 도메인 팩의 실증 트리거 어휘(axes.substantiation_required.triggers).
+    """선언 도메인 팩의 검색 주제 어휘.
+
+    출처 3축의 합집합(순서 = 아래 순, 중복 제거):
+      · `axes.substantiation_required.triggers` — 실증이 필요한 주장 표현
+      · `axes.lexicon.condition_target` · `axes.lexicon.clinical_metrics` — 질환·측정지표 **주제어**
+    ★ 실증 트리거만 쓰면 검색이 거의 안 돈다. 그 목록은 '과장 주장'을 잡으려고 **구(句)**로 적혀
+      있어서(예 "모공 축소"·"수분 개선") 절제해 쓴 카피의 낱말("모공"·"수분")과 어긋난다. 실측:
+      실증 트리거만 = 29건 중 5건, 주제어 합집합 = 16건(변경 전 커널 상수 13건보다도 높다).
+      주제어 축은 낱말이라 카피와 맞고 질의도 'RTB'·'CS' 같은 잡토큰 대신 '여드름'·'모공'이 된다.
     미선언(state.json 부재·도메인 없음)이면 (None, None) → 호출부가 커널 상수로 폴백한다(후방호환).
     ★ 도메인은 선언됐는데 어휘를 못 얻으면(룰셋 부재·손상·로더 실패) None 이 아니라 **빈 어휘 []** 를
       돌려준다 — None 은 _detect_triggers 기본값을 타고 화장품 커널 상수(RULE_TRIGGERS)로 조용히
@@ -80,13 +88,21 @@ def _pack_triggers(rdir):
         rs = kcia_engine.load_ruleset(domain)
     except Exception:
         rs = {}
-    tg = ((rs.get("axes") or {}).get("substantiation_required") or {}).get("triggers")
-    if not tg:
+    axes = rs.get("axes") or {}
+    lex = axes.get("lexicon") or {}
+    vocab = []
+    for src in ((axes.get("substantiation_required") or {}).get("triggers"),
+                lex.get("condition_target"), lex.get("clinical_metrics")):
+        for t in (src or []):
+            if isinstance(t, str) and t and t not in vocab:
+                vocab.append(t)
+    if not vocab:
+        # 룰셋 부재·손상·로더 실패뿐 아니라 '어휘 축이 아직 안 채워진 도메인'(quasi_drug 등)도 여기 온다.
         sys.stderr.write(
-            "[evidence-search] 도메인 '%s' 팩 트리거 어휘를 얻지 못했습니다(룰셋 부재·손상·로더 실패) — "
-            "화장품 커널 어휘로 폴백하지 않고 빈 어휘로 진행합니다.\n" % domain)
+            "[evidence-search] 도메인 '%s' 팩 검색 어휘가 비어 있습니다(룰셋 부재·손상·로더 실패 또는 "
+            "어휘 축 미작성) — 화장품 커널 어휘로 폴백하지 않고 빈 어휘로 진행합니다.\n" % domain)
         return domain, []
-    return domain, list(tg)
+    return domain, vocab
 
 
 def _copy_strings(node, out):
@@ -147,9 +163,10 @@ def main(argv):
     # ── 스크립트-측 트리거 권위(fail-open 우회 제거) ──
     #   에이전트의 query.json 존재/내용에 의존하지 않고 스스로 트리거를 감지한다(stub 오프라인과 동일 감지기).
     #   query.json 은 스크립트가 결정적으로 (재)작성한다 — 에이전트 mock 을 무시(트리거 권위는 스크립트).
-    #   ★ 어휘는 **선언 도메인 팩**이 소유한다(axes.substantiation_required.triggers). 커널 상수
-    #     (RULE_TRIGGERS)는 화장품 전용이라 그것만 보면 의약품·건기식 런은 트리거가 영영 안 걸려
-    #     실검색이 상시 꺼진다. 팩 어휘가 없으면(미선언·미등록) 종전 상수로 폴백한다.
+    #   ★ 어휘는 **선언 도메인 팩**이 소유한다(실증 트리거 + 질환·측정지표 주제어의 합집합).
+    #     커널 상수(RULE_TRIGGERS)는 화장품 전용이라 그것만 보면 의약품·건기식 런은 트리거가
+    #     영영 안 걸려 실검색이 상시 꺼진다. **도메인 미선언일 때만** 종전 상수로 폴백한다 —
+    #     선언됐는데 어휘를 못 얻으면 빈 어휘라 커널 상수 경로가 차단된다(AGENTS 8절).
     domain, vocab = _pack_triggers(rdir)
     #   vocab = 팩 어휘 | [] 도메인은 선언됐으나 어휘 확보 실패(커널 상수 폴백 원천 차단) | None 미선언(후방호환).
     triggers = stub_stage._detect_triggers(rdir, vocab=vocab, include_outline=True)
