@@ -27,19 +27,96 @@ storyboard-outline 에서 실증 트리거(claim)를 **스크립트가 직접 �
 """
 import sys
 import os
+import re
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import atomic_write_json  # noqa: E402
+from harness import atomic_write_json, load_json, regulatory_domain  # noqa: E402
 import openalex  # noqa: E402
 import stub_stage  # noqa: E402  # _detect_triggers 재사용(스크립트-측 트리거 권위). import 부작용 = design-tokens 로드만(네트워크 0).
 
 # stub_stage.run_stub(378-380)과 **동일 포맷·키순서**의 query.json 을 결정적으로 (재)작성하기 위한 상수.
 _QUERY_FILTERS = {"grade": ["SCI/SCIE", "전문학회지"], "lang": ["ko", "en"]}
 
+# 라틴 토큰 폴백이 훑는 '카피 본문' 필드. 키가 아니라 값만 본다 — 스키마 키(claim_strength 등)가
+# 질의어로 새지 않게 한다.
+_COPY_FIELDS = ("claim", "headline", "subcopy", "intent", "bodyText")
+_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9-]+")
+# 카피 값에 섞여도 검색 질의로는 무의미한 토큰(스키마 enum·옵션키 잔재).
+_TOKEN_STOP = frozenset((
+    "factual", "efficacy", "superlative", "speed", "pending", "legal",
+    "mechanism", "safety", "research", "true", "false", "null", "none",
+))
 
-def _query_doc(claim, triggers):
-    """오프라인 stub 의 query.json 과 동일 스키마·키순서(claim/triggers/filters/limit)."""
-    return {"claim": claim, "triggers": triggers, "filters": _QUERY_FILTERS, "limit": 5}
+
+def _query_doc(claim, triggers, derived_from=None):
+    """오프라인 stub 의 query.json 과 동일 스키마·키순서(claim/triggers/filters/limit).
+    온라인 경로만 `derived_from` 을 덧붙인다(감사용 — 질의어가 어디서 나왔는지. query.json 은
+    스키마·validate 대상이 아니고 오프라인 stub 은 이 키를 쓰지 않아 골든 바이트 불변)."""
+    doc = {"claim": claim, "triggers": triggers, "filters": _QUERY_FILTERS, "limit": 5}
+    if derived_from is not None:
+        doc["derived_from"] = derived_from
+    return doc
+
+
+def _pack_triggers(rdir):
+    """선언 도메인 팩의 실증 트리거 어휘(axes.substantiation_required.triggers).
+    미선언·미등록·빈 어휘면 None → 호출부가 커널 상수로 폴백한다(후방호환)."""
+    try:
+        domain = regulatory_domain(load_json(os.path.join(rdir, "state.json")))
+    except Exception:
+        return None, None
+    if not domain:
+        return None, None
+    try:
+        import kcia_engine   # 지연 import(모듈 로드 비용을 실검색 경로에만)
+        rs = kcia_engine.load_ruleset(domain)
+    except Exception:
+        return domain, None
+    tg = ((rs.get("axes") or {}).get("substantiation_required") or {}).get("triggers")
+    return domain, (list(tg) if tg else None)
+
+
+def _copy_strings(node, out):
+    """카피 본문 필드의 문자열 값만 수집(키 이름은 수집하지 않는다)."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in _COPY_FIELDS:
+                if isinstance(v, str):
+                    out.append(v)
+                elif isinstance(v, list):
+                    out.extend(x for x in v if isinstance(x, str))
+            _copy_strings(v, out)
+    elif isinstance(node, list):
+        for v in node:
+            _copy_strings(v, out)
+
+
+def _latin_query(paths):
+    """카피 본문의 라틴 문자 토큰에서 검색 질의를 고른다(트리거 어휘 무일치 시 폴백).
+
+    성분·물질명은 한국어 카피 안에서도 라틴 표기로 남는다(UDCA·EGF·GLP-1). OpenAlex 는 영문
+    학술 색인이라 이런 토큰이 한국어 주제어보다 훨씬 나은 질의다. 대문자 약어를 우선하고,
+    없으면 가장 자주 나온 토큰을 쓴다. 지어내지 않고 카피에 실재하는 토큰만 쓴다."""
+    strings = []
+    for p in paths:
+        try:
+            _copy_strings(load_json(p), strings)
+        except Exception:
+            continue
+    counts, order = {}, []
+    for s in strings:
+        for tok in _TOKEN_RE.findall(s):
+            if tok.lower() in _TOKEN_STOP or len(tok) < 2:
+                continue
+            if tok not in counts:
+                counts[tok] = 0
+                order.append(tok)
+            counts[tok] += 1
+    if not order:
+        return None
+    acronyms = [t for t in order if t.upper() == t and 2 <= len(t) <= 10]
+    pool = acronyms or order
+    return max(pool, key=lambda t: (counts[t], -order.index(t)))
 
 
 def main(argv):
@@ -57,15 +134,39 @@ def main(argv):
     # ── 스크립트-측 트리거 권위(fail-open 우회 제거) ──
     #   에이전트의 query.json 존재/내용에 의존하지 않고 스스로 트리거를 감지한다(stub 오프라인과 동일 감지기).
     #   query.json 은 스크립트가 결정적으로 (재)작성한다 — 에이전트 mock 을 무시(트리거 권위는 스크립트).
-    triggers = stub_stage._detect_triggers(rdir)
+    #   ★ 어휘는 **선언 도메인 팩**이 소유한다(axes.substantiation_required.triggers). 커널 상수
+    #     (RULE_TRIGGERS)는 화장품 전용이라 그것만 보면 의약품·건기식 런은 트리거가 영영 안 걸려
+    #     실검색이 상시 꺼진다. 팩 어휘가 없으면(미선언·미등록) 종전 상수로 폴백한다.
+    domain, vocab = _pack_triggers(rdir)
+    triggers = stub_stage._detect_triggers(rdir, vocab=vocab, include_outline=True)
     claim = triggers[0] if triggers else None
-    os.makedirs(sdir, exist_ok=True)
-    atomic_write_json(qpath, _query_doc(claim, triggers))
+    derived_from = "vocab" if claim else None
 
-    # ── 무-트리거(안전 카피): 실검색 안 함 + stale 정리 ──
-    #   claim=None 이면 검색할 게 없다. 옛 openalex/에이전트 mock 이 남아 있으면 결정적 빈 sources 로 정리
+    # ── 어휘 무일치 폴백: 카피의 라틴 토큰(성분·물질 약어)을 질의로 ──
+    #   실증 트리거 어휘는 '과장 주장'을 잡는 목록이라, 절제해 쓴 정보성 카피(전부 factual)에는
+    #   하나도 안 걸린다. 그래도 검색은 돌아야 하므로 카피에 실재하는 라틴 토큰으로 질의를 만든다.
+    if not claim:
+        claim = _latin_query(stub_stage.trigger_scan_paths(rdir, include_outline=True))
+        if claim:
+            derived_from = "latin-token"
+            sys.stderr.write(
+                "[evidence-search] 도메인 '%s' 트리거 어휘 무일치 — 카피의 라틴 토큰 '%s' 로 검색합니다.\n"
+                % (domain or "미선언", claim))
+
+    os.makedirs(sdir, exist_ok=True)
+    atomic_write_json(qpath, _query_doc(claim, triggers, derived_from))
+
+    # ── 질의어를 못 만듦: 실검색 안 함 + stale 정리 ──
+    #   옛 openalex/에이전트 mock 이 남아 있으면 결정적 빈 sources 로 정리
     #   (오프라인 무-트리거 의미와 일관: {"results":[],"evidence_sufficient":false,"engine":"manual"}).
+    #   ⚠ results.schema 의 engine 은 닫힌 enum 이라 '검색 못 함'을 값으로 남길 수 없다 — 그래서
+    #     조용히 지나가지 않도록 stderr 에 감사 한 줄을 남긴다('검색할 게 없어서 0건'과 '검색을
+    #     못 해서 0건'이 구분되지 않던 문제).
     if not (isinstance(claim, str) and claim.strip()):
+        sys.stderr.write(
+            "[evidence-search] 도메인 '%s': 트리거 어휘·라틴 토큰 모두 무일치로 실증 근거 검색을 "
+            "수행하지 못했습니다(빈 sources 기록). 검색어를 사람이 지정하는 경로가 필요합니다.\n"
+            % (domain or "미선언",))
         atomic_write_json(rpath, openalex.search_stub(claim, engine="manual"))
         return 0
 
