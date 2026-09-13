@@ -58,6 +58,8 @@
 | 이력(raw) | [`workflow-ssot-history.md`](history/workflow-ssot-history.md) | append 전용 |
 | 아카이브(완료·폐기·이력) | [`_archive/`](./_archive/) — 색인 [`_archive/README.md`](./_archive/README.md)(완료 계획 다수 · 9차 정리에서 [`chat-review-retry-plan.md`](_archive/chat-review-retry-plan.md)(잡-레벨 리뷰 재시도 — 구현·라이브 실증 완료)·[`chat-atdd-acceptance-resume-prompt.md`](_archive/chat-atdd-acceptance-resume-prompt.md)(ATDD 이어-착수 프롬프트 — 소임완료) 추가) | 없음 |
 
+> **개발 하네스 계획:** [`dev-harness-plan.md`](_archive/dev-harness-plan.md)는 구현 완료된 dev-loop 스킬 중앙화의 아카이브 기록이다(첫 실루프 검증 항목 잔존).
+
 > **루트 문서:** 레포 루트에는 모노레포 루트 파일(`README.md`·`AGENTS.md`·`CLAUDE.md`)만 남았다(계획성 문서 0). 병렬 트랙 스크래치(`parallel-run.goal`·`meta-*`·`track-a-e2e-validation`·`track-b-cleanup-impl`·`fix-plan-intake-defects`)는 7차 정리에서 전부 `docs/_archive/` 로 이동했다.
 
 ## 4. 폴더별 변경 → 갱신 문서 조회표 (D-1 사람용 색인)

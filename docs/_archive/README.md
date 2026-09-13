@@ -14,6 +14,7 @@
 
 | 문서 | 무엇 | 상태 |
 |---|---|---|
+| [dev-harness-plan.md](dev-harness-plan.md) | 개발 하네스 제도화·dev-loop 스킬 중앙화 계획 | ✅ 구현완료(2026-07-26 · 첫 실루프 검증 항목 잔존) |
 | `pack-refactor-plan.md` | 팩 분리 1차·2차 원계획(0단계 완료 이력·실측 메모) | ♻️ 승계(5차 → `docs/ops-and-pack-refactor-plan.md`) |
 | `e2e-operational-findings.md` | E2E 실런 2건 운영 결함 관찰(O-1~O-9 증상 원문) | ♻️ 승계(5차 → 동일 통합 계획 1부) |
 | `in-session-generation-proposal.md` | in-session 생성 모드 제안서·결정기록(설계 근거 SSoT) | 📌 근거 |
