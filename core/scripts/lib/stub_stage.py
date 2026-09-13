@@ -515,9 +515,14 @@ def _build_concept(rdir, order, typ):
 RULE_TRIGGERS = ["안티에이징", "콜라겐", "항균", "수분", "다크서클", "탄력", "모공", "멜라닌", "색소침착", "여드름"]
 
 
-def _detect_triggers(rdir):
-    """선택 컨셉 카피에서 실증 트리거 표현을 결정적으로 감지(#5)."""
-    found = []
+def trigger_scan_paths(rdir, include_outline=False):
+    """트리거를 훑을 카피 파일 경로들(존재하는 것만, 결정적 순서).
+
+    기본 = 선택 컨셉 옵션의 rtb.json·key-message.json(종전 범위 그대로).
+    include_outline=True 면 그 시점까지 생성된 아웃라인 스토리라인도 포함한다 — 실제 강주장은
+    컨셉 요약보다 스토리라인 카피에 먼저 나타나므로 온라인 실검색은 이쪽까지 본다(오프라인 stub 은
+    종전 범위 유지 → 골든 바이트 불변)."""
+    paths = []
     cdir = os.path.join(rdir, "02-concept")
     dec = os.path.join(cdir, "decision.json")
     opts = []
@@ -529,10 +534,30 @@ def _detect_triggers(rdir):
         for f in ("rtb.json", "key-message.json"):
             p = os.path.join(cdir, "options", opt, f)
             if os.path.exists(p):
-                txt = open(p, encoding="utf-8").read()
-                for t in RULE_TRIGGERS:
-                    if t in txt and t not in found:
-                        found.append(t)
+                paths.append(p)
+    if include_outline:
+        odir = os.path.join(rdir, "03-storyboard", "outline", "options")
+        if os.path.isdir(odir):
+            for opt in sorted(os.listdir(odir)):
+                p = os.path.join(odir, opt, "storyline.json")
+                if os.path.exists(p):
+                    paths.append(p)
+    return paths
+
+
+def _detect_triggers(rdir, vocab=None, include_outline=False):
+    """카피에서 실증 트리거 표현을 결정적으로 감지(#5).
+
+    vocab 미지정(None) = RULE_TRIGGERS(화장품 상수) — 오프라인 stub 의 종전 동작 그대로다.
+    온라인 실검색(evidence_search.py)은 **선언 도메인 팩의 어휘**를 vocab 으로 넘긴다: 커널 상수는
+    화장품 전용이라 의약품·건기식 런에서는 어떤 트리거도 걸리지 않아 검색이 상시 꺼져 있었다."""
+    vocab = RULE_TRIGGERS if vocab is None else vocab
+    found = []
+    for p in trigger_scan_paths(rdir, include_outline=include_outline):
+        txt = open(p, encoding="utf-8").read()
+        for t in vocab:
+            if t in txt and t not in found:
+                found.append(t)
     return found
 
 

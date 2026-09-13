@@ -34,7 +34,7 @@
 | 생성 컨텍스트 조립 | (run-stage 내부) | `scripts/lib/build_context.py` | 룰셋·레퍼런스 노트·voc 를 LLM 프롬프트 컨텍스트로 조립(도메인별 주입). **`DOMAIN_GEN_RULES`**(팩 `gen-fragment.md` 도메인 생성 규칙 선주입, Seam B) · **`LEARNED_DENY`**(팩 `learned/deny.json` 학습 금지어 생성 선차단, Seam F) 포함(부재=no-op·ctx 골든 불변). | 🟡 |
 | **이미지 생성(Nano Banana)** | `gen-images.sh` · `run-stage.sh`(keyvisual) · `render-design.sh` · `HARNESS_IMAGE_CLI` | `scripts/lib/image_engine.py` | Gemini 2.5 Flash Image REST 실호출·프롬프트 빌드·PNG 파싱/검증·aspect 정규화·429 백오프/강등·stub SVG. **팩 결합=`no_graphic_generation` boolean 1개(`_domain_no_graphic`)뿐.** | 🟡 |
 | 이미지 생성전 최종점검 | (run-stage keyvisual 직전) | `scripts/lib/image_preflight.py` | 비용/비가역 단계 앞 결손 digest(읽기전용, state 미기록). | 🟢 |
-| **근거 검색(OpenAlex)** | `run-stage.sh`(온라인) · `HARNESS_EVIDENCE_CLI` | `scripts/lib/openalex.py` · `scripts/lib/evidence_search.py` | OpenAlex 직접 HTTP(MCP 아님, stdlib urllib) 논문검색·인용수 grade·초록 재구성 + 트리거 감지 배선. **팩 결합 0**(검색 grade ≠ 룰셋 evidence_grade). | 🟢 |
+| **근거 검색(OpenAlex)** | `run-stage.sh`(온라인) · `HARNESS_EVIDENCE_CLI` | `scripts/lib/openalex.py` · `scripts/lib/evidence_search.py` | OpenAlex 직접 HTTP(MCP 아님, stdlib urllib) 논문검색·인용수 grade·초록 재구성 + 트리거 감지 배선. **팩 결합=검색 어휘**(`axes.substantiation_required.triggers` + `axes.lexicon.condition_target`·`clinical_metrics` 합집합; 도메인 미선언만 커널 상수 폴백, 선언됐는데 어휘 부재면 빈 어휘로 fail-safe). 검색 grade ≠ 룰셋 evidence_grade 는 그대로 무결합. | 🟡 |
 | 엔진 선택 게이트 | (모든 축 공통) | `scripts/lib/common.sh` `resolve_{image,evidence}_engine` | 오프라인=stub·온라인=실엔진 강제. 이미지는 키 없으면 fail-closed, 근거는 키 불필요(무료). | 🟢 |
 
 ## 2. 파이프라인 오케스트레이션 — 상태·게이트·전이
