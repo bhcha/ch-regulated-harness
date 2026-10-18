@@ -2,7 +2,7 @@
 
 > 상태: **계획 확정 대기** · 작성 2026-07-17
 > 작업 브랜치/워크트리: `feat/agui-a2ui-projection` @ `/Users/chabh/workspace/ch-regulated-harness-agui`
-> 범위: `core/` 만 (chat/ 제외 — chat 은 기존 `next-action.sh` 소비 유지, 이번 변경의 영향권 밖)
+> 범위: `core/` 만 (당시 chat/ 는 영향권 밖이었고, 이후 Slack 챗 레이어 `chat/` 는 폐기·삭제됨)
 
 ## 1. 배경과 검증 결론
 

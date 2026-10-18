@@ -8,7 +8,6 @@ disable-model-invocation: true
 > 🛠 **이 명령은 운영자·생성 에이전트용입니다. 현업은 직접 쓰지 않아요** — 현업의 "생성"은 운영자가 대신 `bash scripts/run-stage.sh` 로 실행합니다.
 
 지금 이 세션의 에이전트가 직접 스토리라인 2안을 생성한다. 산출물만 쓰고 **상태 전이는 스크립트에 위임**(state.json 금지).
-> 헤드리스(Slack/배치): `HARNESS_CLI=claude bash scripts/run-stage.sh storyboard-outline <RUN>`
 
 `<RUN>` = 현재 run_id. 순서:
 1. **입력·지침(읽기전용):** `bash scripts/run-stage.sh storyboard-outline <RUN> --emit-context` — PROMPT_FILE(`prompts/storyboard-outline.md`)·입력·OUT 목록을 읽는다.

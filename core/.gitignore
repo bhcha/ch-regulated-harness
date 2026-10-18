@@ -23,7 +23,7 @@ __pycache__/
 *.pyc
 .obsidian/
 
-# slack PoC: 비밀(토큰) + 현업이 관리하는 사례 코퍼스(저작권/no-pixel)
+# 비밀(토큰·.env) + 현업이 관리하는 사례 코퍼스(저작권/no-pixel)
 .env
 .env.*
 *.token

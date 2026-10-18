@@ -10,8 +10,6 @@ disable-model-invocation: true
 이 스킬은 **지금 이 세션의 에이전트가 직접** 컨셉을 생성한다(헤드리스 `claude -p` 미사용).
 산출물만 쓰고 **상태 전이는 스크립트에 위임**한다(state.json 금지).
 
-> 헤드리스(Slack/배치)로 돌리려면 대신: `HARNESS_CLI=claude bash scripts/run-stage.sh concept <RUN>`
-
 `<RUN>` = 현재 run_id. 순서대로 수행한다:
 
 1. **입력·지침 로드(읽기전용):**

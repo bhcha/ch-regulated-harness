@@ -301,29 +301,6 @@ if [ "$DOM_STATUS" != "active" ]; then
   lock_release; exit 0
 fi
 
-# ── 데모(촬영) autopass: KCIA_DEMO_AUTOPASS=1 + HARNESS_OFFLINE=1 이중 게이트일 때만 실제 심의(크리틱/룰엔진) 생략 ──
-#   ⚠ **촬영용 UX 데모 전용이지 컴플라이언스 판정이 아니다.** 실제 심의 규칙(예 화장품 질환/효능 타겟팅)을 건너뛰고
-#   무조건 통과시킨다. 챗 표면 흐름(컨셉→선택→스토리보드→키비주얼)을 데모 제품으로 끝까지 촬영하기 위한 장치다.
-#   **이중 게이트**로 온라인/프로덕션엔 절대 새지 않는다: HARNESS_OFFLINE=1(stub 게이트)이 아니면 이 분기는 죽어 있고,
-#   KCIA_DEMO_AUTOPASS 를 명시 세팅해야만 켜진다(기본 미설정=0 → 실 심의 그대로). CI/골든은 이 env 를 안 켠다.
-#   review-exempt/placeholder autopass 와 **같은 골격**(_autopass_verdict)이되 engine=demo-autopass 로 정직하게 라벨한다.
-#   validate-stage(스키마·생성시 금지표현)는 유지 — 데모라도 기본 검증 우회는 없다(건너뛰는 건 적대 크리틱/심의 규칙뿐).
-if [ "${KCIA_DEMO_AUTOPASS:-0}" = "1" ] && [ "${HARNESS_OFFLINE:-0}" = "1" ]; then
-  info "데모(촬영) 모드 — 실제 규정 점검을 건너뛰고 자동 통과합니다(컴플라이언스 판정 아님)."
-  bash "$HARNESS_ROOT/scripts/validate-stage.sh" "$RID" "$(jget "$SF" phase)" >/dev/null \
-    || die "이 단계 산출물이 자동 검증(스키마·형식)을 통과하지 못했어요 — 표현을 고쳐 다시 만들어 주세요."
-  _autopass_verdict "$VP" "demo-autopass" "-demo" "demo" \
-    "촬영용 데모 모드(KCIA_DEMO_AUTOPASS=1 + HARNESS_OFFLINE=1) — 실제 심의(크리틱/룰엔진) 생략·무조건 통과. 컴플라이언스 판정이 아니라 UX 흐름 촬영 전용이다."
-  validate_artifact "$VP" >/dev/null
-  ok "규정 점검 마침 — 데모 모드 자동 통과(촬영용 · 컴플라이언스 판정 아님)"
-  append_history "$SF" "$(jget "$SF" phase)" "review:produced:${_STAGE_NOW}:$(jget "$VP" id 2>/dev/null || true)" "kcia-check.sh"
-  agui_emit "$RID"   # AG-UI 투영: 심의 결과 Custom(kcia.verdict) — 데모 autopass 도 요약 방출
-  _write_review_binding "$RID" "$_STAGE_NOW" "$(jget "$VP" id 2>/dev/null || true)"
-  obs_provenance "$RID" review "demo-autopass"
-  bash "$HARNESS_ROOT/scripts/gate.sh" "$RID" review
-  lock_release; exit 0
-fi
-
 # ── 심의 모드 결정 = 도메인 ADK resolve (운영 심의 = 원격 ADK 단일) ──────────────────────────────────────
 #   adk_critic.py resolve --domain <d> (네트워크 없음): exit 0=구현+설정됨 → ADK 강제(REQUIRED) · 3=설정오류 → fail-closed
 #     · 4=미구현(adk_critic 블록 없음) → ADK 생략, 룰엔진-단독(허용, 반드시 가시화). offline(stub 게이트=HARNESS_OFFLINE=1)은 결정성상 resolve 를 건너뛴다(온라인은 GEN_CLI 무관하게 판정).

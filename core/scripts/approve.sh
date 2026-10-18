@@ -6,7 +6,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/common.sh"
 
 RID="${1:-}"; require_run "$RID"; shift || true
 assert_ingest_complete "$RID"   # N10: 00-ingest 미완(중단) 표식 있으면 어느 phase 든 승인 전 fail-closed(썩은 인입 위 상태변이 차단)
-# 플래그를 먼저 분리(위치인자 코멘트 보존). --by = 사람 행위자(Slack user 등) → 감사 history.actor.
+# 플래그를 먼저 분리(위치인자 코멘트 보존). --by = 사람 행위자(승인자 id 등) → 감사 history.actor.
 COMMENT="승인"; RA_OK="${KCIA_RA_OK:-0}"; BY=""
 while [ $# -gt 0 ]; do
   case "$1" in

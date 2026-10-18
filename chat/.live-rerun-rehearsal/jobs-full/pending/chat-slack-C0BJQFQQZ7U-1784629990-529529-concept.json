@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "kind": "generate",
-  "run_id": "chat-slack-C0BJQFQQZ7U-1784629990-529529",
-  "stage": "concept",
-  "job_id": "9bccd0b1-f135-432e-b4d9-349564d326d3",
-  "enqueued_at": "2026-07-21T10:37:49.166Z",
-  "expires_at": "2026-07-21T11:37:49.166Z"
-}

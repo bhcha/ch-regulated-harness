@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-b8.sh — 00g 유사점 3안 '전부 거절 → 재생성(+자유텍스트 refine)' 게이트 + 에스컬레이션 복구(raise-limit).
-#   Slack PoC 핵심 쇼케이스(carousel 의 [다시 제안]/[직접 입력해 다시 제안])의 하네스측 계약을 결정적으로 검증.
+#   '다시 제안'(전부 거절 → 재생성·자유텍스트 refine) 흐름의 하네스측 계약을 결정적으로 검증.
 #   엔진은 stub(결정적); 자유텍스트의 '내용 반영'은 실엔진에서만 일어나므로 여기선 '배선(인라인 경로)'만 검증한다.
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 echo "## B8 — 00g reject-all → regenerate (+free-text refine) + escalation recovery"
@@ -70,13 +70,13 @@ echo "$( cd "$ROOT" && bash scripts/next-action.sh "$RID" )" | python3 -c "impor
 
 # ── 회귀 + --by 감사: 승인(approve)에 --by 동반 + 사람 행위자가 history.actor 에 기록 ──
 # M4: 승인(--by) → 심의(kcia-check) 통과 → 01-brief 전진.
-( cd "$ROOT" && bash scripts/approve.sh "$RID" --ra-ok --by slack:U-tester && bash scripts/kcia-check.sh "$RID" ) >/dev/null 2>&1
+( cd "$ROOT" && bash scripts/approve.sh "$RID" --ra-ok --by user:U-tester && bash scripts/kcia-check.sh "$RID" ) >/dev/null 2>&1
 [ "$(jq_phase "$RID" phase)" = "01-brief" ] && pass "정상 승인(--by 동반)+심의 통과 → 01-brief 전진" || fail "01-brief 전진 실패(실제 $(jq_phase "$RID" phase))"
 python3 -c "
 import json,sys
 h=json.load(open('$ROOT/runs/$RID/state.json'))['history']
-sys.exit(0 if any(e.get('actor')=='slack:U-tester' for e in h) else 1)" 2>/dev/null \
-  && pass "--by: 사람 행위자(slack:U-tester)가 history.actor 기록" || fail "--by actor 미기록"
+sys.exit(0 if any(e.get('actor')=='user:U-tester' for e in h) else 1)" 2>/dev/null \
+  && pass "--by: 사람 행위자(user:U-tester)가 history.actor 기록" || fail "--by actor 미기록"
 
 echo "B8: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

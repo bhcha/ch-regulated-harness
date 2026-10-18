@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test-gates.sh — WS-GATES: 타입화 게이트(gate_type, 파생) + 멈춤사유(feedback.stop_reason).
 #   gate_type 은 state 에 저장하지 않고 render_runmd.gate_type 가 (gate,status,phase)+민감표시에서 파생 →
-#   next-action.json 에 노출(Slack SSoT). stop_reason 은 revise --reason 가 feedback.json 에 기록.
+#   next-action.json 에 노출(구조화 조회 SSoT). stop_reason 은 revise --reason 가 feedback.json 에 기록.
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
 echo "## WS-GATES — gate_type(파생) + stop_reason"
 export HARNESS_CLI=stub HARNESS_OFFLINE=1

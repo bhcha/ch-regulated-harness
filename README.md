@@ -9,8 +9,7 @@
 ch-regulated-harness/
 ├── core/      ← 커널: 도메인 무관 엔진(scripts·harness·prompts·tests·fixtures·inputs·docs/reference[파이프라인 소비 3건]·…). state.json 단일쓰기·게이트·심의 격리 불변식 보유.
 ├── packs/     ← 도메인 팩: cosmetic·drug(active) · quasi_drug(tbd) · health_food(ready-only) · _format(포맷 캐논). 무엇을 말할 수 있나(룰셋)·어떤 단계(라우트)·무엇으로(포맷).
-├── docs/      ← 사람·에이전트용 문서: 총지도 docs/README.md · 정본 canonical/ · 계획 plans/ · 아카이브 _archive/
-└── chat/      ← 챗 게이트웨이(Slack 어댑터): core 무수정 driving adapter — 하네스 스크립트를 spawn 해 4동작을 환원. 문서 = chat/README.md
+└── docs/      ← 사람·에이전트용 문서: 총지도 docs/README.md · 정본 canonical/ · 계획 plans/ · 아카이브 _archive/
 ```
 
 ## 운영 위치 = `core/`

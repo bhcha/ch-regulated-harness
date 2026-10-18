@@ -95,7 +95,7 @@ else fail "(C4) 기록 폴더 사유에 대안 명령 없음: '$ERR'"; fi
 
 # ── (D) 비-load-bearing 증명 ────────────────────────────────────────────────
 # 게이트/전이/심의 스크립트 어디에도 이 훅을 향한 참조가 없다 → 훅 파일을 지워도 게이트 판정과
-#   기존 fail-closed 는 한 줄도 달라지지 않는다(훅 없는 표면 = CI stub subprocess·챗 워커와 동일).
+#   기존 fail-closed 는 한 줄도 달라지지 않는다(훅 없는 표면 = CI stub subprocess 와 동일).
 #   (훅 자신은 스캔 제외 — 검사 대상은 '게이트가 훅을 아는가'다.)
 HOOKREF="$(cd "$ROOT" && grep -rnE --exclude-dir=hooks --exclude-dir=__pycache__ \
             'deny-state-writes|scripts/hooks|PreToolUse' scripts/ 2>/dev/null || true)"

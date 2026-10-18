@@ -10,8 +10,6 @@ disable-model-invocation: true
 이 스킬은 **지금 이 세션의 에이전트가 직접** 디자인 2안(HTML/CSS)을 작성한다(헤드리스 `claude -p` 미사용).
 HTML 산출물만 쓰고 **렌더(Playwright 섹션 캡처)·design-manifest·저작권 lint·검증·전이는 스크립트에 위임**한다(state.json 금지).
 
-> 헤드리스(Slack/배치): `HARNESS_CLI=claude HARNESS_GEN_MODE=subprocess bash scripts/run-stage.sh keyvisual <RUN>`
-
 `<RUN>` = 현재 run_id. 순서대로 수행한다:
 
 1. **입력·지침 로드(읽기전용):**

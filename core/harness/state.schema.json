@@ -60,7 +60,7 @@
           "phase": { "type": "string" },
           "event": { "type": "string" },
           "by": { "type": "string" },
-          "actor": { "type": "string", "description": "사람 행위자(Slack user 등). --by 로 주입; 자동 이벤트엔 없음(선택). by(=쓴 스크립트)와 별개." },
+          "actor": { "type": "string", "description": "사람 행위자(승인자 id 등). --by 로 주입; 자동 이벤트엔 없음(선택). by(=쓴 스크립트)와 별개." },
           "verdict_id": { "type": "string", "description": "선택(WS-TRACE). 이 전이를 일으킨 verdict.json 의 id 역참조(review 게이트 전이에만). HARNESS_VERDICT_ID env 로 주입; 없으면 생략." }
         }
       }

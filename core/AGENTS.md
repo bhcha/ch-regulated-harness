@@ -19,7 +19,7 @@
 3. **훅 의존 금지 · 자동발견 금지**: `.claude/agents` subagent 자동발견, 레포 `.agents/skills` 자동발견 금지.
    루프 제어는 항상 `state.json` + 명시 호출. **훅(hooks)은 게이트를 대체하지 않는 비-load-bearing 경화
    계층으로만 허용**한다 — 훅이 있다는 전제로 어떤 게이트도 완화하지 않으며, 훅이 없는 환경(CI stub
-   subprocess·챗 워커·미래의 다른 실행기)에서도 **모든 fail-closed 가 그대로 성립**해야 한다. 전면 금지의
+   subprocess·미래의 다른 실행기)에서도 **모든 fail-closed 가 그대로 성립**해야 한다. 전면 금지의
    옛 근거는 이중 CLI(Claude·Codex) 이식성이었으나 생성이 Claude 단일이 되어 그 전제가 소멸했다.
    현재 유일한 훅 = `scripts/hooks/deny-state-writes.sh`(PreToolUse — 런 `state.json`·`.logs/` 직접
    Write/Edit 을 도구 레벨에서 거부. 배선 = 레포 루트 `.claude/settings.json`, 회귀 = `tests/test-hook-deny.sh`).
@@ -35,7 +35,6 @@
 ## 2. 환경변수 규약
 > 사람용 조회표(변수·기본값·역할 한 표) = [`../docs/canonical/config-reference.md`](../docs/canonical/config-reference.md)(D-1 동반갱신). 아래는 규칙·의미 SSoT — env 를 추가/변경하면 여기와 그 조회표를 같은 변경에서 갱신한다.
 - **stub 게이트 = `HARNESS_OFFLINE=1`(유일)**: stub(결정적 오프라인)은 CI/골든 전용이며, 그 진입 조건은 `HARNESS_OFFLINE=1` 하나로 통일한다(개편계획 ③). 운영(온라인)에서는 stub 이 절대 새지 않는다(실엔진 강제).
-- **`KCIA_DEMO_AUTOPASS=1`(촬영 데모 전용 · 이중 게이트)**: `kcia-check.sh` 가 실제 심의(크리틱/룰엔진)를 생략하고 카피 스테이지를 무조건 통과시킨다(`engine=demo-autopass`·`review_depth=demo` verdict, validate-stage 스키마·금지표현은 유지). **`HARNESS_OFFLINE=1` 을 반드시 동반해야 켜진다**(오프라인 stub 게이트 밖=온라인/프로덕션에선 사실상 죽어 있음). ⚠ **컴플라이언스 판정이 아니라 챗 표면 흐름을 데모 제품으로 끝까지 촬영하기 위한 장치**다 — CI/골든/프로덕션은 이 env 를 켜지 않는다(기본 미설정=0=실 심의). 챗 데모 배선(`CHAT_STUB_SLACK`·`CHAT_DEMO_KV_IMAGES`)과 짝(챗 계층 문서).
 - `HARNESS_CLI=claude|stub` — 생성 엔진(**Claude 단일**; 다른 CLI 값은 거부·중단). **기본값은 환경 의존**: 오프라인(`HARNESS_OFFLINE=1`)=`stub` · 온라인=`claude`(`run-stage.sh`). ⚠ **온라인에서 `HARNESS_CLI=stub` 명시 = 거부(중단)** — stub 은 CI 전용이다.
 - `HARNESS_GEN_MODE=subprocess|insession` — 생성 표면. **미지정 시 자동선택**: Claude Code 세션이 신뢰 마커로 감지되고 STUB_MODE 가 아니면(실엔진 claude + 온라인) **`insession`**(세션 안 에이전트가 산출물을 먼저 쓰고 스크립트가 검증·전이만 — 헤드리스 600초 행/0바이트 회피), 아니면 `subprocess`. ⚠ **세션 밖 실엔진 헤드리스 생성(`subprocess`+실엔진, 옛 `run_llm` 의 `claude -p`)은 폐기** — 비-STUB_MODE 인데 insession 미감지로 subprocess 귀결 시 **fail-closed**(중단). 따라서 도달 가능한 모드는 **insession(실엔진, 세션 내 직접 생성)** 또는 **subprocess+STUB_MODE(CI/오프라인 stub)** 뿐이다. ★ STUB_MODE(`HARNESS_CLI=stub` 또는 `HARNESS_OFFLINE=1`)는 명시 `insession` 이라도 **항상 subprocess+stub 로 강제**(CI/골든 결정성 불변). 세션 내 1급 경로 = 슬래시 `/<stage>` 스킬(산출물 작성 → `HARNESS_CLI=claude HARNESS_GEN_MODE=insession bash scripts/run-stage.sh <stage> <id>` 로 전이). 키비주얼 포함 전 생성단계 지원(키비주얼 렌더는 전이 단계의 Playwright 후처리로 분리).
 - **이미지 실생성(Nano Banana)**: `HARNESS_IMAGE_CLI=nanobanana|stub`(기본 `nanobanana`, 텍스트 엔진과 직교). `common.sh:resolve_image_engine` = **오프라인(`HARNESS_OFFLINE=1`)일 때만 stub SVG**(골든 바이트 불변), 그 외(온라인)에는 실엔진 강제 — `NANOBANANA_API_KEY` 존재 시 **Gemini 2.5 Flash Image (Nano Banana)** REST 실호출, **온라인인데 키 없음/명시 `stub` = fail-closed**(무음 stub 강등 금지; CI 는 `HARNESS_OFFLINE=1` 사용). 오버라이드: `HARNESS_NANOBANANA_MODEL`(기본 `gemini-2.5-flash-image`) · `HARNESS_IMAGE_TIMEOUT`(초, 기본 120; 비정상 값은 안전 폴백). 키는 URL 쿼리에만 — 로그·예외·매니페스트 비노출.
@@ -76,8 +75,6 @@ core/  (= 이 운영 루트, HARNESS_ROOT)
   skills/ .claude/commands/  # 편의 래퍼(run-stage.sh 호출 한 줄)
 packs/<도메인>/   # 규제도메인 팩 SSoT(core 형제). domain.json(레지스트리 엔트리) + ruleset.json + sources/(협회·식약처 원문, 읽기 전용)
                   #   새 도메인 = 팩 폴더 추가(레지스트리 자동 조립). 단 진입 게이트(new-run·state.schema enum)는 통제 추가 필요.
-chat/             # 챗 게이트웨이(Slack 어댑터, core 형제) — core 무수정 driving adapter(하네스 스크립트 spawn·next-action 읽기).
-                  #   자체 문서 = chat/README.md · 계획 = docs/plans/chat-layer-plan.md (core 정본 D-1 의무 밖)
 docs/             # 사람·에이전트용 문서(core 형제, 총지도=docs/README.md): canonical/(정본 D-1) · reference/(user-guide·deployment·harness-design·ci-cost-and-target-map·workflow-diagram/) · snapshots/(강등 참조) · plans/(진행 중 계획) · history/(이력 raw) · _archive/(완료·폐기)
 ```
 

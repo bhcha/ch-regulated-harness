@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# next-action.sh — state.json → 구조화 JSON (Slack 어댑터가 버튼/carousel 을 '상태에서' 렌더할 단일 SSoT).
+# next-action.sh — state.json → 구조화 JSON (대화형 표면이 선택지·버튼을 '상태에서' 그릴 단일 SSoT — A2UI 표면이 같은 render_runmd 헬퍼 공유).
 #   읽기 전용: state.json 을 절대 쓰지 않는다. render_runmd 의 next_command/옵션/추천 로직을 '그대로 재사용'해
 #   터미널 run.md 와 불일치가 생기지 않게 한다(어댑터 버튼과 CLI '다음 명령'이 항상 동일 소스).
 # 사용법: bash scripts/next-action.sh <run_id>   →  한 줄 JSON {phase,gate,status,action,stage,options[],recommended,...}
@@ -68,7 +68,7 @@ else:
     action = "generate"; stage = stage_for_phase.get(phase, phase)
 
 # M5(G2): 전부거절→재제안(revise) 가용 여부 — revise.sh 의 게이트 가드와 동일 규칙(select-pending / user-pending|escalated).
-#   Slack carousel 의 [다시 제안]/[직접 입력해 다시 제안] 버튼 노출 신호(action 은 불변 — 어댑터가 별도 버튼으로 분기).
+#   '다시 제안' 선택지 노출 신호(action 은 불변 — 표면이 별도 선택지로 분기).
 revise_available = (gate == "select" and status == "pending") or (gate == "user" and status in ("pending", "escalated"))
 
 out = {

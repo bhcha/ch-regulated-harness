@@ -54,7 +54,7 @@
 | `core/AGENTS.md` 규칙 3 | "Codex `approval_policy`/`resume`/`fork`" 금지 조항 | 조항 삭제(대상 소멸). hooks 문구 개정은 3단계에서(같이 착수 시 한 번에 개정 가능) |
 | `core/AGENTS.md` 2번 절 | `HARNESS_CLI=claude\|codex\|stub` · `HARNESS_CODEX_FLAGS` 정의 | enum 축소·변수 삭제 |
 | `.claude/settings.local.json` | 스테일 allow `KCIA_CRITIC_CMD="codex exec…"` | 삭제(위생 — KCIA_CRITIC_CMD 자체가 폐기) |
-| `chat/src/spawn-hygiene.ts:41` | `CODEX_*` env 스크럽 접두어 | **유지 권장**(무해한 심층 방어 — 열린 질문 4) |
+| `chat/src/spawn-hygiene.ts:41` | `CODEX_*` env 스크럽 접두어 | 해당 없음 — `chat/`(Slack 챗 레이어) 폐기로 파일 삭제됨 |
 
 ### 2-B. 리뷰 인용 주석·문서 표기 중립화
 
@@ -101,4 +101,4 @@
 1. 브랜치 보호: 플랜 업그레이드 (a) vs 과도기 규율 (b) — 사람 결정.
 2. 2-B 주석 중립화 치환어: "외부리뷰" vs "리뷰" vs 유지 — 기본 제안은 "외부리뷰"(출처 중립화 + id 보존).
 3. `common.sh:436` CODEX_ env 감지: 방어 유지 vs 제거.
-4. `chat/src/spawn-hygiene.ts` CODEX_ 스크럽: 유지 권장(무해 방어) — 이견 없으면 유지.
+4. `chat/src/spawn-hygiene.ts` CODEX_ 스크럽: 해당 없음 — `chat/` 폐기로 파일 삭제됨.

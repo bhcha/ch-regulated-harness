@@ -47,7 +47,7 @@
 | 게이트 전이 | (내부) | `scripts/gate.sh` | verdict/decision 을 읽어 state 를 결정론적으로 전이. | 🟢 |
 | 페이즈 전이 | (내부) | `scripts/advance-phase.sh` | 페이즈 전이 + run.md 재생성. | 🟢 |
 | 런 스캐폴딩 | `bash scripts/new-run.sh <id> "제품명" <유형> <도메인>` | `scripts/new-run.sh` | state.json 생성(안전 기본값: 근거 없는 효능=unknown/[]). 도메인 선언·레지스트리 검증. | 🟡 |
-| 상태→구조화 JSON | (내부/Slack 어댑터) | `scripts/next-action.sh` | state → 버튼/carousel 렌더용 단일 SSoT. | 🟢 |
+| 상태→구조화 JSON | (내부/A2UI 표면) | `scripts/next-action.sh` | state → 선택지·다음 명령 구조화 조회 단일 SSoT(A2UI 표면과 render_runmd 헬퍼 공유). | 🟢 |
 | AG-UI 이벤트 투영(방출·재생) | (전이 시 자동 방출) `scripts/lib/common.sh agui_emit` · 재생 `bash scripts/agui-events.sh <id>` | `scripts/agui-events.sh` · `scripts/lib/agui_events.py` | state.json 파생 뷰를 AG-UI 이벤트(RunStarted·StepStarted·StepFinished·StateSnapshot·StateDelta·RunFinished·RunError·Custom)로 `runs/<id>/.events/agui.jsonl` 에 append(항상·best-effort·실패 무시로 파이프라인 비차단·state 미기록·`.events` 골든 제외). 재생은 읽기전용 스트림. | 🟢 |
 | A2UI 선택지 표면 | `bash scripts/a2ui-surface.sh <id>` | `scripts/a2ui-surface.sh` · `scripts/lib/a2ui_surface.py` | 현재 게이트의 선택/승인 화면을 A2UI(선언형 UI) JSON 으로 파생(next-action.sh 와 동일 render_runmd 헬퍼 → run.md·next-action·a2ui 세 표면 정합·읽기전용·state 미기록). | 🟢 |
 | A2UI 액션 브리지 | `bash scripts/a2ui-action.sh <id> <event>` | `scripts/a2ui-action.sh` · `scripts/lib/a2ui_action.py` | A2UI named action(select/approve/revise/raise-limit)을 검증해 현업 4동작 스크립트로 위임(`--`-플래그 주입 차단·`ra_ok:true` 일 때만 `--ra-ok` 전달·state 미기록·위임 스크립트만 상태 변이). | 🟢 |
